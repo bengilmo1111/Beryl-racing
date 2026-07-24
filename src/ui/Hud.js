@@ -1,40 +1,37 @@
 // Race HUD: current / last / best lap, lap counter, and a "New best!" flash.
-// Rounded panels that scale with the viewport while keeping a readable minimum
-// on short landscape phone screens.
-import { formatTime, FONT, uiScale, isCompact } from './format.js';
+// The whole HUD sits in an inverse-zoom layer so its screen-edge positions are
+// unaffected by the following race camera.
+import { formatTime, FONT, uiScale, isCompact, pinUiLayer } from './format.js';
 import { COLORS } from '../config.js';
 
 export class Hud {
   constructor(scene) {
     this.scene = scene;
-
     const panelStyle = { fontFamily: FONT, color: '#fff8e7' };
 
-    this.bg = scene.add.graphics().setScrollFactor(0).setDepth(889);
+    this.layer = scene.add.container(0, 0).setScrollFactor(0).setDepth(889);
+    this.bg = scene.add.graphics();
 
-    this.currentLabel = scene.add
-      .text(0, 0, 'LAP TIME', { ...panelStyle, fontStyle: '700' })
-      .setScrollFactor(0)
-      .setDepth(900);
-    this.current = scene.add
-      .text(0, 0, '00:00.000', { ...panelStyle, fontStyle: '700' })
-      .setScrollFactor(0)
-      .setDepth(900);
-
-    this.last = scene.add
-      .text(0, 0, 'LAST  --:--.---', { ...panelStyle, fontStyle: '700' })
-      .setScrollFactor(0)
-      .setDepth(900);
-    this.best = scene.add
-      .text(0, 0, 'BEST  --:--.---', { ...panelStyle, fontStyle: '700', color: '#ffd166' })
-      .setScrollFactor(0)
-      .setDepth(900);
-
+    this.currentLabel = scene.add.text(0, 0, 'LAP TIME', {
+      ...panelStyle,
+      fontStyle: '700',
+    });
+    this.current = scene.add.text(0, 0, '00:00.000', {
+      ...panelStyle,
+      fontStyle: '700',
+    });
+    this.last = scene.add.text(0, 0, 'LAST  --:--.---', {
+      ...panelStyle,
+      fontStyle: '700',
+    });
+    this.best = scene.add.text(0, 0, 'BEST  --:--.---', {
+      ...panelStyle,
+      fontStyle: '700',
+      color: '#ffd166',
+    });
     this.lap = scene.add
       .text(0, 0, 'LAP 1', { ...panelStyle, fontStyle: '700' })
-      .setOrigin(0.5, 0.5)
-      .setScrollFactor(0)
-      .setDepth(900);
+      .setOrigin(0.5);
 
     this.flash = scene.add
       .text(0, 0, '', {
@@ -45,12 +42,25 @@ export class Hud {
         strokeThickness: 9,
       })
       .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(950)
       .setAlpha(0);
 
+    this.layer.add([
+      this.bg,
+      this.currentLabel,
+      this.current,
+      this.last,
+      this.best,
+      this.lap,
+      this.flash,
+    ]);
+
+    this.pin = () => pinUiLayer(scene, this.layer);
     scene.scale.on('resize', this.reposition, this);
-    scene.events.once('shutdown', () => scene.scale.off('resize', this.reposition, this));
+    scene.events.on('postupdate', this.pin);
+    scene.events.once('shutdown', () => {
+      scene.scale.off('resize', this.reposition, this);
+      scene.events.off('postupdate', this.pin);
+    });
     this.reposition();
   }
 
@@ -97,10 +107,23 @@ export class Hud {
     this.bg.lineStyle(Math.max(2, Math.round(2 * s)), 0xfff8e7, 0.3);
     this.bg.fillRoundedRect(inX, inY, panelW, panelH, Math.round(16 * s));
     this.bg.strokeRoundedRect(inX, inY, panelW, panelH, Math.round(16 * s));
-    this.bg.fillRoundedRect(lapX - lapPanelW / 2, lapY, lapPanelW, lapPanelH, Math.round(14 * s));
-    this.bg.strokeRoundedRect(lapX - lapPanelW / 2, lapY, lapPanelW, lapPanelH, Math.round(14 * s));
+    this.bg.fillRoundedRect(
+      lapX - lapPanelW / 2,
+      lapY,
+      lapPanelW,
+      lapPanelH,
+      Math.round(14 * s)
+    );
+    this.bg.strokeRoundedRect(
+      lapX - lapPanelW / 2,
+      lapY,
+      lapPanelW,
+      lapPanelH,
+      Math.round(14 * s)
+    );
 
     this.flash.setPosition(w / 2, h * 0.4);
+    this.pin();
   }
 
   setCurrent(ms) {
@@ -121,7 +144,17 @@ export class Hud {
 
   showMessage(text, color = '#ffd166') {
     this.flash.setText(text).setColor(color).setAlpha(1).setScale(0.7);
-    this.scene.tweens.add({ targets: this.flash, scale: 1, duration: 260, ease: 'Back.out' });
-    this.scene.tweens.add({ targets: this.flash, alpha: 0, delay: 1400, duration: 500 });
+    this.scene.tweens.add({
+      targets: this.flash,
+      scale: 1,
+      duration: 260,
+      ease: 'Back.out',
+    });
+    this.scene.tweens.add({
+      targets: this.flash,
+      alpha: 0,
+      delay: 1400,
+      duration: 500,
+    });
   }
 }
