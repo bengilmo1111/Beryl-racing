@@ -30,7 +30,44 @@ const config = {
 };
 
 // eslint-disable-next-line no-new
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+
+// Mobile rotation fix.
+//
+// In RESIZE mode Phaser continuously sizes the canvas to its parent element
+// (#game). #game is `position: fixed; inset: 0`, so it should always match the
+// viewport — but on some mobile browsers a fixed element keeps its old
+// portrait width across a portrait→landscape rotation until something forces a
+// reflow. Phaser dutifully follows that stale width, so the game stays stuck at
+// half width until you tap something (e.g. fullscreen), which triggers the
+// reflow. window.innerWidth / visualViewport DO report the new size correctly,
+// so we drive #game's size from them explicitly (an explicit width/height wins
+// over `inset: 0`), which Phaser then picks up on its next step — no tap needed.
+const gameEl = document.getElementById('game');
+
+function fitParentToViewport() {
+  if (!gameEl) return;
+  const vv = window.visualViewport;
+  const w = Math.round(vv && vv.width ? vv.width : window.innerWidth);
+  const h = Math.round(vv && vv.height ? vv.height : window.innerHeight);
+  if (w > 0 && h > 0) {
+    gameEl.style.width = `${w}px`;
+    gameEl.style.height = `${h}px`;
+  }
+}
+
+// Re-fit now, on every resize, and — crucially — several times after an
+// orientation change, because the corrected viewport size can land a few
+// hundred milliseconds after the event fires.
+fitParentToViewport();
+window.addEventListener('resize', fitParentToViewport);
+window.addEventListener('orientationchange', () => {
+  fitParentToViewport();
+  [50, 150, 300, 500, 800].forEach((t) => setTimeout(fitParentToViewport, t));
+});
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', fitParentToViewport);
+}
 
 // Silence unused import warnings in some bundlers while keeping palette handy.
 void COLORS;
