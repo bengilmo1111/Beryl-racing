@@ -92,12 +92,13 @@ export class RaceScene extends Phaser.Scene {
   drawTrack() {
     const { left, right } = this.track;
 
-    // Darker "run-off" apron just outside the kerbs for depth.
+    // Darker run-off apron just outside the kerbs for depth. Drawn as strokes
+    // instead of filled offset polygons so no self-intersecting fill can cut a
+    // green stripe through the masked tarmac on tight curves.
     const apron = this.add.graphics().setDepth(0.5);
-    apron.fillStyle(0x3f8f4a, 1);
-    apron.fillPoints(this.offsetLoop(left, 26), true);
-    apron.fillStyle(COLORS.deepHill, 1);
-    apron.fillPoints(this.offsetLoop(right, -26), true);
+    apron.lineStyle(54, COLORS.deepHill, 0.95);
+    apron.strokePoints(this.closed(left), true);
+    apron.strokePoints(this.closed(right), true);
 
     // Tarmac: a tiled asphalt texture, masked to the road shape.
     const poly = [];
