@@ -23,19 +23,19 @@ export class TouchControls {
     scene.input.addPointer(3);
 
     this.buttons = [];
-    this.left = this._button('‹', COLORS.paper, () => (this.state.left = true), () => (this.state.left = false));
-    this.right = this._button('›', COLORS.paper, () => (this.state.right = true), () => (this.state.right = false));
-    this.gas = this._button('▲', COLORS.sunshine, () => (this.state.gas = true), () => (this.state.gas = false));
-    this.brake = this._button('▼', COLORS.red, () => (this.state.brake = true), () => (this.state.brake = false));
+    this.left = this._button('‹', COLORS.paper, () => (this.state.left = true), () => (this.state.left = false), 'STEER');
+    this.right = this._button('›', COLORS.paper, () => (this.state.right = true), () => (this.state.right = false), 'STEER');
+    this.gas = this._button('▲', COLORS.sunshine, () => (this.state.gas = true), () => (this.state.gas = false), 'GAS');
+    this.brake = this._button('▼', COLORS.red, () => (this.state.brake = true), () => (this.state.brake = false), 'BRAKE');
 
     this.tiltBtn = scene.add
       .text(0, 0, 'Tilt: off', {
         fontFamily: FONT,
-        fontSize: '18px',
+        fontSize: '22px',
         fontStyle: '600',
         color: '#15314b',
         backgroundColor: '#fff8e7',
-        padding: { x: 10, y: 5 },
+        padding: { x: 14, y: 8 },
       })
       .setScrollFactor(0)
       .setDepth(1000)
@@ -56,18 +56,18 @@ export class TouchControls {
     });
   }
 
-  _button(label, color, onDown, onUp) {
+  _button(label, color, onDown, onUp, caption) {
     const scene = this.scene;
     const arc = scene.add
-      .circle(0, 0, 54, color, 0.28)
+      .circle(0, 0, 68, color, 0.34)
       .setScrollFactor(0)
       .setDepth(999)
-      .setStrokeStyle(3, color, 0.9)
+      .setStrokeStyle(4, color, 0.95)
       .setInteractive({ useHandCursor: true });
     const text = scene.add
       .text(0, 0, label, {
         fontFamily: FONT,
-        fontSize: '44px',
+        fontSize: '54px',
         fontStyle: '700',
         color: '#fff8e7',
       })
@@ -75,40 +75,55 @@ export class TouchControls {
       .setScrollFactor(0)
       .setDepth(1000);
 
+    const captionText = scene.add
+      .text(0, 0, caption, {
+        fontFamily: FONT,
+        fontSize: '15px',
+        fontStyle: '700',
+        color: '#15314b',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(1000);
+
     const press = () => {
       onDown();
-      arc.setFillStyle(color, 0.55);
+      arc.setFillStyle(color, 0.62);
+      arc.setScale(0.95);
     };
     const release = () => {
       onUp();
-      arc.setFillStyle(color, 0.28);
+      arc.setFillStyle(color, 0.34);
+      arc.setScale(1);
     };
     arc.on('pointerdown', press);
     arc.on('pointerup', release);
     arc.on('pointerout', release);
     arc.on('pointerupoutside', release);
 
-    const b = { arc, text, r: 54 };
+    const b = { arc, text, caption: captionText, r: 68 };
     this.buttons.push(b);
     return b;
   }
 
   _place(b, x, y) {
     b.arc.setPosition(x, y);
-    b.text.setPosition(x, y);
+    b.text.setPosition(x, y - 7);
+    b.caption.setPosition(x, y + 39);
   }
 
   layout() {
     const w = this.scene.scale.width;
     const h = this.scene.scale.height;
-    const pad = 24;
-    // Steering, bottom-left.
-    this._place(this.left, pad + 60, h - pad - 70);
-    this._place(this.right, pad + 190, h - pad - 70);
-    // Accelerate/brake, bottom-right.
-    this._place(this.gas, w - pad - 70, h - pad - 70);
-    this._place(this.brake, w - pad - 200, h - pad - 40);
-    this.tiltBtn.setPosition(pad, pad + 44);
+    const pad = 30;
+    const bottom = h - pad - 72;
+    // Steering, bottom-left, with generous spacing for thumbs.
+    this._place(this.left, pad + 72, bottom);
+    this._place(this.right, pad + 224, bottom);
+    // Accelerate/brake, bottom-right. Gas is easiest to reach; brake sits inside it.
+    this._place(this.gas, w - pad - 76, bottom);
+    this._place(this.brake, w - pad - 232, bottom + 4);
+    this.tiltBtn.setPosition(pad, pad + 96);
   }
 
   async _toggleTilt() {
