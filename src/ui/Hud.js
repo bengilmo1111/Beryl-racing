@@ -1,7 +1,7 @@
 // Race HUD: current / last / best lap, lap counter, and a "New best!" flash.
-// Rounded panels that scale with the viewport so they stay readable and
-// well-proportioned on phones as well as desktops.
-import { formatTime, FONT, uiScale } from './format.js';
+// Rounded panels that scale with the viewport while keeping a readable minimum
+// on short landscape phone screens.
+import { formatTime, FONT, uiScale, isCompact } from './format.js';
 import { COLORS } from '../config.js';
 
 export class Hud {
@@ -10,8 +10,6 @@ export class Hud {
 
     const panelStyle = { fontFamily: FONT, color: '#fff8e7' };
 
-    // Rounded background panels are drawn on a graphics layer (redrawn on
-    // resize); text sits on top.
     this.bg = scene.add.graphics().setScrollFactor(0).setDepth(889);
 
     this.currentLabel = scene.add
@@ -60,10 +58,9 @@ export class Hud {
     const scene = this.scene;
     const w = scene.scale.width;
     const h = scene.scale.height;
-    const s = uiScale(scene, 0.7, 1.1);
-    const pad = Math.round(12 * s);
+    const rawScale = uiScale(scene, 0.7, 1.1);
+    const s = isCompact(scene) ? Math.max(rawScale, 0.84) : rawScale;
 
-    // Font sizes.
     const labelSize = Math.round(20 * s);
     const bigSize = Math.round(46 * s);
     const rowSize = Math.round(22 * s);
@@ -76,9 +73,8 @@ export class Hud {
     this.lap.setFontSize(lapSize);
     this.flash.setFontSize(Math.round(64 * s)).setStroke('#15314b', Math.round(9 * s));
 
-    // Lap-time panel, top-left.
-    const inX = Math.round(16 * s);
-    const inY = Math.round(14 * s);
+    const inX = Math.round(14 * s);
+    const inY = Math.round(12 * s);
     const px = Math.round(16 * s);
     const py = Math.round(12 * s);
     this.currentLabel.setPosition(inX + px, inY + py);
@@ -87,21 +83,18 @@ export class Hud {
     this.last.setPosition(inX + px, rowsY);
     this.best.setPosition(inX + px, rowsY + rowSize + Math.round(6 * s));
 
-    const panelW =
-      Math.max(this.current.width, this.last.width, this.best.width) + px * 2;
+    const panelW = Math.max(this.current.width, this.last.width, this.best.width) + px * 2;
     const panelH = rowsY + rowSize * 2 + Math.round(6 * s) + py - inY;
 
-    // Lap counter panel, top-centre.
     const lapPanelW = Math.round(150 * s);
     const lapPanelH = lapSize + py * 2;
     const lapX = w / 2;
     const lapY = inY;
     this.lap.setPosition(lapX, lapY + lapPanelH / 2);
 
-    // Draw both rounded panels.
     this.bg.clear();
-    this.bg.fillStyle(COLORS.ink, 0.78);
-    this.bg.lineStyle(Math.max(2, Math.round(2 * s)), 0xfff8e7, 0.28);
+    this.bg.fillStyle(COLORS.ink, 0.82);
+    this.bg.lineStyle(Math.max(2, Math.round(2 * s)), 0xfff8e7, 0.3);
     this.bg.fillRoundedRect(inX, inY, panelW, panelH, Math.round(16 * s));
     this.bg.strokeRoundedRect(inX, inY, panelW, panelH, Math.round(16 * s));
     this.bg.fillRoundedRect(lapX - lapPanelW / 2, lapY, lapPanelW, lapPanelH, Math.round(14 * s));
