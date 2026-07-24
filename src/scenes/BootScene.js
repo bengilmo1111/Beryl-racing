@@ -1,6 +1,7 @@
-// Loads generated and procedural textures, then hands off to the title screen.
+// Loads generated art + audio, plus a couple of procedural fx textures, then
+// hands off to the title screen.
 import Phaser from 'phaser';
-import { drawGrass, drawPuff, drawSkid, drawTree, preloadBerylPhoto } from '../art.js';
+import { drawPuff, drawSkid, preloadBerylPhoto } from '../art.js';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -8,21 +9,26 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
+    const B = import.meta.env.BASE_URL;
     // Beryl's real photo (used as the title-screen hero).
     preloadBerylPhoto(this);
-
-    // Approved top-down Beryl sprite, resolved beneath the configured base path.
-    this.load.image('beryl', `${import.meta.env.BASE_URL}assets/beryl.png`);
-
+    // Generated sprites and textures, resolved beneath the configured base path.
+    this.load.image('beryl', `${B}assets/beryl.png`);
+    this.load.image('tarmac', `${B}assets/tarmac.png`);
+    this.load.image('grass', `${B}assets/grass.png`);
+    this.load.image('tree-1', `${B}assets/tree-1.png`);
+    this.load.image('tree-2', `${B}assets/tree-2.png`);
+    this.load.image('tree-3', `${B}assets/tree-3.png`);
+    this.load.image('tyre-barrier', `${B}assets/tyre-barrier.png`);
+    this.load.image('start-gantry', `${B}assets/start-gantry.png`);
     // Background music.
-    this.load.audio('music-race', `${import.meta.env.BASE_URL}assets/music-race.mp3`);
+    this.load.audio('music-race', `${B}assets/music-race.mp3`);
   }
 
   create() {
-    drawGrass(this);
+    // Skid marks and smoke stay procedural.
     drawPuff(this);
     drawSkid(this);
-    drawTree(this);
 
     // Hide the HTML loading splash now that textures are ready.
     const loading = document.getElementById('loading');

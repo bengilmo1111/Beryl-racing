@@ -90,8 +90,7 @@ export class RaceScene extends Phaser.Scene {
   // --- Track rendering -------------------------------------------------------
 
   drawTrack() {
-    const g = this.add.graphics().setDepth(1);
-    const { left, right, centerline } = this.track;
+    const { left, right } = this.track;
 
     // Darker "run-off" apron just outside the kerbs for depth.
     const apron = this.add.graphics().setDepth(0.5);
@@ -100,22 +99,71 @@ export class RaceScene extends Phaser.Scene {
     apron.fillStyle(COLORS.deepHill, 1);
     apron.fillPoints(this.offsetLoop(right, -26), true);
 
-    // Tarmac.
+    // Tarmac: a tiled asphalt texture, masked to the road shape.
     const poly = [];
     for (const p of left) poly.push(p.x, p.y);
     for (let i = right.length - 1; i >= 0; i--) poly.push(right[i].x, right[i].y);
-    g.fillStyle(COLORS.tarmac, 1);
-    g.fillPoints(this.toPoints(poly), true);
-    // Subtle darker inner band = a hint of a racing surface.
-    g.lineStyle(2, 0x484d54, 0.6);
-    g.strokePoints(this.closed(centerline), true);
+    const maskShape = this.make.graphics({ x: 0, y: 0, add: false });
+    maskShape.fillStyle(0xffffff, 1);
+    maskShape.fillPoints(this.toPoints(poly), true);
+    const tarmac = this.add
+      .tileSprite(0, 0, WORLD.width, WORLD.height, 'tarmac')
+      .setOrigin(0)
+      .setDepth(1);
+    tarmac.setMask(maskShape.createGeometryMask());
 
     // Red/white rumble-strip kerbs on both edges.
     this.drawKerb(left);
     this.drawKerb(right);
 
-    this.drawStartLine();
+    this.placeTyreBarriers();
     this.drawCheckpointGates();
+    this.placeStartGantry();
+  }
+
+  placeTyreBarriers() {
+    const cl = this.track.centerline;
+    const n = cl.length;
+    let cx = 0;
+    let cy = 0;
+    for (const p of cl) {
+      cx += p.x;
+      cy += p.y;
+    }
+    cx /= n;
+    cy /= n;
+    const off = this.track.half + 30;
+    for (let i = 0; i < n; i += 20) {
+      const a = cl[(i - 1 + n) % n];
+      const b = cl[(i + 1) % n];
+      let tx = b.x - a.x;
+      let ty = b.y - a.y;
+      const L = Math.hypot(tx, ty) || 1;
+      tx /= L;
+      ty /= L;
+      let nx = -ty;
+      let ny = tx;
+      // Point the normal outward (away from the track centre).
+      if (nx * (cl[i].x - cx) + ny * (cl[i].y - cy) < 0) {
+        nx = -nx;
+        ny = -ny;
+      }
+      this.add
+        .image(cl[i].x + nx * off, cl[i].y + ny * off, 'tyre-barrier')
+        .setDepth(6)
+        .setScale(0.85)
+        .setRotation(Math.atan2(ty, tx));
+    }
+  }
+
+  placeStartGantry() {
+    const cp = this.track.checkpoints[0];
+    // Depth 4: on the road surface (above tarmac/kerbs) but below the car, so
+    // Beryl is always visible crossing the line.
+    const gantry = this.add.image(cp.x, cp.y, 'start-gantry').setDepth(4);
+    gantry.setRotation(cp.angle + Math.PI / 2);
+    const span = this.track.half * 2 + 170; // road width + posts either side
+    gantry.setScale(span / gantry.width);
   }
 
   drawKerb(edge) {
@@ -154,7 +202,8 @@ export class RaceScene extends Phaser.Scene {
   }
 
   scatterTrees() {
-    const layer = this.add.container(0, 0).setDepth(0.6);
+    const variants = ['tree-1', 'tree-2', 'tree-3'];
+    const layer = this.add.container(0, 0).setDepth(5);
     let placed = 0;
     let tries = 0;
     while (placed < 46 && tries < 600) {
@@ -163,7 +212,8 @@ export class RaceScene extends Phaser.Scene {
       const y = Phaser.Math.Between(120, WORLD.height - 120);
       const d = distanceToCenterline(x, y, this.track.centerline);
       if (d < TRACK.roadWidth / 2 + 90) continue; // keep clear of the track
-      const t = this.add.image(x, y, 'tree').setScale(Phaser.Math.FloatBetween(0.7, 1.4));
+      const key = Phaser.Utils.Array.GetRandom(variants);
+      const t = this.add.image(x, y, key).setScale(Phaser.Math.FloatBetween(0.7, 1.4));
       layer.add(t);
       placed++;
     }
