@@ -20,6 +20,9 @@ export class RaceScene extends Phaser.Scene {
     this.track = buildTrack();
     this.captureRadius = TRACK.roadWidth * 0.85;
 
+    // Solid scenery Beryl bumps into: each is a {x, y, r} collision circle.
+    this.obstacles = [];
+
     // World + grass backdrop.
     this.cameras.main.setBounds(0, 0, WORLD.width, WORLD.height);
     this.add.tileSprite(0, 0, WORLD.width, WORLD.height, 'grass').setOrigin(0).setDepth(0);
@@ -167,11 +170,12 @@ export class RaceScene extends Phaser.Scene {
       const d = distanceToCenterline(x, y, this.track.centerline);
       // Just off the track, in the near grass band beyond the tyre barriers.
       if (d < half + 60 || d > half + 150) continue;
-      this.add
+      const bale = this.add
         .image(x, y, 'hay-bale')
         .setDepth(6)
         .setScale(Phaser.Math.FloatBetween(0.7, 1.0))
         .setRotation(Phaser.Math.FloatBetween(0, Math.PI * 2));
+      this.obstacles.push({ x, y, r: bale.displayWidth * 0.42 });
       placed++;
     }
   }
@@ -203,11 +207,18 @@ export class RaceScene extends Phaser.Scene {
         nx = -nx;
         ny = -ny;
       }
+      const bx = cl[i].x + nx * off;
+      const by = cl[i].y + ny * off;
       this.add
-        .image(cl[i].x + nx * off, cl[i].y + ny * off, 'tyre-barrier')
+        .image(bx, by, 'tyre-barrier')
         .setDepth(6)
         .setScale(0.85)
         .setRotation(Math.atan2(ty, tx));
+      // Solid tyre wall: two circles along the barrier's length so it blocks
+      // more like the row of tyres it is, rather than a single point.
+      const halfLen = 46;
+      this.obstacles.push({ x: bx + tx * halfLen, y: by + ty * halfLen, r: 30 });
+      this.obstacles.push({ x: bx - tx * halfLen, y: by - ty * halfLen, r: 30 });
     }
   }
 
@@ -270,6 +281,9 @@ export class RaceScene extends Phaser.Scene {
       const key = Phaser.Utils.Array.GetRandom(variants);
       const t = this.add.image(x, y, key).setScale(Phaser.Math.FloatBetween(0.7, 1.4));
       layer.add(t);
+      // Solid trunk/canopy: a collision circle a bit smaller than the sprite so
+      // you bump the tree, not its transparent padding.
+      this.obstacles.push({ x, y, r: t.displayWidth * 0.3 });
       placed++;
     }
   }
@@ -396,6 +410,7 @@ export class RaceScene extends Phaser.Scene {
     const onTrack = dist <= this.track.half;
 
     this.car.update(dt, input, onTrack);
+    this.resolveObstacles();
     this.applyFx(onTrack, input);
 
     if (this.engine) {
@@ -407,6 +422,44 @@ export class RaceScene extends Phaser.Scene {
       this.hud.setCurrent(time - this.lapStartTime);
       this.checkLap();
     }
+  }
+
+  // Push Beryl out of any scenery she's overlapping and kill the velocity that
+  // drove her in, so she bumps and slides along trees, tyres and bales instead
+  // of driving through them.
+  resolveObstacles() {
+    const car = this.car;
+    const cr = car.collideRadius;
+    const f = car.forward;
+    const ax = f.x * car.axleOffset;
+    const ay = f.y * car.axleOffset;
+    const offsets = [
+      [ax, ay],
+      [-ax, -ay],
+    ];
+    for (const o of this.obstacles) {
+      const min = o.r + cr;
+      const min2 = min * min;
+      for (const off of offsets) {
+        const px = car.x + off[0];
+        const py = car.y + off[1];
+        const dx = px - o.x;
+        const dy = py - o.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 >= min2 || d2 === 0) continue;
+        const d = Math.sqrt(d2);
+        const nx = dx / d;
+        const ny = dy / d;
+        car.x += nx * (min - d);
+        car.y += ny * (min - d);
+        const vn = car.vx * nx + car.vy * ny;
+        if (vn < 0) {
+          car.vx -= vn * nx;
+          car.vy -= vn * ny;
+        }
+      }
+    }
+    car.sync();
   }
 
   applyFx(onTrack, input) {

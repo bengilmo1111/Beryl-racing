@@ -2,7 +2,7 @@
 // the sideways component can slide. Grip on that component is high on tarmac and
 // drops on the handbrake, which is what makes her drift.
 import Phaser from 'phaser';
-import { CAR } from '../config.js';
+import { CAR, WORLD } from '../config.js';
 
 function approach(value, target, maxDelta) {
   if (value < target) return Math.min(value + maxDelta, target);
@@ -28,6 +28,14 @@ export class Car {
     this.onTrack = true;
     // Sprite is ~256px long; scale so Beryl reads well on the wide road.
     this.sprite.setScale(0.62);
+
+    // Collision model: Beryl is long, so she's approximated by two circles (one
+    // at the nose, one at the tail) for obstacle collisions, plus a bounds
+    // margin that keeps her whole body inside the world so she never drives off
+    // into the void.
+    this.collideRadius = this.sprite.displayWidth * 0.5;
+    this.axleOffset = this.sprite.displayHeight * 0.28;
+    this.boundsMargin = Math.max(this.sprite.displayWidth, this.sprite.displayHeight) / 2;
   }
 
   reset(x, y, rotation) {
@@ -97,10 +105,37 @@ export class Car {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
 
+    // Keep Beryl inside the world so she can't disappear off the edge. Stop the
+    // velocity component that pushes into the wall, but let her steer away.
+    const m = this.boundsMargin;
+    if (this.x < m) {
+      this.x = m;
+      if (this.vx < 0) this.vx = 0;
+    } else if (this.x > WORLD.width - m) {
+      this.x = WORLD.width - m;
+      if (this.vx > 0) this.vx = 0;
+    }
+    if (this.y < m) {
+      this.y = m;
+      if (this.vy < 0) this.vy = 0;
+    } else if (this.y > WORLD.height - m) {
+      this.y = WORLD.height - m;
+      if (this.vy > 0) this.vy = 0;
+    }
+
     this.lateral = vLateral;
     this.drifting = Math.abs(vLateral) > CAR.driftLateral && Math.abs(vForward) > 140;
 
     this.sync();
+  }
+
+  // Nose and tail collision points in world space (for obstacle collisions).
+  collisionPoints() {
+    const f = this.forward;
+    return [
+      { x: this.x + f.x * this.axleOffset, y: this.y + f.y * this.axleOffset },
+      { x: this.x - f.x * this.axleOffset, y: this.y - f.y * this.axleOffset },
+    ];
   }
 
   // Rear axle position in world space (for skid marks / smoke).
