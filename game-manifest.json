@@ -1,0 +1,13 @@
+{
+  "id": "beryl-racing",
+  "title": "Beryl Racing",
+  "description": "Drive Beryl, a classic turquoise Morris Minor, around a track and chase your best lap.",
+  "slug": "beryl-racing",
+  "origin": "https://beryl-racing.vercel.app",
+  "canonicalUrl": "https://gilmore.games/beryl-racing/",
+  "repository": "https://github.com/bengilmo1111/beryl-racing",
+  "framework": "vite",
+  "genre": "racing",
+  "players": "1",
+  "status": "in-development"
+}
