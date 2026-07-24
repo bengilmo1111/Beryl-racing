@@ -30,31 +30,18 @@ export function isCompact(scene) {
   return scene.scale.width < 820 || scene.scale.height < 480;
 }
 
-// setScrollFactor(0) stops camera scrolling, but Phaser still applies camera
-// zoom. That pulls objects placed at the viewport edges toward the centre.
-// These helpers apply the inverse transform so UI remains pinned to the actual
-// screen edges while the race camera zooms in and out.
-function cameraTransform(scene) {
-  const cam = scene.cameras.main;
-  const zoom = cam && cam.zoom ? cam.zoom : 1;
-  const originX = (cam?.x || 0) + (cam?.width || scene.scale.width) * (cam?.originX ?? 0.5);
-  const originY = (cam?.y || 0) + (cam?.height || scene.scale.height) * (cam?.originY ?? 0.5);
-  return { zoom, originX, originY };
-}
-
+// UI is placed in plain viewport coordinates. In the race scene it is rendered
+// by a dedicated UI camera that never scrolls or zooms (see RaceScene), and on
+// the title screen the only camera sits at zoom 1 — so no camera compensation
+// is needed. Rendering and input hit-testing therefore agree, which is what
+// makes the on-screen buttons tappable. (An earlier approach inverse-scaled a
+// scrollFactor(0) layer to fake screen-pinning; that fixed rendering but left
+// every button's hit-area stranded out in world space.)
 export function pinUiObject(scene, object, screenX, screenY, baseScale = 1) {
-  const { zoom, originX, originY } = cameraTransform(scene);
-  object.setPosition(
-    originX + (screenX - originX) / zoom,
-    originY + (screenY - originY) / zoom
-  );
-  object.setScale(baseScale / zoom);
+  object.setPosition(screenX, screenY);
+  object.setScale(baseScale);
 }
 
-// Children in the layer use normal viewport coordinates. Moving and inversely
-// scaling the layer cancels the world camera's zoom for every child at once.
 export function pinUiLayer(scene, layer) {
-  const { zoom, originX, originY } = cameraTransform(scene);
-  layer.setPosition(originX - originX / zoom, originY - originY / zoom);
-  layer.setScale(1 / zoom);
+  layer.setPosition(0, 0).setScale(1);
 }

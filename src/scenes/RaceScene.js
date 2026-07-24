@@ -72,10 +72,22 @@ export class RaceScene extends Phaser.Scene {
 
     // HUD + fullscreen + sound.
     this.hud = new Hud(this);
-    createFullscreenButton(this);
-    createSoundButton(this);
+    const fsBtn = createFullscreenButton(this);
+    const sndBtn = createSoundButton(this);
     this.best = Number(localStorage.getItem(STORAGE_KEY)) || null;
     if (this.best) this.hud.setBest(this.best);
+
+    // Render the UI through a dedicated camera that never scrolls or zooms. The
+    // world camera follows Beryl and zooms, and a scrollFactor(0) HUD rendered
+    // by that camera ends up with its input hit-areas stranded in world space
+    // (they don't track the zoom), which made the on-screen buttons untappable.
+    // A separate, unzoomed UI camera keeps the HUD in plain screen space for
+    // both rendering AND input.
+    this.uiObjects = [this.hud.layer, fsBtn, sndBtn];
+    if (this.touch) this.uiObjects.push(this.touch.layer);
+    this.uiCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
+    this.cameras.main.ignore(this.uiObjects);
+    this.uiCamera.ignore(this.children.list.filter((o) => !this.uiObjects.includes(o)));
 
     // Audio: make sure music is running, and start Beryl's engine idling.
     unlockAudio(this);
@@ -97,6 +109,7 @@ export class RaceScene extends Phaser.Scene {
   onResize() {
     // Keep the pull-back sensible if the device rotates or the window resizes.
     this.baseZoom = isCompact(this) ? 0.64 : 0.82;
+    if (this.uiCamera) this.uiCamera.setSize(this.scale.width, this.scale.height);
   }
 
   // --- Track rendering -------------------------------------------------------
@@ -363,6 +376,8 @@ export class RaceScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(1200);
+    // The countdown is screen-space UI: show it on the UI camera only.
+    if (this.uiCamera) this.cameras.main.ignore(label);
 
     const steps = ['3', '2', '1', 'GO!'];
     let i = 0;
