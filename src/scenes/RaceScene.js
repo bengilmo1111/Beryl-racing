@@ -9,7 +9,7 @@ import { createSoundButton } from '../ui/soundButton.js';
 import { startMusic, unlockAudio, isMuted } from '../audio/sound.js';
 import { EngineSound } from '../audio/EngineSound.js';
 import { CAR } from '../config.js';
-import { FONT } from '../ui/format.js';
+import { FONT, uiScale, isCompact } from '../ui/format.js';
 
 export class RaceScene extends Phaser.Scene {
   constructor() {
@@ -46,8 +46,12 @@ export class RaceScene extends Phaser.Scene {
     const s = this.track.start;
     this.car = new Car(this, s.x, s.y, s.rotation);
     this.cameras.main.startFollow(this.car.sprite, true, 0.16, 0.16);
-    this.baseZoom = 0.82;
+    // Pull the camera back a little on small screens so there's enough track
+    // visible ahead to actually race on a phone.
+    this.baseZoom = isCompact(this) ? 0.64 : 0.82;
     this.cameras.main.setZoom(this.baseZoom);
+    this.scale.on('resize', this.onResize, this);
+    this.events.once('shutdown', () => this.scale.off('resize', this.onResize, this));
 
     // Input.
     this.keys = this.input.keyboard.addKeys({
@@ -87,6 +91,11 @@ export class RaceScene extends Phaser.Scene {
     this.startCountdown();
   }
 
+  onResize() {
+    // Keep the pull-back sensible if the device rotates or the window resizes.
+    this.baseZoom = isCompact(this) ? 0.64 : 0.82;
+  }
+
   // --- Track rendering -------------------------------------------------------
 
   drawTrack() {
@@ -100,17 +109,41 @@ export class RaceScene extends Phaser.Scene {
     apron.strokePoints(this.closed(left), true);
     apron.strokePoints(this.closed(right), true);
 
-    // Tarmac: a tiled asphalt texture, masked to the road shape.
-    const poly = [];
-    for (const p of left) poly.push(p.x, p.y);
-    for (let i = right.length - 1; i >= 0; i--) poly.push(right[i].x, right[i].y);
+    // Tarmac is drawn in two layers so the road is always solid — this is what
+    // kills the grass-green stripe that used to cut across the start/finish
+    // straight:
+    //
+    //   1. A SOLID road base: the ribbon filled as per-segment quads (left[i],
+    //      left[i+1], right[i+1], right[i]) in the flat tarmac colour. These are
+    //      ordinary alpha-blended fills, so overlapping quads on curves simply
+    //      union — no gap can ever appear here.
+    //   2. The subtle tiled asphalt TEXTURE on top, masked to the same ribbon.
+    //      A geometry (stencil) mask can drop the odd doubly-covered pixel by
+    //      parity, but any such seam now reveals the identical-grey base beneath
+    //      rather than the grass, so it's invisible.
+    const quads = [];
+    const n = left.length;
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      quads.push([
+        new Phaser.Geom.Point(left[i].x, left[i].y),
+        new Phaser.Geom.Point(left[j].x, left[j].y),
+        new Phaser.Geom.Point(right[j].x, right[j].y),
+        new Phaser.Geom.Point(right[i].x, right[i].y),
+      ]);
+    }
+
+    const roadBase = this.add.graphics().setDepth(1);
+    roadBase.fillStyle(COLORS.tarmac, 1);
+    for (const q of quads) roadBase.fillPoints(q, true);
+
     const maskShape = this.make.graphics({ x: 0, y: 0, add: false });
     maskShape.fillStyle(0xffffff, 1);
-    maskShape.fillPoints(this.toPoints(poly), true);
+    for (const q of quads) maskShape.fillPoints(q, true);
     const tarmac = this.add
       .tileSprite(0, 0, WORLD.width, WORLD.height, 'tarmac')
       .setOrigin(0)
-      .setDepth(1);
+      .setDepth(1.05);
     tarmac.setMask(maskShape.createGeometryMask());
 
     // Red/white rumble-strip kerbs on both edges.
@@ -303,14 +336,15 @@ export class RaceScene extends Phaser.Scene {
   startCountdown() {
     const w = this.scale.width;
     const h = this.scale.height;
+    const s = uiScale(this, 0.7, 1.15);
     const label = this.add
-      .text(w / 2, h / 2 - 30, '3', {
+      .text(w / 2, h * 0.42, '3', {
         fontFamily: FONT,
-        fontSize: '120px',
+        fontSize: `${Math.round(120 * s)}px`,
         fontStyle: '700',
         color: '#ffd166',
         stroke: '#15314b',
-        strokeThickness: 10,
+        strokeThickness: Math.round(10 * s),
       })
       .setOrigin(0.5)
       .setScrollFactor(0)
