@@ -1,6 +1,6 @@
 // Loads generated and procedural textures, then hands off to the title screen.
 import Phaser from 'phaser';
-import { drawGrass, drawPuff, preloadBerylPhoto } from '../art.js';
+import { drawGrass, drawPuff, drawSkid, drawTree, preloadBerylPhoto } from '../art.js';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -18,6 +18,8 @@ export class BootScene extends Phaser.Scene {
   create() {
     drawGrass(this);
     drawPuff(this);
+    drawSkid(this);
+    drawTree(this);
 
     // Hide the HTML loading splash now that textures are ready.
     const loading = document.getElementById('loading');

@@ -7,36 +7,54 @@ export const DESIGN = {
 };
 
 export const WORLD = {
-  width: 2400,
-  height: 1600,
+  width: 3000,
+  height: 2000,
 };
 
-// The track is generated as a smooth closed loop around this centre. Each
-// vertex sits on an ellipse whose radius is nudged by `radiusMul` to give the
-// circuit some character while staying non-self-intersecting (star-convex).
+// The circuit is a hand-authored closed loop: a long bottom straight, sweeping
+// right-handers, a top ess, and a left sweeper back to the line. Points are
+// smoothed with a periodic Catmull-Rom spline in track.js.
 export const TRACK = {
-  center: { x: WORLD.width / 2, y: WORLD.height / 2 },
-  rx: 900,
-  ry: 560,
-  radiusMul: [1.0, 0.82, 1.12, 0.86, 1.15, 0.92, 1.04, 0.8, 1.18, 0.9, 1.06, 0.84],
-  roadWidth: 210, // full width of the tarmac
-  samplesPerSegment: 22, // spline smoothness
+  anchors: [
+    { x: 760, y: 1560 },
+    { x: 1700, y: 1660 },
+    { x: 2400, y: 1520 },
+    { x: 2720, y: 1170 },
+    { x: 2520, y: 820 },
+    { x: 2660, y: 470 },
+    { x: 2080, y: 400 },
+    { x: 1680, y: 560 },
+    { x: 1250, y: 380 },
+    { x: 760, y: 440 },
+    { x: 400, y: 820 },
+    { x: 470, y: 1240 },
+    { x: 560, y: 1480 },
+  ],
+  roadWidth: 300, // full width of the tarmac — wide, for drifting room
+  samplesPerSegment: 20, // spline smoothness
   numCheckpoints: 6, // includes the start/finish gate (index 0)
 };
 
+// Arcade handling: fast, punchy, and slidey. Beryl carries a real velocity
+// vector so she can drift — grip on the sideways component is high normally and
+// drops sharply on the handbrake (see entities/Car.js).
 export const CAR = {
-  maxSpeed: 560, // px/s on tarmac
-  accel: 430, // px/s^2 under throttle
-  brakeDecel: 780, // px/s^2 when braking against motion
-  reverseAccel: 220,
-  maxReverse: 170,
-  coastDrag: 260, // px/s^2 natural slow-down when coasting
-  turnRate: 2.9, // rad/s at full speed
-  lowSpeedTurn: 0.38, // fraction of turn available near standstill
-  grassMaxSpeedFactor: 0.42, // top speed multiplier off-track
-  grassDrag: 620, // extra slow-down off-track
-  handbrakeTurnBoost: 1.55,
-  handbrakeDrag: 420,
+  maxSpeed: 940, // px/s on tarmac
+  accel: 900, // px/s^2 under throttle — snappy launch
+  brakeDecel: 1600, // px/s^2 braking against motion
+  reverseAccel: 340,
+  maxReverse: 240,
+  coastDrag: 150, // gentle slow-down when coasting (keeps momentum)
+  overspeedDrag: 700, // pulls back toward the surface's max speed
+  turnRate: 3.3, // rad/s at speed
+  lowSpeedTurn: 0.5, // fraction of turn available near standstill
+  gripNormal: 9.0, // sideways grip on tarmac (high = sticky)
+  gripDrift: 2.4, // sideways grip while handbraking (low = slides)
+  gripGrass: 4.0, // sideways grip off-track (loose)
+  driftTurnBoost: 1.5, // extra steering authority mid-drift
+  grassMaxSpeedFactor: 0.5, // top speed multiplier off-track
+  grassDrag: 900, // extra slow-down off-track
+  driftLateral: 70, // |sideways speed| above this counts as a drift (fx/skids)
 };
 
 export const STORAGE_KEY = 'beryl-racing.bestLapMs.v1';

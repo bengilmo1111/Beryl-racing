@@ -21,23 +21,8 @@ function catmullRom(p0, p1, p2, p3, t) {
   };
 }
 
-function buildAnchors() {
-  const { center, rx, ry, radiusMul } = TRACK;
-  const n = radiusMul.length;
-  const anchors = [];
-  for (let i = 0; i < n; i++) {
-    const theta = (i / n) * Math.PI * 2;
-    const m = radiusMul[i];
-    anchors.push({
-      x: center.x + Math.cos(theta) * rx * m,
-      y: center.y + Math.sin(theta) * ry * m,
-    });
-  }
-  return anchors;
-}
-
 export function buildTrack() {
-  const anchors = buildAnchors();
+  const anchors = TRACK.anchors;
   const n = anchors.length;
   const steps = TRACK.samplesPerSegment;
 

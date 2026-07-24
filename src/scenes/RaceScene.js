@@ -14,20 +14,36 @@ export class RaceScene extends Phaser.Scene {
 
   create() {
     this.track = buildTrack();
-    this.captureRadius = TRACK.roadWidth * 0.9;
+    this.captureRadius = TRACK.roadWidth * 0.85;
 
     // World + grass backdrop.
     this.cameras.main.setBounds(0, 0, WORLD.width, WORLD.height);
-    this.physics && this.physics.world && this.physics.world.setBounds(0, 0, WORLD.width, WORLD.height);
-    this.add.tileSprite(0, 0, WORLD.width, WORLD.height, 'grass').setOrigin(0);
+    this.add.tileSprite(0, 0, WORLD.width, WORLD.height, 'grass').setOrigin(0).setDepth(0);
 
+    this.scatterTrees();
     this.drawTrack();
+
+    // Persistent skid-mark layer (above tarmac, below car).
+    this.skidRT = this.add.renderTexture(0, 0, WORLD.width, WORLD.height).setOrigin(0).setDepth(3);
+
+    // Drift smoke (white) and off-track dust (tan) — separate emitters so we
+    // never have to retint at runtime.
+    const puffCfg = {
+      lifespan: 420,
+      speed: { min: 8, max: 46 },
+      scale: { start: 0.5, end: 1.1 },
+      alpha: { start: 0.45, end: 0 },
+      frequency: -1,
+    };
+    this.smoke = this.add.particles(0, 0, 'puff', puffCfg).setDepth(9);
+    this.dust = this.add.particles(0, 0, 'puff', { ...puffCfg, tint: 0xcaa46a }).setDepth(9);
 
     // Beryl.
     const s = this.track.start;
     this.car = new Car(this, s.x, s.y, s.rotation);
-    this.cameras.main.startFollow(this.car.sprite, true, 0.12, 0.12);
-    this.cameras.main.setZoom(0.95);
+    this.cameras.main.startFollow(this.car.sprite, true, 0.16, 0.16);
+    this.baseZoom = 0.82;
+    this.cameras.main.setZoom(this.baseZoom);
 
     // Input.
     this.keys = this.input.keyboard.addKeys({
@@ -51,46 +67,95 @@ export class RaceScene extends Phaser.Scene {
 
     // Lap state.
     this.lapNumber = 1;
-    this.expected = 1; // next checkpoint index required
+    this.expected = 1;
     this.lapStartTime = 0;
     this.timing = false;
+    this.wasOnTrack = true;
 
-    // ESC / back to title.
     this.input.keyboard.once('keydown-ESC', () => this.scene.start('Title'));
-
     this.startCountdown();
   }
 
+  // --- Track rendering -------------------------------------------------------
+
   drawTrack() {
-    const g = this.add.graphics();
+    const g = this.add.graphics().setDepth(1);
     const { left, right, centerline } = this.track;
 
-    // Tarmac fill: left edge forward, right edge back.
+    // Darker "run-off" apron just outside the kerbs for depth.
+    const apron = this.add.graphics().setDepth(0.5);
+    apron.fillStyle(0x3f8f4a, 1);
+    apron.fillPoints(this.offsetLoop(left, 26), true);
+    apron.fillStyle(COLORS.deepHill, 1);
+    apron.fillPoints(this.offsetLoop(right, -26), true);
+
+    // Tarmac.
     const poly = [];
     for (const p of left) poly.push(p.x, p.y);
     for (let i = right.length - 1; i >= 0; i--) poly.push(right[i].x, right[i].y);
     g.fillStyle(COLORS.tarmac, 1);
     g.fillPoints(this.toPoints(poly), true);
+    // Subtle darker inner band = a hint of a racing surface.
+    g.lineStyle(2, 0x484d54, 0.6);
+    g.strokePoints(this.closed(centerline), true);
 
-    // Kerb edges.
-    g.lineStyle(6, COLORS.cream, 0.9);
-    g.strokePoints(this.closed(left), true);
-    g.strokePoints(this.closed(right), true);
+    // Red/white rumble-strip kerbs on both edges.
+    this.drawKerb(left);
+    this.drawKerb(right);
 
-    // Dashed centre line.
-    g.lineStyle(4, COLORS.sunshine, 0.5);
-    for (let i = 0; i < centerline.length; i += 6) {
-      const a = centerline[i];
-      const b = centerline[(i + 3) % centerline.length];
+    this.drawStartLine();
+    this.drawCheckpointGates();
+  }
+
+  drawKerb(edge) {
+    const g = this.add.graphics().setDepth(2);
+    const n = edge.length;
+    for (let i = 0; i < n; i++) {
+      const a = edge[i];
+      const b = edge[(i + 1) % n];
+      const red = Math.floor(i / 3) % 2 === 0;
+      g.lineStyle(15, red ? COLORS.red : 0xffffff, 1);
       g.beginPath();
       g.moveTo(a.x, a.y);
       g.lineTo(b.x, b.y);
       g.strokePath();
     }
-    g.setDepth(1);
+  }
 
-    this.drawStartLine();
-    this.drawCheckpointGates();
+  offsetLoop(edge, amount) {
+    // Build a filled band `amount` px outside `edge` (sign chooses side).
+    const n = edge.length;
+    const outer = [];
+    for (let i = 0; i < n; i++) {
+      const prev = edge[(i - 1 + n) % n];
+      const next = edge[(i + 1) % n];
+      let tx = next.x - prev.x;
+      let ty = next.y - prev.y;
+      const len = Math.hypot(tx, ty) || 1;
+      tx /= len;
+      ty /= len;
+      outer.push({ x: edge[i].x - ty * amount, y: edge[i].y + tx * amount });
+    }
+    const pts = [];
+    for (const p of edge) pts.push(new Phaser.Geom.Point(p.x, p.y));
+    for (let i = outer.length - 1; i >= 0; i--) pts.push(new Phaser.Geom.Point(outer[i].x, outer[i].y));
+    return pts;
+  }
+
+  scatterTrees() {
+    const layer = this.add.container(0, 0).setDepth(0.6);
+    let placed = 0;
+    let tries = 0;
+    while (placed < 46 && tries < 600) {
+      tries++;
+      const x = Phaser.Math.Between(120, WORLD.width - 120);
+      const y = Phaser.Math.Between(120, WORLD.height - 120);
+      const d = distanceToCenterline(x, y, this.track.centerline);
+      if (d < TRACK.roadWidth / 2 + 90) continue; // keep clear of the track
+      const t = this.add.image(x, y, 'tree').setScale(Phaser.Math.FloatBetween(0.7, 1.4));
+      layer.add(t);
+      placed++;
+    }
   }
 
   toPoints(flat) {
@@ -108,30 +173,28 @@ export class RaceScene extends Phaser.Scene {
   drawStartLine() {
     const cp = this.track.checkpoints[0];
     const half = this.track.half;
-    // Perpendicular (across the road) unit vector.
     const nx = Math.cos(cp.angle + Math.PI / 2);
     const ny = Math.sin(cp.angle + Math.PI / 2);
-    // Along-track unit vector.
     const ax = Math.cos(cp.angle);
     const ay = Math.sin(cp.angle);
 
-    const g = this.add.graphics().setDepth(2);
-    const cols = 8; // squares across
-    const rows = 3; // squares along track
+    const g = this.add.graphics().setDepth(2.5);
+    const cols = 10;
+    const rows = 4;
     const cw = (half * 2) / cols;
-    const cl = 14; // square length along track
+    const cl = 16;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const black = (r + c) % 2 === 0;
         g.fillStyle(black ? 0x1b1b1b : 0xffffff, 1);
-        const baseX = cp.x - nx * half + nx * cw * c + ax * cl * (r - rows / 2);
-        const baseY = cp.y - ny * half + ny * cw * c + ay * cl * (r - rows / 2);
+        const bx = cp.x - nx * half + nx * cw * c + ax * cl * (r - rows / 2);
+        const by = cp.y - ny * half + ny * cw * c + ay * cl * (r - rows / 2);
         g.fillPoints(
           [
-            new Phaser.Geom.Point(baseX, baseY),
-            new Phaser.Geom.Point(baseX + nx * cw, baseY + ny * cw),
-            new Phaser.Geom.Point(baseX + nx * cw + ax * cl, baseY + ny * cw + ay * cl),
-            new Phaser.Geom.Point(baseX + ax * cl, baseY + ay * cl),
+            new Phaser.Geom.Point(bx, by),
+            new Phaser.Geom.Point(bx + nx * cw, by + ny * cw),
+            new Phaser.Geom.Point(bx + nx * cw + ax * cl, by + ny * cw + ay * cl),
+            new Phaser.Geom.Point(bx + ax * cl, by + ay * cl),
           ],
           true
         );
@@ -140,23 +203,19 @@ export class RaceScene extends Phaser.Scene {
   }
 
   drawCheckpointGates() {
-    const g = this.add.graphics().setDepth(2);
+    const g = this.add.graphics().setDepth(2.4);
     const half = this.track.half;
     for (let i = 1; i < this.track.checkpoints.length; i++) {
       const cp = this.track.checkpoints[i];
       const nx = Math.cos(cp.angle + Math.PI / 2);
       const ny = Math.sin(cp.angle + Math.PI / 2);
-      // Faint gate line + posts.
-      g.lineStyle(4, COLORS.sky, 0.35);
-      g.beginPath();
-      g.moveTo(cp.x - nx * half, cp.y - ny * half);
-      g.lineTo(cp.x + nx * half, cp.y + ny * half);
-      g.strokePath();
-      g.fillStyle(COLORS.sky, 0.8);
-      g.fillCircle(cp.x - nx * half, cp.y - ny * half, 7);
-      g.fillCircle(cp.x + nx * half, cp.y + ny * half, 7);
+      g.fillStyle(COLORS.sunshine, 0.9);
+      g.fillCircle(cp.x - nx * half, cp.y - ny * half, 10);
+      g.fillCircle(cp.x + nx * half, cp.y + ny * half, 10);
     }
   }
+
+  // --- Flow ------------------------------------------------------------------
 
   startCountdown() {
     const w = this.scale.width;
@@ -178,16 +237,16 @@ export class RaceScene extends Phaser.Scene {
     let i = 0;
     const tick = () => {
       label.setText(steps[i]).setScale(0.6);
-      this.tweens.add({ targets: label, scale: 1, duration: 220, ease: 'Back.out' });
+      this.tweens.add({ targets: label, scale: 1, duration: 200, ease: 'Back.out' });
       if (steps[i] === 'GO!') {
         label.setColor('#2ec4d6');
         this.timing = true;
         this.lapStartTime = this.time.now;
-        this.tweens.add({ targets: label, alpha: 0, delay: 500, duration: 300, onComplete: () => label.destroy() });
+        this.tweens.add({ targets: label, alpha: 0, delay: 450, duration: 300, onComplete: () => label.destroy() });
         return;
       }
       i++;
-      this.time.delayedCall(800, tick);
+      this.time.delayedCall(650, tick);
     };
     tick();
   }
@@ -216,16 +275,46 @@ export class RaceScene extends Phaser.Scene {
     const dt = Math.min(delta / 1000, 0.05);
     const input = this.readInput();
 
-    // On-track test.
     const dist = distanceToCenterline(this.car.x, this.car.y, this.track.centerline);
     const onTrack = dist <= this.track.half;
 
     this.car.update(dt, input, onTrack);
+    this.applyFx(onTrack, input);
 
     if (this.timing) {
       this.hud.setCurrent(time - this.lapStartTime);
       this.checkLap();
     }
+  }
+
+  applyFx(onTrack, input) {
+    const car = this.car;
+    const axle = car.rearAxle();
+
+    // Skid marks when drifting or handbraking on tarmac.
+    if (onTrack && (car.drifting || (input.handbrake && Math.abs(car.speed) > 120))) {
+      this.skidRT.draw('skid', axle.left.x, axle.left.y);
+      this.skidRT.draw('skid', axle.right.x, axle.right.y);
+    }
+
+    // Smoke on drift, dusty puffs off-track.
+    if (car.drifting && onTrack) {
+      this.smoke.emitParticleAt(axle.center.x, axle.center.y, 2);
+    } else if (!onTrack && Math.abs(car.speed) > 120) {
+      this.dust.emitParticleAt(axle.center.x, axle.center.y, 1);
+    }
+
+    // Dynamic zoom: pull back with speed for a sense of pace.
+    const speedRatio = Phaser.Math.Clamp(Math.abs(car.speed) / 940, 0, 1);
+    const targetZoom = this.baseZoom - 0.12 * speedRatio;
+    const cam = this.cameras.main;
+    cam.setZoom(Phaser.Math.Linear(cam.zoom, targetZoom, 0.05));
+
+    // A little kick when you drop onto the grass.
+    if (this.wasOnTrack && !onTrack && Math.abs(car.speed) > 200) {
+      cam.shake(120, 0.006);
+    }
+    this.wasOnTrack = onTrack;
   }
 
   checkLap() {
@@ -235,7 +324,6 @@ export class RaceScene extends Phaser.Scene {
     if (d > this.captureRadius) return;
 
     if (this.expected === 0) {
-      // Crossed the start/finish gate after all checkpoints -> lap done.
       this.completeLap();
       this.expected = 1;
     } else {
@@ -254,6 +342,7 @@ export class RaceScene extends Phaser.Scene {
       localStorage.setItem(STORAGE_KEY, String(Math.floor(lapMs)));
       this.hud.setBest(lapMs);
       this.hud.showMessage('NEW BEST LAP!', '#ffd166');
+      this.cameras.main.flash(240, 255, 209, 102);
     } else {
       this.hud.showMessage('LAP COMPLETE', '#fff8e7');
     }

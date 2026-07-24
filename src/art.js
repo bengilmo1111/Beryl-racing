@@ -197,11 +197,45 @@ export function drawGrass(scene, key = 'grass') {
   g.destroy();
 }
 
-// A tiny soft dust/skid puff used when off-track or handbraking.
+// A soft round puff used for drift smoke and off-track dust.
 export function drawPuff(scene, key = 'puff') {
+  const size = 48;
   const g = scene.add.graphics();
-  g.fillStyle(0xffffff, 1);
-  g.fillCircle(8, 8, 8);
-  g.generateTexture(key, 16, 16);
+  for (let r = size / 2; r > 0; r -= 2) {
+    g.fillStyle(0xffffff, 0.06);
+    g.fillCircle(size / 2, size / 2, r);
+  }
+  g.generateTexture(key, size, size);
+  g.destroy();
+}
+
+// A dark tyre-skid stamp; many overlapping stamps build a trail.
+export function drawSkid(scene, key = 'skid') {
+  const size = 14;
+  const g = scene.add.graphics();
+  g.fillStyle(0x1a1a1a, 0.5);
+  g.fillCircle(size / 2, size / 2, size / 2);
+  g.fillStyle(0x1a1a1a, 0.5);
+  g.fillCircle(size / 2, size / 2, size / 2 - 3);
+  g.generateTexture(key, size, size);
+  g.destroy();
+}
+
+// A simple top-down tree: round canopy with an offset shadow, for roadside life.
+export function drawTree(scene, key = 'tree') {
+  const size = 72;
+  const c = size / 2;
+  const g = scene.add.graphics();
+  // Shadow.
+  g.fillStyle(0x123a22, 0.35);
+  g.fillCircle(c + 6, c + 8, 26);
+  // Canopy layers.
+  g.fillStyle(0x2f7d3f, 1);
+  g.fillCircle(c, c, 26);
+  g.fillStyle(0x3f9a4f, 1);
+  g.fillCircle(c - 6, c - 6, 18);
+  g.fillStyle(0x54b463, 1);
+  g.fillCircle(c - 9, c - 9, 9);
+  g.generateTexture(key, size, size);
   g.destroy();
 }

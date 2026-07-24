@@ -1,4 +1,6 @@
-// Beryl. Arcade top-down handling: forgiving, not a sim.
+// Beryl. Arcade top-down handling with drift: she carries a velocity vector, so
+// the sideways component can slide. Grip on that component is high on tarmac and
+// drops on the handbrake, which is what makes her drift.
 import Phaser from 'phaser';
 import { CAR } from '../config.js';
 
@@ -18,20 +20,27 @@ export class Car {
     this.rotation = rotation;
     this.x = x;
     this.y = y;
-    this.speed = 0;
+    this.vx = 0;
+    this.vy = 0;
+    this.speed = 0; // forward speed, for HUD/steering/camera
+    this.lateral = 0; // sideways speed, for drift fx
+    this.drifting = false;
     this.onTrack = true;
+    // Sprite is ~256px long; scale so Beryl reads well on the wide road.
+    this.sprite.setScale(0.62);
   }
 
   reset(x, y, rotation) {
     this.x = x;
     this.y = y;
     this.rotation = rotation;
+    this.vx = 0;
+    this.vy = 0;
     this.speed = 0;
     this.sync();
   }
 
   get forward() {
-    // Sprite drawn nose-up: forward = (sin r, -cos r).
     return { x: Math.sin(this.rotation), y: -Math.cos(this.rotation) };
   }
 
@@ -39,43 +48,75 @@ export class Car {
     this.onTrack = onTrack;
     const handbrake = !!input.handbrake;
 
-    // Longitudinal control.
+    // Body basis: forward (nose) and right (passenger side).
+    const sinr = Math.sin(this.rotation);
+    const cosr = Math.cos(this.rotation);
+    const fwdX = sinr;
+    const fwdY = -cosr;
+    const rightX = cosr;
+    const rightY = sinr;
+
+    // Split velocity into forward / sideways components.
+    let vForward = this.vx * fwdX + this.vy * fwdY;
+    let vLateral = this.vx * rightX + this.vy * rightY;
+
+    // Throttle / brake / reverse along the forward axis.
     if (input.throttle > 0) {
-      this.speed += CAR.accel * dt;
+      vForward += CAR.accel * dt;
     } else if (input.throttle < 0) {
-      if (this.speed > 0) {
-        this.speed -= CAR.brakeDecel * dt; // braking
-      } else {
-        this.speed -= CAR.reverseAccel * dt; // reversing
-      }
+      if (vForward > 0) vForward -= CAR.brakeDecel * dt;
+      else vForward -= CAR.reverseAccel * dt;
     } else {
-      this.speed = approach(this.speed, 0, CAR.coastDrag * dt);
+      vForward = approach(vForward, 0, CAR.coastDrag * dt);
     }
 
-    // Surface limits.
+    // Surface speed cap (soft pull-back if over).
     const maxV = onTrack ? CAR.maxSpeed : CAR.maxSpeed * CAR.grassMaxSpeedFactor;
-    if (!onTrack && this.speed > maxV) {
-      this.speed = approach(this.speed, maxV, CAR.grassDrag * dt);
+    if (vForward > maxV) {
+      vForward = approach(vForward, maxV, (onTrack ? CAR.overspeedDrag : CAR.grassDrag) * dt);
     }
-    if (handbrake) {
-      this.speed = approach(this.speed, 0, CAR.handbrakeDrag * dt);
-    }
-    this.speed = Phaser.Math.Clamp(this.speed, -CAR.maxReverse, maxV);
+    vForward = Phaser.Math.Clamp(vForward, -CAR.maxReverse, maxV);
+    this.speed = vForward;
 
-    // Steering scales with speed so there's no pivoting on the spot; sign flips
-    // when reversing so the wheel feels natural.
-    const speedRatio = Phaser.Math.Clamp(Math.abs(this.speed) / CAR.maxSpeed, 0, 1);
+    // Steering: scales with speed, flips when reversing, sharper mid-drift.
+    const speedRatio = Phaser.Math.Clamp(Math.abs(vForward) / CAR.maxSpeed, 0, 1);
     const effectiveness = CAR.lowSpeedTurn + (1 - CAR.lowSpeedTurn) * speedRatio;
-    const dir = this.speed >= 0 ? 1 : -1;
-    const boost = handbrake ? CAR.handbrakeTurnBoost : 1;
-    this.rotation += input.steer * CAR.turnRate * effectiveness * dir * boost * dt;
+    const dir = vForward >= 0 ? 1 : -1;
+    const driftBoost = handbrake ? CAR.driftTurnBoost : 1;
+    this.rotation += input.steer * CAR.turnRate * effectiveness * dir * driftBoost * dt;
 
-    // Integrate.
-    const f = this.forward;
-    this.x += f.x * this.speed * dt;
-    this.y += f.y * this.speed * dt;
+    // Sideways grip: bleed lateral velocity toward zero. Low grip => slide.
+    let grip = onTrack ? CAR.gripNormal : CAR.gripGrass;
+    if (handbrake) grip = CAR.gripDrift;
+    const k = Math.min(grip * dt, 1);
+    vLateral -= vLateral * k;
+
+    // Recombine and integrate.
+    this.vx = fwdX * vForward + rightX * vLateral;
+    this.vy = fwdY * vForward + rightY * vLateral;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+
+    this.lateral = vLateral;
+    this.drifting = Math.abs(vLateral) > CAR.driftLateral && Math.abs(vForward) > 140;
 
     this.sync();
+  }
+
+  // Rear axle position in world space (for skid marks / smoke).
+  rearAxle() {
+    const back = 42 * this.sprite.scaleY; // ~ distance from centre to rear wheels
+    const half = 30 * this.sprite.scaleX;
+    const fwd = this.forward;
+    const rx = Math.cos(this.rotation);
+    const ry = Math.sin(this.rotation);
+    const cx = this.x - fwd.x * back;
+    const cy = this.y - fwd.y * back;
+    return {
+      left: { x: cx - rx * half, y: cy - ry * half },
+      right: { x: cx + rx * half, y: cy + ry * half },
+      center: { x: cx, y: cy },
+    };
   }
 
   sync() {
