@@ -117,8 +117,29 @@ export class RaceScene extends Phaser.Scene {
     this.drawKerb(right);
 
     this.placeTyreBarriers();
+    this.placeHayBales();
     this.drawCheckpointGates();
     this.placeStartGantry();
+  }
+
+  placeHayBales() {
+    let placed = 0;
+    let tries = 0;
+    const half = this.track.half;
+    while (placed < 11 && tries < 400) {
+      tries++;
+      const x = Phaser.Math.Between(120, WORLD.width - 120);
+      const y = Phaser.Math.Between(120, WORLD.height - 120);
+      const d = distanceToCenterline(x, y, this.track.centerline);
+      // Just off the track, in the near grass band beyond the tyre barriers.
+      if (d < half + 60 || d > half + 150) continue;
+      this.add
+        .image(x, y, 'hay-bale')
+        .setDepth(6)
+        .setScale(Phaser.Math.FloatBetween(0.7, 1.0))
+        .setRotation(Phaser.Math.FloatBetween(0, Math.PI * 2));
+      placed++;
+    }
   }
 
   placeTyreBarriers() {

@@ -20,6 +20,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('tree-2', `${B}assets/tree-2.png`);
     this.load.image('tree-3', `${B}assets/tree-3.png`);
     this.load.image('tyre-barrier', `${B}assets/tyre-barrier.png`);
+    this.load.image('hay-bale', `${B}assets/hay-bale.png`);
     this.load.image('start-gantry', `${B}assets/start-gantry.png`);
     // Background music.
     this.load.audio('music-race', `${B}assets/music-race.mp3`);
