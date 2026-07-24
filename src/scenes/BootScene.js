@@ -1,10 +1,15 @@
 // Generates procedural textures, then hands off to the title screen.
 import Phaser from 'phaser';
-import { drawBeryl, drawGrass, drawPuff } from '../art.js';
+import { drawBeryl, drawGrass, drawPuff, preloadBerylPhoto } from '../art.js';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
     super('Boot');
+  }
+
+  preload() {
+    // Beryl's real photo (used as the title-screen hero).
+    preloadBerylPhoto(this);
   }
 
   create() {

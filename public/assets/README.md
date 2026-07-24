@@ -1,8 +1,21 @@
 # Assets
 
-Beryl and the track are currently **drawn procedurally in code**
-(`src/art.js`), so there are no runtime image files to load. This keeps the
-game working cleanly beneath the `/beryl-racing/` base path (nothing to 404).
+- **`beryl-photo.png`** — the real photo of Beryl (turquoise Morris Minor 1000).
+  Loaded via `BERYL_PHOTO_URL` in `src/art.js` and shown as the title-screen
+  hero. It's also the reference for the top-down driving sprite.
+
+The **top-down driving car** and the **track** are otherwise **drawn
+procedurally in code** (`src/art.js`), so gameplay has no runtime image
+dependency and works cleanly beneath the `/beryl-racing/` base path.
+
+## Generating a top-down Beryl sprite
+
+`src/art.js` contains a full specification for an image generator —
+`BERYL_TOPDOWN_SPRITE_PROMPT` (a ready-to-use prompt string) plus a detailed
+comment block covering the hard requirements (strict top-down, nose-up,
+transparent background, canvas size) and Beryl's identity (colours, whitewalls,
+chrome, red pinstripe). Feed that prompt to the image agent, using
+`beryl-photo.png` here as the visual reference.
 
 ## Swapping in a generated Beryl sprite later
 

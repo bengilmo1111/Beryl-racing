@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { COLORS, STORAGE_KEY } from '../config.js';
 import { FONT, formatTime } from '../ui/format.js';
 import { createFullscreenButton } from '../ui/fullscreen.js';
+import { addBerylPhoto } from '../art.js';
 
 export class TitleScene extends Phaser.Scene {
   constructor() {
@@ -39,8 +40,8 @@ export class TitleScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 0);
 
-    // Beryl, parked and idling with a gentle bob.
-    const beryl = this.add.sprite(w / 2, h * 0.58, 'beryl').setScale(1.1);
+    // The real Beryl, parked and idling with a gentle bob.
+    const beryl = addBerylPhoto(this, w / 2, h * 0.585, 500, 235);
     this.tweens.add({
       targets: beryl,
       y: beryl.y - 10,
@@ -52,7 +53,7 @@ export class TitleScene extends Phaser.Scene {
 
     // Play button.
     const play = this.add
-      .text(w / 2, h * 0.8, '▶  PLAY', {
+      .text(w / 2, h * 0.87, '▶  PLAY', {
         fontFamily: FONT,
         fontSize: '40px',
         fontStyle: '700',
@@ -73,7 +74,7 @@ export class TitleScene extends Phaser.Scene {
     const best = Number(localStorage.getItem(STORAGE_KEY));
     if (best > 0) {
       this.add
-        .text(w / 2, h * 0.9, `Best lap  ${formatTime(best)}`, {
+        .text(w / 2, h * 0.78, `Best lap  ${formatTime(best)}`, {
           fontFamily: FONT,
           fontSize: '22px',
           fontStyle: '700',
