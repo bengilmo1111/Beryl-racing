@@ -1,8 +1,8 @@
-// On-screen touch controls for landscape mobile (PRD §4). Steering on the left,
-// accelerate/brake on the right, plus an optional tilt-to-steer toggle. The UI
-// layer cancels the following camera's zoom so controls stay at the phone edges.
+// On-screen touch controls for landscape mobile (PRD §4). Steering on the left
+// and accelerate/brake on the right. The UI layer cancels the following camera's
+// zoom so controls stay at the phone edges.
 import Phaser from 'phaser';
-import { FONT, uiScale, pinUiLayer } from './format.js';
+import { FONT, pinUiLayer } from './format.js';
 import { COLORS } from '../config.js';
 
 export function isTouchDevice() {
@@ -16,8 +16,6 @@ export class TouchControls {
   constructor(scene) {
     this.scene = scene;
     this.state = { left: false, right: false, gas: false, brake: false };
-    this.tiltEnabled = false;
-    this.tiltSteer = 0;
 
     // Phaser tracks 2 pointers by default; add more for multi-finger play.
     scene.input.addPointer(3);
@@ -53,24 +51,6 @@ export class TouchControls {
       'BRAKE'
     );
 
-    this.tiltBtn = scene.add
-      .text(0, 0, 'Tilt: off', {
-        fontFamily: FONT,
-        fontStyle: '600',
-        color: '#15314b',
-        backgroundColor: '#fff8e7',
-      })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-    this.layer.add(this.tiltBtn);
-    this.tiltBtn.on('pointerup', () => this._toggleTilt());
-
-    this._orientationHandler = (e) => {
-      // gamma: left/right tilt in degrees. Map ~±30° to full lock.
-      const g = e.gamma || 0;
-      this.tiltSteer = Phaser.Math.Clamp(g / 30, -1, 1);
-    };
-
     this.pin = () => pinUiLayer(scene, this.layer);
     this.layout();
     scene.scale.on('resize', this.layout, this);
@@ -78,16 +58,13 @@ export class TouchControls {
     scene.events.once('shutdown', () => {
       scene.scale.off('resize', this.layout, this);
       scene.events.off('postupdate', this.pin);
-      window.removeEventListener('deviceorientation', this._orientationHandler);
     });
   }
 
   _button(label, color, onDown, onUp, caption) {
     const scene = this.scene;
-    const arc = scene.add
-      .circle(0, 0, 80, color, 0.34)
-      .setStrokeStyle(5, color, 0.95)
-      .setInteractive({ useHandCursor: true });
+    const button = scene.add.container(0, 0).setSize(160, 160);
+    const arc = scene.add.circle(0, 0, 80, color, 0.34).setStrokeStyle(5, color, 0.95);
     const text = scene.add
       .text(0, 0, label, {
         fontFamily: FONT,
@@ -104,35 +81,49 @@ export class TouchControls {
       })
       .setOrigin(0.5);
 
-    this.layer.add([arc, text, captionText]);
+    button.add([arc, text, captionText]);
+    this.layer.add(button);
 
     const press = () => {
       onDown();
       arc.setFillStyle(color, 0.62);
-      arc.setScale(0.95);
+      button.setScale(0.95);
     };
     const release = () => {
       onUp();
       arc.setFillStyle(color, 0.34);
-      arc.setScale(1);
+      button.setScale(1);
     };
-    arc.on('pointerdown', press);
-    arc.on('pointerup', release);
-    arc.on('pointerout', release);
-    arc.on('pointerupoutside', release);
+    button.on('pointerdown', press);
+    button.on('pointerup', release);
+    button.on('pointerout', release);
+    button.on('pointerupoutside', release);
 
-    const b = { arc, text, caption: captionText, color };
+    const b = { button, arc, text, caption: captionText, color, radius: 80 };
     this.buttons.push(b);
+    this._refreshHitArea(b);
     return b;
   }
 
+  _refreshHitArea(b) {
+    b.button.setSize(b.radius * 2, b.radius * 2);
+    b.button.setInteractive(
+      new Phaser.Geom.Circle(0, 0, b.radius),
+      Phaser.Geom.Circle.Contains
+    );
+    b.button.input.cursor = 'pointer';
+  }
+
   _place(b, x, y, r) {
+    b.radius = r;
+    b.button.setPosition(x, y).setScale(1);
     b.arc
-      .setPosition(x, y)
+      .setPosition(0, 0)
       .setRadius(r)
       .setStrokeStyle(Math.max(3, Math.round(r * 0.06)), b.color, 0.95);
-    b.text.setPosition(x, y - r * 0.08).setFontSize(Math.round(r * 0.78));
-    b.caption.setPosition(x, y + r * 0.56).setFontSize(Math.round(r * 0.2));
+    b.text.setPosition(0, -r * 0.08).setFontSize(Math.round(r * 0.78));
+    b.caption.setPosition(0, r * 0.56).setFontSize(Math.round(r * 0.2));
+    this._refreshHitArea(b);
   }
 
   layout() {
@@ -153,43 +144,13 @@ export class TouchControls {
     this._place(this.gas, w - edge - r, bottom, r);
     this._place(this.brake, w - edge - r - gap, bottom, r);
 
-    const s = uiScale(scene, 0.7, 1.1);
-    this.tiltBtn
-      .setFontSize(Math.round(22 * s))
-      .setPadding(Math.round(16 * s), Math.round(10 * s))
-      .setPosition(w / 2, h - Math.round(18 * s));
-
     this.pin();
-  }
-
-  async _toggleTilt() {
-    if (!this.tiltEnabled) {
-      // iOS 13+ requires an explicit permission request from a user gesture.
-      const DOE = window.DeviceOrientationEvent;
-      if (DOE && typeof DOE.requestPermission === 'function') {
-        try {
-          const res = await DOE.requestPermission();
-          if (res !== 'granted') return;
-        } catch {
-          return;
-        }
-      }
-      window.addEventListener('deviceorientation', this._orientationHandler);
-      this.tiltEnabled = true;
-      this.tiltBtn.setText('Tilt: on');
-    } else {
-      window.removeEventListener('deviceorientation', this._orientationHandler);
-      this.tiltEnabled = false;
-      this.tiltSteer = 0;
-      this.tiltBtn.setText('Tilt: off');
-    }
   }
 
   getInput() {
     let steer = 0;
     if (this.state.left) steer -= 1;
     if (this.state.right) steer += 1;
-    if (this.tiltEnabled && steer === 0) steer = this.tiltSteer;
     steer = Phaser.Math.Clamp(steer, -1, 1);
     const throttle = this.state.gas ? 1 : this.state.brake ? -1 : 0;
     return { steer, throttle, handbrake: false };
