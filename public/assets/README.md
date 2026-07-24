@@ -17,6 +17,25 @@ transparent background, canvas size) and Beryl's identity (colours, whitewalls,
 chrome, red pinstripe). Feed that prompt to the image agent, using
 `beryl-photo.png` here as the visual reference.
 
+## Environment art (optional, to replace the coded track/scenery)
+
+`src/art.js` also has ready-to-use prompts + specs for these. Generate any of
+them, save with the **exact filename**, and tell me — I'll wire each in.
+
+| Filename | What | Prompt constant |
+|---|---|---|
+| `tarmac.png` | Seamless 512×512 opaque asphalt tile | `TARMAC_TEXTURE_PROMPT` |
+| `grass.png` | Seamless 512×512 opaque grass tile | `GRASS_TEXTURE_PROMPT` |
+| `tree-1.png`, `tree-2.png`, `tree-3.png` | Top-down tree variants, transparent | `TREE_PROMPT` |
+| `tyre-barrier.png` | Top-down tyre barrier, transparent | `TYRE_BARRIER_PROMPT` |
+| `hay-bale.png` | Top-down straw bale, transparent | `HAY_BALE_PROMPT` |
+| `start-gantry.png` | Wide start/finish banner (optional) | `START_GANTRY_PROMPT` |
+
+**Textures (`tarmac.png`, `grass.png`)** must be **seamless** (tile with no
+visible seam), **fully opaque**, square, and low-contrast so the car/kerbs stay
+readable. **Props** must be **transparent** top-down sprites with a soft shadow
+baked underneath.
+
 ## Swapping in a generated Beryl sprite later
 
 If you produce a top-down PNG of Beryl (e.g. via an image-generator agent):

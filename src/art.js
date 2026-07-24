@@ -91,6 +91,79 @@ export const BERYL_TOPDOWN_SPRITE_PROMPT = [
   'rotated without clipping. Match the reference photo for colour and character.',
 ].join(' ');
 
+// ===========================================================================
+// ENVIRONMENT ART SPECIFICATIONS FOR AN IMAGE GENERATOR
+// ===========================================================================
+// Generate these to replace the coded track/scenery. Drop each file in
+// public/assets/ with the exact filename noted, then tell me and I'll wire it
+// in. All top-down (bird's-eye), even lighting, Gilmore Games palette (see
+// gilmore-directory/docs/ART-DIRECTION.md: warm, friendly, bold, not photoreal).
+//
+// TWO CATEGORIES, different rules:
+//   • TEXTURES (tarmac, grass) are TILED across the world, so they MUST be
+//     SEAMLESS (edges wrap top↔bottom and left↔right with no visible seam),
+//     FULLY OPAQUE (no transparency), square, and power-of-two (512×512).
+//     Keep them SUBTLE and low-contrast — the car, kerbs and skid marks must
+//     stay readable on top. No large one-off features (they'd repeat obviously)
+//     and no directional drop-shadows (they break tiling).
+//   • PROPS (trees, barriers, bales, gantry) are individual sprites: TRANSPARENT
+//     background, top-down, with a soft SYMMETRIC contact shadow baked directly
+//     underneath, centred with a little padding.
+
+// --- filename: tarmac.png --------------------------------------------------
+// Seamless 512×512 opaque asphalt tile. Base mid-grey ~#53585F with fine,
+// even grain and a few faint lighter/darker flecks and hairline cracks. No
+// road markings, no racing line, no lane edges (kerbs/lines are drawn in code).
+export const TARMAC_TEXTURE_PROMPT =
+  'Seamless tileable top-down asphalt road texture, 512x512, fully opaque, ' +
+  'mid-grey (#53585F) with fine even grain, subtle lighter and darker flecks ' +
+  'and faint hairline cracks. Flat even lighting, no shadows, no road markings, ' +
+  'no lines, no seams at the edges — must tile perfectly in every direction. ' +
+  'Low contrast and understated so game objects stay readable on top.';
+
+// --- filename: grass.png ---------------------------------------------------
+// Seamless 512×512 opaque grass tile. Base green ~#67B85A with faint mown
+// stripes (must tile) and a subtle blade/speckle texture. Keep it calm.
+export const GRASS_TEXTURE_PROMPT =
+  'Seamless tileable top-down grass texture, 512x512, fully opaque, healthy ' +
+  'green (#67B85A) with very subtle mown stripes and a fine blade/speckle ' +
+  'detail. Flat even lighting, no shadows, no seams at the edges — tiles ' +
+  'perfectly in every direction. Calm and low-contrast, not busy.';
+
+// --- filenames: tree-1.png, tree-2.png, tree-3.png -------------------------
+// 2–3 top-down tree variants, ~128×128, transparent, soft round shadow beneath.
+export const TREE_PROMPT =
+  'Top-down (bird\'s-eye) game sprite of a leafy round tree, ~128x128, on a ' +
+  'fully transparent background, centred, with a soft symmetric shadow directly ' +
+  'underneath. Layered green canopy (#2F7D3F to #54B463) with a gentle ' +
+  'top-left highlight, slightly stylised and friendly, bold clean silhouette, ' +
+  'no ground or grass baked in. Make a few subtly different shapes/sizes.';
+
+// --- filename: tyre-barrier.png --------------------------------------------
+// A short run of stacked racing tyres seen from above, ~160×64, transparent.
+export const TYRE_BARRIER_PROMPT =
+  'Top-down game sprite of a racing tyre barrier: a tight row of black rubber ' +
+  'tyres seen from directly above, ~160x64, transparent background, soft shadow ' +
+  'beneath. Dark tyres (#1B1D20) with subtle grey highlights, maybe one or two ' +
+  'painted red/white, clean and readable, no ground baked in.';
+
+// --- filename: hay-bale.png ------------------------------------------------
+// A round or rectangular straw bale from above, ~96×96, transparent.
+export const HAY_BALE_PROMPT =
+  'Top-down game sprite of a straw hay bale seen from above, ~96x96, ' +
+  'transparent background, soft shadow beneath. Golden straw (#D9B45A) with ' +
+  'concentric or banded texture, slightly stylised and friendly, no ground.';
+
+// --- filename: start-gantry.png (optional) ---------------------------------
+// A banner that arches across the road over the start/finish line. WIDE sprite
+// drawn as if viewed from above, transparent, ~600×140, so it can be laid
+// across the tarmac. Two side posts + a checkered banner reading START / FINISH.
+export const START_GANTRY_PROMPT =
+  'Top-down game sprite of a race start/finish gantry banner spanning a road, ' +
+  '~600x140, transparent background. Two chunky side posts and a horizontal ' +
+  'banner with black-and-white checkered trim and the word START or FINISH, ' +
+  'bold and friendly, soft shadow beneath the posts, no road or ground baked in.';
+
 // Add Beryl's photo to a scene, scaled to a max width/height. Falls back to the
 // procedural top-down sprite if the photo failed to load.
 export function addBerylPhoto(scene, x, y, maxW, maxH) {
