@@ -1,7 +1,6 @@
-// A sound toggle pinned below the fullscreen control.
-// Use clear text labels and a minimum phone-sized hit area rather than relying
-// on tiny emoji glyphs that render inconsistently across Android devices.
-import { FONT, uiScale, isCompact } from './format.js';
+// A sound toggle pinned below the fullscreen control at the real viewport edge.
+// Clear text labels avoid tiny, inconsistent emoji glyphs on Android.
+import { FONT, uiScale, isCompact, pinUiObject } from './format.js';
 import { isMuted, setMuted } from '../audio/sound.js';
 
 export function createSoundButton(scene) {
@@ -19,6 +18,10 @@ export function createSoundButton(scene) {
     .setDepth(1000)
     .setInteractive({ useHandCursor: true });
 
+  let screenX = 0;
+  let screenY = 0;
+  const pin = () => pinUiObject(scene, btn, screenX, screenY);
+
   btn.on('pointerup', () => {
     setMuted(scene, !isMuted(scene));
     reposition();
@@ -33,15 +36,21 @@ export function createSoundButton(scene) {
     const margin = compact ? 12 : Math.round(14 * s);
     const rowY = compact ? 70 : Math.round(66 * s);
 
+    screenX = scene.scale.width - margin;
+    screenY = rowY;
     btn.setText(label());
     btn.setFontSize(fontSize);
     btn.setPadding(padX, padY);
-    btn.setPosition(scene.scale.width - margin, rowY);
+    pin();
   };
 
   reposition();
   scene.scale.on('resize', reposition);
-  scene.events.once('shutdown', () => scene.scale.off('resize', reposition));
+  scene.events.on('postupdate', pin);
+  scene.events.once('shutdown', () => {
+    scene.scale.off('resize', reposition);
+    scene.events.off('postupdate', pin);
+  });
 
   return btn;
 }
