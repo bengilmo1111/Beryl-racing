@@ -3,6 +3,9 @@
 - **`beryl-photo.png`** — the real photo of Beryl (turquoise Morris Minor 1000).
   Loaded via `BERYL_PHOTO_URL` in `src/art.js` and shown as the title-screen
   hero. It's also the reference for the top-down driving sprite.
+- **`music-race.mp3`** — 1960s Beach Boys-style race music (looping background
+  track). Loaded in `BootScene`, played via `src/audio/sound.js`. The driving
+  engine sound is synthesised in code (`src/audio/EngineSound.js`), no file.
 
 The **top-down driving car** and the **track** are otherwise **drawn
 procedurally in code** (`src/art.js`), so gameplay has no runtime image

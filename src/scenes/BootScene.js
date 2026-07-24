@@ -13,6 +13,9 @@ export class BootScene extends Phaser.Scene {
 
     // Approved top-down Beryl sprite, resolved beneath the configured base path.
     this.load.image('beryl', `${import.meta.env.BASE_URL}assets/beryl.png`);
+
+    // Background music.
+    this.load.audio('music-race', `${import.meta.env.BASE_URL}assets/music-race.mp3`);
   }
 
   create() {

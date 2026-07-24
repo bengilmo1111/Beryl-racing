@@ -5,6 +5,10 @@ import { Car } from '../entities/Car.js';
 import { Hud } from '../ui/Hud.js';
 import { createFullscreenButton } from '../ui/fullscreen.js';
 import { TouchControls, isTouchDevice } from '../ui/TouchControls.js';
+import { createSoundButton } from '../ui/soundButton.js';
+import { startMusic, unlockAudio, isMuted } from '../audio/sound.js';
+import { EngineSound } from '../audio/EngineSound.js';
+import { CAR } from '../config.js';
 import { FONT } from '../ui/format.js';
 
 export class RaceScene extends Phaser.Scene {
@@ -59,11 +63,18 @@ export class RaceScene extends Phaser.Scene {
     });
     this.touch = isTouchDevice() ? new TouchControls(this) : null;
 
-    // HUD + fullscreen.
+    // HUD + fullscreen + sound.
     this.hud = new Hud(this);
     createFullscreenButton(this);
+    createSoundButton(this);
     this.best = Number(localStorage.getItem(STORAGE_KEY)) || null;
     if (this.best) this.hud.setBest(this.best);
+
+    // Audio: make sure music is running, and start Beryl's engine idling.
+    unlockAudio(this);
+    startMusic(this);
+    this.engine = new EngineSound(this.sound);
+    this.events.once('shutdown', () => this.engine && this.engine.stop());
 
     // Lap state.
     this.lapNumber = 1;
@@ -280,6 +291,11 @@ export class RaceScene extends Phaser.Scene {
 
     this.car.update(dt, input, onTrack);
     this.applyFx(onTrack, input);
+
+    if (this.engine) {
+      const speedRatio = Math.abs(this.car.speed) / CAR.maxSpeed;
+      this.engine.update(speedRatio, input.throttle, isMuted(this));
+    }
 
     if (this.timing) {
       this.hud.setCurrent(time - this.lapStartTime);

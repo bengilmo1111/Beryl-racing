@@ -3,6 +3,8 @@ import Phaser from 'phaser';
 import { COLORS, STORAGE_KEY } from '../config.js';
 import { FONT, formatTime } from '../ui/format.js';
 import { createFullscreenButton } from '../ui/fullscreen.js';
+import { createSoundButton } from '../ui/soundButton.js';
+import { startMusic, unlockAudio } from '../audio/sound.js';
 import { addBerylPhoto } from '../art.js';
 
 export class TitleScene extends Phaser.Scene {
@@ -65,10 +67,22 @@ export class TitleScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
     play.on('pointerover', () => play.setScale(1.06));
     play.on('pointerout', () => play.setScale(1));
-    const start = () => this.scene.start('Race');
+    const start = () => {
+      unlockAudio(this);
+      startMusic(this);
+      this.scene.start('Race');
+    };
     play.on('pointerup', start);
     this.input.keyboard.once('keydown-ENTER', start);
     this.input.keyboard.once('keydown-SPACE', start);
+
+    // Start music as soon as the player interacts (satisfies autoplay policy).
+    const kick = () => {
+      unlockAudio(this);
+      startMusic(this);
+    };
+    this.input.once('pointerdown', kick);
+    this.input.keyboard.once('keydown', kick);
 
     // Best lap so far.
     const best = Number(localStorage.getItem(STORAGE_KEY));
@@ -93,5 +107,6 @@ export class TitleScene extends Phaser.Scene {
       .setAlpha(0.75);
 
     createFullscreenButton(this);
+    createSoundButton(this);
   }
 }
