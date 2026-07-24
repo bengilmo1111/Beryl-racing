@@ -1,8 +1,9 @@
 // On-screen touch controls for landscape mobile (PRD §4). Steering on the left,
 // accelerate/brake on the right, plus an optional tilt-to-steer toggle. Only
-// created on touch devices.
+// created on touch devices. Buttons are sized from the viewport so they stay big
+// and thumb-friendly on any phone.
 import Phaser from 'phaser';
-import { FONT } from './format.js';
+import { FONT, uiScale } from './format.js';
 import { COLORS } from '../config.js';
 
 export function isTouchDevice() {
@@ -31,12 +32,11 @@ export class TouchControls {
     this.tiltBtn = scene.add
       .text(0, 0, 'Tilt: off', {
         fontFamily: FONT,
-        fontSize: '22px',
         fontStyle: '600',
         color: '#15314b',
         backgroundColor: '#fff8e7',
-        padding: { x: 14, y: 8 },
       })
+      .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(1000)
       .setInteractive({ useHandCursor: true });
@@ -59,29 +59,19 @@ export class TouchControls {
   _button(label, color, onDown, onUp, caption) {
     const scene = this.scene;
     const arc = scene.add
-      .circle(0, 0, 68, color, 0.34)
+      .circle(0, 0, 80, color, 0.34)
       .setScrollFactor(0)
       .setDepth(999)
-      .setStrokeStyle(4, color, 0.95)
+      .setStrokeStyle(5, color, 0.95)
       .setInteractive({ useHandCursor: true });
     const text = scene.add
-      .text(0, 0, label, {
-        fontFamily: FONT,
-        fontSize: '54px',
-        fontStyle: '700',
-        color: '#fff8e7',
-      })
+      .text(0, 0, label, { fontFamily: FONT, fontStyle: '700', color: '#fff8e7' })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(1000);
 
     const captionText = scene.add
-      .text(0, 0, caption, {
-        fontFamily: FONT,
-        fontSize: '15px',
-        fontStyle: '700',
-        color: '#15314b',
-      })
+      .text(0, 0, caption, { fontFamily: FONT, fontStyle: '700', color: '#15314b' })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(1000);
@@ -101,29 +91,43 @@ export class TouchControls {
     arc.on('pointerout', release);
     arc.on('pointerupoutside', release);
 
-    const b = { arc, text, caption: captionText, r: 68 };
+    const b = { arc, text, caption: captionText, color };
     this.buttons.push(b);
     return b;
   }
 
-  _place(b, x, y) {
-    b.arc.setPosition(x, y);
-    b.text.setPosition(x, y - 7);
-    b.caption.setPosition(x, y + 39);
+  _place(b, x, y, r) {
+    b.arc.setPosition(x, y).setRadius(r).setStrokeStyle(Math.max(3, Math.round(r * 0.06)), b.color, 0.95);
+    b.text.setPosition(x, y - r * 0.08).setFontSize(Math.round(r * 0.78));
+    b.caption.setPosition(x, y + r * 0.56).setFontSize(Math.round(r * 0.2));
   }
 
   layout() {
-    const w = this.scene.scale.width;
-    const h = this.scene.scale.height;
-    const pad = 30;
-    const bottom = h - pad - 72;
-    // Steering, bottom-left, with generous spacing for thumbs.
-    this._place(this.left, pad + 72, bottom);
-    this._place(this.right, pad + 224, bottom);
-    // Accelerate/brake, bottom-right. Gas is easiest to reach; brake sits inside it.
-    this._place(this.gas, w - pad - 76, bottom);
-    this._place(this.brake, w - pad - 232, bottom + 4);
-    this.tiltBtn.setPosition(pad, pad + 96);
+    const scene = this.scene;
+    const w = scene.scale.width;
+    const h = scene.scale.height;
+
+    // Radius scales with the smaller screen dimension, clamped to a comfortable
+    // thumb size on small phones and capped so it isn't silly on tablets.
+    const r = Phaser.Math.Clamp(Math.round(Math.min(w, h) * 0.15), 62, 104);
+    const pad = Math.round(r * 0.42);
+    const gap = Math.round(r * 2.35); // centre-to-centre between paired buttons
+    const bottom = h - pad - r;
+
+    // Steering, bottom-left.
+    this._place(this.left, pad + r, bottom, r);
+    this._place(this.right, pad + r + gap, bottom, r);
+
+    // Accelerate/brake, bottom-right. Gas is easiest to reach (outermost).
+    this._place(this.gas, w - pad - r, bottom, r);
+    this._place(this.brake, w - pad - r - gap, bottom, r);
+
+    // Tilt toggle: a pill centred along the bottom, between the thumb clusters.
+    const s = uiScale(scene, 0.7, 1.1);
+    this.tiltBtn
+      .setFontSize(Math.round(22 * s))
+      .setPadding(Math.round(16 * s), Math.round(10 * s))
+      .setPosition(w / 2, h - Math.round(24 * s));
   }
 
   async _toggleTilt() {

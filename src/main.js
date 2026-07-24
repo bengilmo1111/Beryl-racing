@@ -9,8 +9,12 @@ const config = {
   parent: 'game',
   backgroundColor: '#246b45',
   scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    // RESIZE: the canvas always fills the whole viewport, so there are no
+    // letterbox bars squashing the game into the middle of the screen. Scenes
+    // read this.scale.width/height and lay themselves out responsively, and the
+    // race camera renders the world at any aspect ratio. DESIGN is kept as a
+    // reference resolution for scaling UI (see ui/format.js scaleFactor).
+    mode: Phaser.Scale.RESIZE,
     width: DESIGN.width,
     height: DESIGN.height,
   },
