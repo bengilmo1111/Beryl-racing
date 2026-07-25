@@ -27,7 +27,7 @@ export class Car {
     this.drifting = false;
     this.onTrack = true;
     // Sprite is ~256px long; scale so Beryl reads well on the wide road.
-    this.sprite.setScale(0.62);
+    this.sprite.setScale(0.34);
 
     // Collision model: Beryl is long, so she's approximated by two circles (one
     // at the nose, one at the tail) for obstacle collisions, plus a bounds

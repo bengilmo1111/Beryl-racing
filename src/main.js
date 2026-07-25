@@ -32,6 +32,11 @@ const config = {
 // eslint-disable-next-line no-new
 const game = new Phaser.Game(config);
 
+// A small diagnostics hook for automated playtesting. It lets the
+// smoke test inspect the active scene and drive checkpoints without coupling
+// production gameplay code to a testing framework.
+window.__BERYL_GAME__ = game;
+
 // Mobile rotation fix.
 //
 // In RESIZE mode Phaser continuously sizes the canvas to its parent element
