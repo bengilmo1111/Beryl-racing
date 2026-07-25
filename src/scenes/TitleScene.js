@@ -29,7 +29,7 @@ export class TitleScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(2);
     this.subtitleText = this.add
-      .text(0, 0, 'RACING', { fontFamily: FONT, fontStyle: '700', color: '#fff8e7' })
+      .text(0, 0, 'EASTBOURNE POOTLE', { fontFamily: FONT, fontStyle: '700', color: '#fff8e7' })
       .setOrigin(0.5)
       .setDepth(2);
 
@@ -43,7 +43,7 @@ export class TitleScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(2);
     const best = Number(localStorage.getItem(STORAGE_KEY));
-    if (best > 0) this.bestText.setText(`Best lap  ${formatTime(best)}`);
+    if (best > 0) this.bestText.setText(`Eastbourne best  ${formatTime(best)}`);
 
     // Play button — big, friendly, easy to tap.
     this.play = this.add

@@ -1,4 +1,4 @@
-// Builds the race track geometry: a smooth closed centreline plus the left/right
+// Builds the race track geometry: a smooth open centreline plus the left/right
 // tarmac edges, checkpoints, and a helper to test whether a point is on-road.
 import { TRACK } from './config.js';
 
@@ -26,25 +26,27 @@ export function buildTrack() {
   const n = anchors.length;
   const steps = TRACK.samplesPerSegment;
 
-  // Smooth, periodic Catmull-Rom through the anchors -> closed centreline.
+  // Smooth Catmull-Rom through the anchors, with duplicated endpoints.
   const centerline = [];
-  for (let i = 0; i < n; i++) {
-    const p0 = anchors[(i - 1 + n) % n];
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = anchors[Math.max(0, i - 1)];
     const p1 = anchors[i];
     const p2 = anchors[(i + 1) % n];
-    const p3 = anchors[(i + 2) % n];
+    const p3 = anchors[Math.min(n - 1, i + 2)];
     for (let s = 0; s < steps; s++) {
       centerline.push(catmullRom(p0, p1, p2, p3, s / steps));
     }
   }
+
+  centerline.push({ ...anchors[n - 1] });
 
   const count = centerline.length;
   const half = TRACK.roadWidth / 2;
   const left = [];
   const right = [];
   for (let i = 0; i < count; i++) {
-    const prev = centerline[(i - 1 + count) % count];
-    const next = centerline[(i + 1) % count];
+    const prev = centerline[Math.max(0, i - 1)];
+    const next = centerline[Math.min(count - 1, i + 1)];
     let tx = next.x - prev.x;
     let ty = next.y - prev.y;
     const len = Math.hypot(tx, ty) || 1;
@@ -55,21 +57,22 @@ export function buildTrack() {
     right.push({ x: centerline[i].x + ty * half, y: centerline[i].y - tx * half });
   }
 
-  // Evenly spaced checkpoints; index 0 is the start/finish gate.
+  // Evenly spaced ordered gates; index 0 is the start and the last is the finish.
   const checkpoints = [];
   for (let c = 0; c < TRACK.numCheckpoints; c++) {
-    const idx = Math.floor((c / TRACK.numCheckpoints) * count);
+    const idx = Math.floor((c / (TRACK.numCheckpoints - 1)) * (count - 1));
     const p = centerline[idx];
-    const next = centerline[(idx + 1) % count];
+    const next = centerline[Math.min(idx + 1, count - 1)];
+    const prev = centerline[Math.max(idx - 1, 0)];
     checkpoints.push({
       x: p.x,
       y: p.y,
       index: idx,
-      angle: Math.atan2(next.y - p.y, next.x - p.x),
+      angle: Math.atan2(next.y - prev.y, next.x - prev.x),
     });
   }
 
-  // Start pose: on the line, facing along the track (counter-clockwise here).
+  // Start pose: on the line, facing south along Ferry Road.
   const start = centerline[0];
   const startNext = centerline[1];
   const tx = startNext.x - start.x;
@@ -87,13 +90,13 @@ export function buildTrack() {
   };
 }
 
-// Shortest distance from (px,py) to the closed centreline polyline.
+// Shortest distance from (px,py) to the open centreline polyline.
 export function distanceToCenterline(px, py, centerline) {
   let best = Infinity;
   const n = centerline.length;
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < n - 1; i++) {
     const a = centerline[i];
-    const b = centerline[(i + 1) % n];
+    const b = centerline[i + 1];
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const lenSq = dx * dx + dy * dy || 1;

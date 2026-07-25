@@ -12,7 +12,7 @@ export class Hud {
     this.layer = scene.add.container(0, 0).setScrollFactor(0).setDepth(889);
     this.bg = scene.add.graphics();
 
-    this.currentLabel = scene.add.text(0, 0, 'LAP TIME', {
+    this.currentLabel = scene.add.text(0, 0, 'POOTLE TIME', {
       ...panelStyle,
       fontStyle: '700',
     });
@@ -30,7 +30,7 @@ export class Hud {
       color: '#ffd166',
     });
     this.lap = scene.add
-      .text(0, 0, 'LAP 1', { ...panelStyle, fontStyle: '700' })
+      .text(0, 0, 'TO EASTBOURNE', { ...panelStyle, fontStyle: '700' })
       .setOrigin(0.5);
 
     this.flash = scene.add
@@ -139,7 +139,7 @@ export class Hud {
   }
 
   setLap(n) {
-    this.lap.setText(`LAP ${n}`);
+    this.lap.setText(`RUN ${n}`);
   }
 
   showMessage(text, color = '#ffd166') {

@@ -7,45 +7,43 @@ export const DESIGN = {
 };
 
 export const WORLD = {
-  width: 3000,
-  height: 2000,
+  width: 2400,
+  height: 5000,
 };
 
-// The circuit is a hand-authored closed loop: a long bottom straight, sweeping
-// right-handers, a top ess, and a left sweeper back to the line. Points are
-// smoothed with a periodic Catmull-Rom spline in track.js.
+// Eastbourne Pootle's compressed north-to-south route. The harbour stays on
+// the player's left until the village, before the road turns inland to the RSA.
 export const TRACK = {
   anchors: [
-    { x: 760, y: 1560 },
-    { x: 1700, y: 1660 },
-    { x: 2400, y: 1520 },
-    { x: 2720, y: 1170 },
-    { x: 2520, y: 820 },
-    { x: 2660, y: 470 },
-    { x: 2080, y: 400 },
-    { x: 1680, y: 560 },
-    { x: 1250, y: 380 },
-    { x: 760, y: 440 },
-    { x: 400, y: 820 },
-    { x: 470, y: 1240 },
-    { x: 560, y: 1480 },
+    { x: 800, y: 400 },
+    { x: 650, y: 700 },
+    { x: 740, y: 1100 },
+    { x: 610, y: 1580 },
+    { x: 740, y: 2100 },
+    { x: 580, y: 2660 },
+    { x: 720, y: 3200 },
+    { x: 640, y: 3700 },
+    { x: 850, y: 4050 },
+    { x: 1250, y: 4200 },
+    { x: 1450, y: 4470 },
+    { x: 1280, y: 4740 },
   ],
-  roadWidth: 300, // full width of the tarmac — wide, for drifting room
+  roadWidth: 180,
   samplesPerSegment: 20, // spline smoothness
-  numCheckpoints: 6, // includes the start/finish gate (index 0)
+  numCheckpoints: 10,
 };
 
 // Arcade handling: fast, punchy, and slidey. Beryl carries a real velocity
 // vector so she can drift — grip on the sideways component is high normally and
 // drops sharply on the handbrake (see entities/Car.js).
 export const CAR = {
-  maxSpeed: 940, // px/s on tarmac
-  accel: 900, // px/s^2 under throttle — snappy launch
-  brakeDecel: 1600, // px/s^2 braking against motion
-  reverseAccel: 340,
-  maxReverse: 240,
-  coastDrag: 150, // gentle slow-down when coasting (keeps momentum)
-  overspeedDrag: 700, // pulls back toward the surface's max speed
+  maxSpeed: 60, // px/s; tuned for an approximately two-minute clean run
+  accel: 72,
+  brakeDecel: 150,
+  reverseAccel: 42,
+  maxReverse: 30,
+  coastDrag: 12,
+  overspeedDrag: 90,
   turnRate: 3.3, // rad/s at speed
   lowSpeedTurn: 0.5, // fraction of turn available near standstill
   gripNormal: 9.0, // sideways grip on tarmac (high = sticky)
@@ -53,11 +51,11 @@ export const CAR = {
   gripGrass: 4.0, // sideways grip off-track (loose)
   driftTurnBoost: 1.5, // extra steering authority mid-drift
   grassMaxSpeedFactor: 0.5, // top speed multiplier off-track
-  grassDrag: 900, // extra slow-down off-track
-  driftLateral: 70, // |sideways speed| above this counts as a drift (fx/skids)
+  grassDrag: 100, // extra slow-down off-track
+  driftLateral: 14, // |sideways speed| above this counts as a drift (fx/skids)
 };
 
-export const STORAGE_KEY = 'beryl-racing.bestLapMs.v1';
+export const STORAGE_KEY = 'beryl-racing.eastbourne-pootle.bestTimeMs.v1';
 
 // Gilmore Games house palette (see gilmore-directory/docs/ART-DIRECTION.md).
 export const COLORS = {

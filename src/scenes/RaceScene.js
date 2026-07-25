@@ -25,13 +25,19 @@ export class RaceScene extends Phaser.Scene {
 
     // World + grass backdrop.
     this.cameras.main.setBounds(0, 0, WORLD.width, WORLD.height);
-    this.add.tileSprite(0, 0, WORLD.width, WORLD.height, 'grass').setOrigin(0).setDepth(0);
+    const ground = this.add.graphics().setDepth(0);
+    ground.fillStyle(COLORS.hill, 1);
+    ground.fillRect(0, 0, WORLD.width, WORLD.height);
+
+    this.drawEastbourneSetting();
 
     this.scatterTrees();
     this.drawTrack();
 
-    // Persistent skid-mark layer (above tarmac, below car).
-    this.skidRT = this.add.renderTexture(0, 0, WORLD.width, WORLD.height).setOrigin(0).setDepth(3);
+    // Persistent vector skid layer. A world-sized RenderTexture would exceed
+    // common mobile GPU texture limits on this long point-to-point course.
+    this.skidMarks = this.add.graphics().setDepth(3);
+    this.lastSkid = null;
 
     // Drift smoke (white) and off-track dust (tan) — separate emitters so we
     // never have to retint at runtime.
@@ -100,6 +106,7 @@ export class RaceScene extends Phaser.Scene {
     this.expected = 1;
     this.lapStartTime = 0;
     this.timing = false;
+    this.finished = false;
     this.wasOnTrack = true;
 
     this.input.keyboard.once('keydown-ESC', () => this.scene.start('Title'));
@@ -122,25 +129,17 @@ export class RaceScene extends Phaser.Scene {
     // green stripe through the masked tarmac on tight curves.
     const apron = this.add.graphics().setDepth(0.5);
     apron.lineStyle(54, COLORS.deepHill, 0.95);
-    apron.strokePoints(this.closed(left), true);
-    apron.strokePoints(this.closed(right), true);
+    apron.strokePoints(left, false);
+    apron.strokePoints(right, false);
 
-    // Tarmac is drawn in two layers so the road is always solid — this is what
-    // kills the grass-green stripe that used to cut across the start/finish
-    // straight:
-    //
-    //   1. A SOLID road base: the ribbon filled as per-segment quads (left[i],
-    //      left[i+1], right[i+1], right[i]) in the flat tarmac colour. These are
-    //      ordinary alpha-blended fills, so overlapping quads on curves simply
-    //      union — no gap can ever appear here.
-    //   2. The subtle tiled asphalt TEXTURE on top, masked to the same ribbon.
-    //      A geometry (stencil) mask can drop the odd doubly-covered pixel by
-    //      parity, but any such seam now reveals the identical-grey base beneath
-    //      rather than the grass, so it's invisible.
+    // Draw the road as flat per-segment quads. The previous world-sized tiled
+    // texture plus geometry mask made this long route run at single-digit FPS
+    // on integrated/mobile GPUs. The low-contrast base is both clearer and far
+    // cheaper; small surface detail can be added later as camera-local decals.
     const quads = [];
     const n = left.length;
-    for (let i = 0; i < n; i++) {
-      const j = (i + 1) % n;
+    for (let i = 0; i < n - 1; i++) {
+      const j = i + 1;
       quads.push([
         new Phaser.Geom.Point(left[i].x, left[i].y),
         new Phaser.Geom.Point(left[j].x, left[j].y),
@@ -153,23 +152,54 @@ export class RaceScene extends Phaser.Scene {
     roadBase.fillStyle(COLORS.tarmac, 1);
     for (const q of quads) roadBase.fillPoints(q, true);
 
-    const maskShape = this.make.graphics({ x: 0, y: 0, add: false });
-    maskShape.fillStyle(0xffffff, 1);
-    for (const q of quads) maskShape.fillPoints(q, true);
-    const tarmac = this.add
-      .tileSprite(0, 0, WORLD.width, WORLD.height, 'tarmac')
-      .setOrigin(0)
-      .setDepth(1.05);
-    tarmac.setMask(maskShape.createGeometryMask());
-
-    // Red/white rumble-strip kerbs on both edges.
+    // Warm painted road edges keep the route obvious without making the public
+    // coastal road look like a purpose-built racing circuit.
     this.drawKerb(left);
     this.drawKerb(right);
 
-    this.placeTyreBarriers();
-    this.placeHayBales();
-    this.drawCheckpointGates();
     this.placeStartGantry();
+    this.placeFinishAndLandmarks();
+  }
+
+  drawEastbourneSetting() {
+    const water = this.add.graphics().setDepth(0.1);
+    water.fillStyle(0x4fadd0, 1);
+    water.fillRect(0, 0, 400, 4000);
+    water.lineStyle(20, 0xffe2a6, 0.9);
+    water.lineBetween(400, 0, 400, 4000);
+    for (let y = 200; y < 3950; y += 150) {
+      water.lineStyle(5, 0xb9e1e8, 0.35);
+      water.lineBetween(40, y, 330, y + 25);
+    }
+    // A continuous seawall makes the harbour visible but unreachable.
+    for (let y = 450; y < 4000; y += 50) this.obstacles.push({ x: 420, y, r: 32 });
+  }
+
+  placeFinishAndLandmarks() {
+    const labels = [
+      [830, 300, '28 FERRY ROAD'],
+      [470, 1100, 'DAYS BAY WHARF'],
+      [900, 1580, 'WILLIAMS PARK'],
+      [470, 2660, 'RONA BAY'],
+      [920, 3700, 'EASTBOURNE VILLAGE'],
+      [1420, 4740, 'EASTBOURNE RSA'],
+    ];
+    for (const [x, y, text] of labels) {
+      this.add.text(x, y, text, {
+        fontFamily: FONT, fontSize: '34px', fontStyle: '700',
+        color: '#fff8e7', backgroundColor: '#15314bcc', padding: { x: 14, y: 8 },
+      }).setOrigin(0.5).setDepth(7);
+    }
+    const finish = this.track.checkpoints.at(-1);
+    this.add.text(finish.x, finish.y + 190, 'FINISH • RSA', {
+      fontFamily: FONT, fontSize: '42px', fontStyle: '700', color: '#15314b',
+      backgroundColor: '#ffd166', padding: { x: 18, y: 10 },
+    }).setOrigin(0.5).setDepth(7);
+    const arrow = this.add.text(980, 4010, 'TURN INLAND  ➜', {
+      fontFamily: FONT, fontSize: '44px', fontStyle: '700', color: '#fff8e7',
+      stroke: '#15314b', strokeThickness: 8,
+    }).setOrigin(0.5).setDepth(7);
+    arrow.setRotation(0.15);
   }
 
   placeHayBales() {
@@ -205,9 +235,9 @@ export class RaceScene extends Phaser.Scene {
     cx /= n;
     cy /= n;
     const off = this.track.half + 30;
-    for (let i = 0; i < n; i += 20) {
-      const a = cl[(i - 1 + n) % n];
-      const b = cl[(i + 1) % n];
+    for (let i = 10; i < n - 10; i += 20) {
+      const a = cl[i - 1];
+      const b = cl[i + 1];
       let tx = b.x - a.x;
       let ty = b.y - a.y;
       const L = Math.hypot(tx, ty) || 1;
@@ -248,11 +278,10 @@ export class RaceScene extends Phaser.Scene {
   drawKerb(edge) {
     const g = this.add.graphics().setDepth(2);
     const n = edge.length;
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < n - 1; i++) {
       const a = edge[i];
-      const b = edge[(i + 1) % n];
-      const red = Math.floor(i / 3) % 2 === 0;
-      g.lineStyle(15, red ? COLORS.red : 0xffffff, 1);
+      const b = edge[i + 1];
+      g.lineStyle(10, COLORS.cream, 0.95);
       g.beginPath();
       g.moveTo(a.x, a.y);
       g.lineTo(b.x, b.y);
@@ -289,6 +318,7 @@ export class RaceScene extends Phaser.Scene {
       tries++;
       const x = Phaser.Math.Between(120, WORLD.width - 120);
       const y = Phaser.Math.Between(120, WORLD.height - 120);
+      if (x < 470 && y < 4050) continue; // no trees in Wellington Harbour
       const d = distanceToCenterline(x, y, this.track.centerline);
       if (d < TRACK.roadWidth / 2 + 90) continue; // keep clear of the track
       const key = Phaser.Utils.Array.GetRandom(variants);
@@ -482,26 +512,32 @@ export class RaceScene extends Phaser.Scene {
     const axle = car.rearAxle();
 
     // Skid marks when drifting or handbraking on tarmac.
-    if (onTrack && (car.drifting || (input.handbrake && Math.abs(car.speed) > 120))) {
-      this.skidRT.draw('skid', axle.left.x, axle.left.y);
-      this.skidRT.draw('skid', axle.right.x, axle.right.y);
+    if (onTrack && (car.drifting || (input.handbrake && Math.abs(car.speed) > 25))) {
+      this.skidMarks.lineStyle(7, 0x202124, 0.45);
+      if (this.lastSkid) {
+        this.skidMarks.lineBetween(this.lastSkid.left.x, this.lastSkid.left.y, axle.left.x, axle.left.y);
+        this.skidMarks.lineBetween(this.lastSkid.right.x, this.lastSkid.right.y, axle.right.x, axle.right.y);
+      }
+      this.lastSkid = { left: { ...axle.left }, right: { ...axle.right } };
+    } else {
+      this.lastSkid = null;
     }
 
     // Smoke on drift, dusty puffs off-track.
     if (car.drifting && onTrack) {
       this.smoke.emitParticleAt(axle.center.x, axle.center.y, 2);
-    } else if (!onTrack && Math.abs(car.speed) > 120) {
+    } else if (!onTrack && Math.abs(car.speed) > 25) {
       this.dust.emitParticleAt(axle.center.x, axle.center.y, 1);
     }
 
     // Dynamic zoom: pull back with speed for a sense of pace.
-    const speedRatio = Phaser.Math.Clamp(Math.abs(car.speed) / 940, 0, 1);
+    const speedRatio = Phaser.Math.Clamp(Math.abs(car.speed) / CAR.maxSpeed, 0, 1);
     const targetZoom = this.baseZoom - 0.12 * speedRatio;
     const cam = this.cameras.main;
     cam.setZoom(Phaser.Math.Linear(cam.zoom, targetZoom, 0.05));
 
     // A little kick when you drop onto the grass.
-    if (this.wasOnTrack && !onTrack && Math.abs(car.speed) > 200) {
+    if (this.wasOnTrack && !onTrack && Math.abs(car.speed) > 40) {
       cam.shake(120, 0.006);
     }
     this.wasOnTrack = onTrack;
@@ -513,15 +549,14 @@ export class RaceScene extends Phaser.Scene {
     const d = Phaser.Math.Distance.Between(this.car.x, this.car.y, target.x, target.y);
     if (d > this.captureRadius) return;
 
-    if (this.expected === 0) {
-      this.completeLap();
-      this.expected = 1;
-    } else {
-      this.expected = (this.expected + 1) % cps.length;
-    }
+    if (this.expected === cps.length - 1) this.completeLap();
+    else this.expected += 1;
   }
 
   completeLap() {
+    if (this.finished) return;
+    this.finished = true;
+    this.timing = false;
     const now = this.time.now;
     const lapMs = now - this.lapStartTime;
     this.lapStartTime = now;
@@ -531,13 +566,42 @@ export class RaceScene extends Phaser.Scene {
       this.best = lapMs;
       localStorage.setItem(STORAGE_KEY, String(Math.floor(lapMs)));
       this.hud.setBest(lapMs);
-      this.hud.showMessage('NEW BEST LAP!', '#ffd166');
+      this.hud.showMessage('NEW BEST TIME!', '#ffd166');
       this.cameras.main.flash(240, 255, 209, 102);
     } else {
-      this.hud.showMessage('LAP COMPLETE', '#fff8e7');
+      this.hud.showMessage('POOTLE COMPLETE', '#fff8e7');
     }
 
-    this.lapNumber += 1;
-    this.hud.setLap(this.lapNumber);
+    this.time.delayedCall(700, () => this.showResults(lapMs));
+  }
+
+  showResults(timeMs) {
+    const w = this.scale.width;
+    const h = this.scale.height;
+    const panel = this.add.container(w / 2, h / 2).setDepth(1400);
+    const bg = this.add.graphics();
+    bg.fillStyle(COLORS.ink, 0.96);
+    bg.lineStyle(5, COLORS.sunshine, 1);
+    bg.fillRoundedRect(-310, -190, 620, 380, 30);
+    bg.strokeRoundedRect(-310, -190, 620, 380, 30);
+    const title = this.add.text(0, -120, 'POOTLE COMPLETE!', {
+      fontFamily: FONT, fontSize: '48px', fontStyle: '700', color: '#ffd166',
+    }).setOrigin(0.5);
+    const message = this.add.text(0, -50, 'Phew! Just in time for a beer.', {
+      fontFamily: FONT, fontSize: '25px', color: '#fff8e7', align: 'center',
+    }).setOrigin(0.5);
+    const time = this.add.text(0, 10, this.hud.current.text, {
+      fontFamily: FONT, fontSize: '42px', fontStyle: '700', color: '#2ec4d6',
+    }).setOrigin(0.5);
+    const retry = this.add.text(0, 105, '↻  POOTLE AGAIN', {
+      fontFamily: FONT, fontSize: '30px', fontStyle: '700', color: '#15314b',
+      backgroundColor: '#ffd166', padding: { x: 28, y: 14 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    retry.on('pointerup', () => this.scene.restart());
+    panel.add([bg, title, message, time, retry]);
+    this.uiObjects.push(panel);
+    this.cameras.main.ignore(panel);
+    this.uiCamera.ignore([]);
+    void timeMs;
   }
 }
