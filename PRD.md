@@ -1,8 +1,15 @@
 # Beryl Racing — Product Requirements Document
 
-**Status:** Approved PRD, pre-build
+**Status:** Post-MVP — shipping, multi-course
 **Owner:** Ben Gilmore
-**Last updated:** 2026-07-24
+**Last updated:** 2026-07-25
+
+> **Beyond the MVP.** The MVP acceptance criteria in §12 are met and the game is
+> playable. Development has moved past the original single-course MVP: the game
+> now ships **multiple selectable courses** (see §6), starting with **Eastbourne
+> Pootle** (coastal point-to-point) and **Manfield Racetrack** (the original
+> closed drift circuit), chosen from a course selector on the title screen. Items
+> in §13 are reprioritised accordingly — multiple tracks are now **in**.
 
 ---
 
@@ -89,14 +96,28 @@ grass drag) are tunable constants so we can dial in the feel.
 
 ---
 
-## 6. Track
+## 6. Courses
 
-- **One closed-loop circuit** for the MVP.
+The game ships **multiple selectable courses**, chosen from a course selector on
+the title screen. Each course is a self-contained definition (world size, road
+geometry, handling model, decoration theme, game mode, HUD/finish copy and its
+own best-time storage key), so records don't clash between them.
+
+Two courses ship today, in two game modes:
+
+- **Eastbourne Pootle** — an **open point-to-point sprint**: one timed run from
+  Days Bay to the Eastbourne RSA, harbour on the player's left.
+- **Manfield Racetrack** — a **closed-loop circuit** for continuous lap racing;
+  the original MVP course, restored as a second option.
+
+All courses share the core rules:
+
 - Distinct **track surface** vs. **off-track (grass)** regions.
-- A **start/finish line**.
-- **3–5 checkpoints** placed around the lap. A lap only counts when the player
-  passes **all checkpoints in order** and then crosses the start/finish line —
-  this prevents shortcut cheating and reversing across the line.
+- A **start/finish line** (start-and-finish gate on point-to-point courses).
+- **Ordered checkpoints** placed along the route. Progress only counts when the
+  player passes **all checkpoints in order** — on a circuit a lap closes by
+  crossing the start/finish line again; on a point-to-point the run ends at the
+  final gate. This prevents shortcut cheating and reversing across the line.
 
 ---
 
@@ -244,18 +265,25 @@ This is a deploy checklist item, **not** part of building this repo.
 
 ---
 
-## 13. Out of scope for MVP (future roadmap)
+## 13. Roadmap
+
+**Delivered since the MVP:**
+
+- ✅ **Multiple courses** with a title-screen selector (Eastbourne Pootle +
+  Manfield Racetrack) — see §6.
+- ✅ **Music and a synthesised engine** (per-course music brief in the track PRDs).
+- ✅ **Drift mechanics / arcade handling** (velocity-vector drift, handbrake).
+
+**Still on the roadmap (deferred):**
 
 - Ghost car replay (race your best lap).
-- Multiple tracks.
-- Leaderboards.
+- Leaderboards / online best times.
 - AI opponents.
-- Sound effects and music.
-- Drift mechanics / advanced handling.
+- Additional courses (e.g. Remutaka Hill Climb, Ōtaki Rally — art briefs exist).
 - Car customisation.
 
-> Note: mobile/touch, fullscreen, and responsive scaling are **in** the MVP —
-> only the items above are deferred.
+> Note: mobile/touch, fullscreen, and responsive scaling were **in** the MVP and
+> remain core.
 
 ---
 

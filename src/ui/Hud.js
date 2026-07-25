@@ -1,6 +1,7 @@
-// Race HUD: current / last / best lap, lap counter, and a "New best!" flash.
-// The whole HUD sits in an inverse-zoom layer so its screen-edge positions are
-// unaffected by the following race camera.
+// Race HUD: current / last / best time, progress readout, and a "New best!"
+// flash. Labels come from the active course (scene.def.hud). The whole HUD sits
+// in an inverse-zoom layer so its screen-edge positions are unaffected by the
+// following race camera.
 import { formatTime, FONT, uiScale, isCompact, pinUiLayer } from './format.js';
 import { COLORS } from '../config.js';
 
@@ -8,11 +9,12 @@ export class Hud {
   constructor(scene) {
     this.scene = scene;
     const panelStyle = { fontFamily: FONT, color: '#fff8e7' };
+    this.hudCopy = (scene.def && scene.def.hud) || {};
 
     this.layer = scene.add.container(0, 0).setScrollFactor(0).setDepth(889);
     this.bg = scene.add.graphics();
 
-    this.currentLabel = scene.add.text(0, 0, 'POOTLE TIME', {
+    this.currentLabel = scene.add.text(0, 0, this.hudCopy.current || 'LAP TIME', {
       ...panelStyle,
       fontStyle: '700',
     });
@@ -30,7 +32,7 @@ export class Hud {
       color: '#ffd166',
     });
     this.lap = scene.add
-      .text(0, 0, 'TO EASTBOURNE', { ...panelStyle, fontStyle: '700' })
+      .text(0, 0, this.hudCopy.progress || '', { ...panelStyle, fontStyle: '700' })
       .setOrigin(0.5);
 
     this.flash = scene.add
@@ -139,7 +141,7 @@ export class Hud {
   }
 
   setLap(n) {
-    this.lap.setText(`RUN ${n}`);
+    this.lap.setText(`${this.hudCopy.lapWord || 'LAP'} ${n}`);
   }
 
   showMessage(text, color = '#ffd166') {
