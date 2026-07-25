@@ -206,15 +206,10 @@ export class RaceScene extends Phaser.Scene {
     for (let y = 450; y < 4000; y += 50) this.obstacles.push({ x: 420, y, r: 32 });
   }
 
+  // Roadside landmark labels, advance arrows and the finish marker — all driven
+  // by the active course def so every sprint course supplies its own set.
   placeFinishAndLandmarks() {
-    const labels = [
-      [830, 300, '28 FERRY ROAD'],
-      [470, 1100, 'DAYS BAY WHARF'],
-      [900, 1580, 'WILLIAMS PARK'],
-      [470, 2660, 'RONA BAY'],
-      [920, 3700, 'EASTBOURNE VILLAGE'],
-      [1420, 4740, 'EASTBOURNE RSA'],
-    ];
+    const labels = this.def.landmarks || [];
     for (const [x, y, text] of labels) {
       this.add.text(x, y, text, {
         fontFamily: FONT, fontSize: '34px', fontStyle: '700',
@@ -222,15 +217,16 @@ export class RaceScene extends Phaser.Scene {
       }).setOrigin(0.5).setDepth(7);
     }
     const finish = this.track.checkpoints.at(-1);
-    this.add.text(finish.x, finish.y + 190, 'FINISH • RSA', {
+    this.add.text(finish.x, finish.y + 190, this.def.finishLabel || 'FINISH', {
       fontFamily: FONT, fontSize: '42px', fontStyle: '700', color: '#15314b',
       backgroundColor: '#ffd166', padding: { x: 18, y: 10 },
     }).setOrigin(0.5).setDepth(7);
-    const arrow = this.add.text(980, 4010, 'TURN INLAND  ➜', {
-      fontFamily: FONT, fontSize: '44px', fontStyle: '700', color: '#fff8e7',
-      stroke: '#15314b', strokeThickness: 8,
-    }).setOrigin(0.5).setDepth(7);
-    arrow.setRotation(0.15);
+    for (const a of this.def.arrows || []) {
+      this.add.text(a.x, a.y, a.text, {
+        fontFamily: FONT, fontSize: '44px', fontStyle: '700', color: '#fff8e7',
+        stroke: '#15314b', strokeThickness: 8,
+      }).setOrigin(0.5).setDepth(7).setRotation(a.rot || 0);
+    }
   }
 
   placeHayBales() {
