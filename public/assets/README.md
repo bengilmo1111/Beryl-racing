@@ -1,58 +1,120 @@
 # Assets
 
-- **`beryl-photo.png`** — the real photo of Beryl (turquoise Morris Minor 1000).
-  Loaded via `BERYL_PHOTO_URL` in `src/art.js` and shown as the title-screen
-  hero. It's also the reference for the top-down driving sprite.
-- **`music-race.mp3`** — 1960s Beach Boys-style race music (looping background
-  track). Loaded in `BootScene`, played via `src/audio/sound.js`. The driving
-  engine sound is synthesised in code (`src/audio/EngineSound.js`), no file.
+## Art documentation
 
-The **top-down driving car** and the **track** are otherwise **drawn
-procedurally in code** (`src/art.js`), so gameplay has no runtime image
-dependency and works cleanly beneath the `/beryl-racing/` base path.
+The authoritative art documents are:
+
+- [`docs/ART-DIRECTION.md`](../../docs/ART-DIRECTION.md) — the shared visual identity for Beryl, the game world, UI and all tracks.
+- [`docs/ART-PRODUCTION.md`](../../docs/ART-PRODUCTION.md) — the workflow for reference gathering, asset specification, image generation, approval, optimisation and integration.
+- [`docs/tracks/EASTBOURNE-ART-BRIEF.md`](../../docs/tracks/EASTBOURNE-ART-BRIEF.md)
+- [`docs/tracks/REMUTAKA-ART-BRIEF.md`](../../docs/tracks/REMUTAKA-ART-BRIEF.md)
+- [`docs/tracks/OTAKI-ART-BRIEF.md`](../../docs/tracks/OTAKI-ART-BRIEF.md)
+
+`src/art.js` contains implementation helpers and useful legacy prompt constants. It is not the primary creative brief for new track art. New work must follow the shared art direction, production guide and relevant track brief.
+
+## Current assets
+
+- **`beryl-photo.png`** — the real photo of Beryl, a turquoise 1960s Morris Minor 1000. Loaded via `BERYL_PHOTO_URL` in `src/art.js`, shown on the title screen and used as the primary identity reference for the gameplay sprite.
+- **`music-race.mp3`** — the current looping 1960s-inspired race music. Loaded in `BootScene` and played through `src/audio/sound.js`.
+- **`tarmac.png`** — seamless asphalt surface texture.
+- **`grass.png`** — seamless grass texture.
+- **`tree-1.png`, `tree-2.png`, `tree-3.png`** — top-down tree variants.
+- **`tyre-barrier.png`** — top-down tyre barrier.
+- **`hay-bale.png`** — top-down hay-bale prop.
+- **`start-gantry.png`** — start/finish gantry.
+
+The driving engine sound is synthesised in code by `src/audio/EngineSound.js`.
+
+The current top-down gameplay version of Beryl is drawn procedurally in `src/art.js`. A generated sprite may replace it after approval and in-game testing.
+
+## Target structure
+
+The repository may migrate incrementally towards:
+
+```text
+public/assets/
+  shared/
+    beryl/
+    surfaces/
+    vegetation/
+    roadside/
+    ui/
+  tracks/
+    eastbourne/
+    remutaka/
+    otaki/
+```
+
+Do not move existing assets solely to match this structure if doing so would break current paths. New track-specific assets should use the target structure unless the implementation requires a deliberate transitional path.
 
 ## Generating a top-down Beryl sprite
 
-`src/art.js` contains a full specification for an image generator —
-`BERYL_TOPDOWN_SPRITE_PROMPT` (a ready-to-use prompt string) plus a detailed
-comment block covering the hard requirements (strict top-down, nose-up,
-transparent background, canvas size) and Beryl's identity (colours, whitewalls,
-chrome, red pinstripe). Feed that prompt to the image agent, using
-`beryl-photo.png` here as the visual reference.
+Use all of the following:
 
-## Environment art (optional, to replace the coded track/scenery)
+1. `public/assets/beryl-photo.png` as the visual identity reference.
+2. The Beryl section in `docs/ART-DIRECTION.md`.
+3. The production workflow in `docs/ART-PRODUCTION.md`.
+4. The hard orientation and transparency requirements in `src/art.js`.
 
-`src/art.js` also has ready-to-use prompts + specs for these. Generate any of
-them, save with the **exact filename**, and tell me — I'll wire each in.
+Hard requirements:
 
-| Filename | What | Prompt constant |
-|---|---|---|
-| `tarmac.png` | Seamless 512×512 opaque asphalt tile | `TARMAC_TEXTURE_PROMPT` |
-| `grass.png` | Seamless 512×512 opaque grass tile | `GRASS_TEXTURE_PROMPT` |
-| `tree-1.png`, `tree-2.png`, `tree-3.png` | Top-down tree variants, transparent | `TREE_PROMPT` |
-| `tyre-barrier.png` | Top-down tyre barrier, transparent | `TYRE_BARRIER_PROMPT` |
-| `hay-bale.png` | Top-down straw bale, transparent | `HAY_BALE_PROMPT` |
-| `start-gantry.png` | Wide start/finish banner (optional) | `START_GANTRY_PROMPT` |
+- Strict top-down view.
+- Nose pointing up.
+- Transparent background.
+- Centred with rotation-safe padding.
+- Recognisable turquoise Morris Minor shape.
+- Readable at gameplay scale.
 
-**Textures (`tarmac.png`, `grass.png`)** must be **seamless** (tile with no
-visible seam), **fully opaque**, square, and low-contrast so the car/kerbs stay
-readable. **Props** must be **transparent** top-down sprites with a soft shadow
-baked underneath.
+Do not wire the sprite into the game until it has been explicitly approved and checked in-game on desktop and landscape mobile.
 
-## Swapping in a generated Beryl sprite later
+## Shared environment assets
 
-If you produce a top-down PNG of Beryl (e.g. via an image-generator agent):
+### Textures
 
-1. Save it here as `beryl.png` — top-down, **nose pointing up**, transparent
-   background, roughly 128×256 px.
-2. In `src/scenes/BootScene.js`, load it with a base-path-aware URL and skip the
-   procedural draw:
+Textures such as asphalt, gravel and grass must be:
 
-   ```js
-   // preload():
-   this.load.image('beryl', `${import.meta.env.BASE_URL}assets/beryl.png`);
-   // and remove the drawBeryl(this) call in create()
-   ```
+- Seamless.
+- Fully opaque.
+- Square and preferably power-of-two.
+- Low contrast.
+- Free of baked road markings and directional shadows unless they are intentionally non-tiled.
 
-Always build asset URLs from `import.meta.env.BASE_URL` (never a root-relative
-`/assets/...`) so they resolve under the directory base path.
+### Props
+
+Props such as trees, barriers, fences, bales and signs must be:
+
+- Top-down.
+- Transparent PNGs.
+- Centred with appropriate padding.
+- Lit consistently.
+- Readable at final gameplay scale.
+- Supplied with a simple intended collision footprint.
+
+### Landmarks
+
+Real-place landmarks must be generated from a small reference pack and an explicit asset specification. Important sign text should be added in code or controlled editing rather than trusted to image generation.
+
+## Base-path requirement
+
+Always build asset URLs from `import.meta.env.BASE_URL` or a safe relative path. Never introduce root-relative `/assets/...` references, because production is served beneath `/beryl-racing/`.
+
+Example:
+
+```js
+this.load.image(
+  'beryl',
+  `${import.meta.env.BASE_URL}assets/shared/beryl/beryl-topdown.png`,
+);
+```
+
+## Asset completion check
+
+An asset is complete only when:
+
+- It has explicit approval.
+- Its dimensions, transparency and filename are correct.
+- It matches the shared art direction and track brief.
+- It is optimised without visible corruption.
+- It loads beneath `/beryl-racing/`.
+- Scale, collision and readability have been checked in-game.
+- It works on desktop and landscape mobile.
