@@ -1,9 +1,10 @@
-// Title screen: name, Beryl, Play button, fullscreen toggle, best-lap readout.
-// Everything is laid out from the live viewport size (RESIZE scale mode) and
-// reflows on resize / orientation change, so it fills the screen on any device
-// instead of being letterboxed into the middle.
+// Title screen: name, Beryl, a course selector, Play button, fullscreen toggle
+// and best-time readout for the chosen course. Everything is laid out from the
+// live viewport size (RESIZE scale mode) and reflows on resize / orientation
+// change, so it fills the screen on any device instead of being letterboxed.
 import Phaser from 'phaser';
 import { COLORS, STORAGE_KEY } from '../config.js';
+import { TRACKS, getSelectedTrack, getSelectedTrackId, setSelectedTrack } from '../tracks.js';
 import { FONT, formatTime, uiScale } from '../ui/format.js';
 import { createFullscreenButton } from '../ui/fullscreen.js';
 import { createSoundButton } from '../ui/soundButton.js';
@@ -29,7 +30,7 @@ export class TitleScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(2);
     this.subtitleText = this.add
-      .text(0, 0, 'EASTBOURNE POOTLE', { fontFamily: FONT, fontStyle: '700', color: '#fff8e7' })
+      .text(0, 0, '', { fontFamily: FONT, fontStyle: '700', color: '#fff8e7' })
       .setOrigin(0.5)
       .setDepth(2);
 
@@ -37,13 +38,29 @@ export class TitleScene extends Phaser.Scene {
     this.beryl = addBerylPhoto(this, 0, 0, 500, 235).setDepth(2);
     this.berylBaseY = 0;
 
-    // Best lap so far.
+    // Course selector — a small heading plus one button per course.
+    this.selectorLabel = this.add
+      .text(0, 0, 'CHOOSE YOUR COURSE', { fontFamily: FONT, fontStyle: '700', color: '#fff8e7' })
+      .setOrigin(0.5)
+      .setDepth(2)
+      .setAlpha(0.85);
+    this.trackButtons = TRACKS.map((def) => {
+      const btn = this.add
+        .text(0, 0, def.name, { fontFamily: FONT, fontStyle: '700', align: 'center' })
+        .setOrigin(0.5)
+        .setDepth(2)
+        .setInteractive({ useHandCursor: true });
+      btn.on('pointerover', () => btn.setScale(1.04));
+      btn.on('pointerout', () => btn.setScale(1));
+      btn.on('pointerup', () => this.selectTrack(def.id));
+      return { def, btn };
+    });
+
+    // Best time so far, for the chosen course.
     this.bestText = this.add
       .text(0, 0, '', { fontFamily: FONT, fontStyle: '700', color: '#fff8e7' })
       .setOrigin(0.5)
       .setDepth(2);
-    const best = Number(localStorage.getItem(STORAGE_KEY));
-    if (best > 0) this.bestText.setText(`Eastbourne best  ${formatTime(best)}`);
 
     // Play button — big, friendly, easy to tap.
     this.play = this.add
@@ -90,9 +107,35 @@ export class TitleScene extends Phaser.Scene {
     createFullscreenButton(this);
     createSoundButton(this);
 
+    // Reflect whatever course is currently selected (restored from last time).
+    this.refreshSelection();
+
     this.layout();
     this.scale.on('resize', this.layout, this);
     this.events.once('shutdown', () => this.scale.off('resize', this.layout, this));
+  }
+
+  selectTrack(id) {
+    setSelectedTrack(id);
+    this.refreshSelection();
+    this.layout();
+  }
+
+  // Update the subtitle, best-time readout and button styling to match the
+  // currently selected course.
+  refreshSelection() {
+    const def = getSelectedTrack();
+    const selId = getSelectedTrackId();
+    this.subtitleText.setText(def.name.toUpperCase());
+
+    const best = Number(localStorage.getItem(STORAGE_KEY));
+    this.bestText.setText(best > 0 ? `${def.bestLabel}  ${formatTime(best)}` : '');
+
+    for (const { def: d, btn } of this.trackButtons) {
+      const on = d.id === selId;
+      btn.setColor(on ? '#15314b' : '#fff8e7');
+      btn.setBackgroundColor(on ? '#ffd166' : '#15314bcc');
+    }
   }
 
   layout() {
@@ -109,10 +152,10 @@ export class TitleScene extends Phaser.Scene {
     this.subtitleText.setFontSize(subSize);
 
     // Banner sized to hold both lines, centred near the top.
-    const bannerW = Math.min(w * 0.86, Math.max(this.titleText.width, 520 * s) + 120 * s);
+    const bannerW = Math.min(w * 0.86, Math.max(this.titleText.width, this.subtitleText.width, 520 * s) + 120 * s);
     const bannerH = titleSize + subSize + 44 * s;
     const bannerX = w / 2;
-    const bannerY = h * 0.08;
+    const bannerY = h * 0.06;
     this.banner.clear();
     this.banner.fillStyle(COLORS.ink, 0.9);
     this.banner.fillRoundedRect(bannerX - bannerW / 2, bannerY, bannerW, bannerH, 28 * s);
@@ -121,15 +164,32 @@ export class TitleScene extends Phaser.Scene {
 
     // Beryl photo — sits in the middle band, scaled to the available space.
     const bannerBottom = bannerY + bannerH;
-    const photoMaxW = Math.min(w * 0.8, 640 * s);
-    const photoMaxH = h * 0.4;
+    const photoMaxW = Math.min(w * 0.72, 560 * s);
+    const photoMaxH = h * 0.3;
     const bscale = Math.min(photoMaxW / this.beryl.width, photoMaxH / this.beryl.height);
     this.beryl.setScale(bscale);
-    this.berylBaseY = (bannerBottom + h * 0.72) / 2;
+    this.berylBaseY = (bannerBottom + h * 0.56) / 2;
     this.beryl.setPosition(w / 2, this.berylBaseY);
 
-    // Best lap readout, just under Beryl.
-    this.bestText.setFontSize(Math.round(24 * s)).setPosition(w / 2, h * 0.78);
+    // Course selector.
+    this.selectorLabel.setFontSize(Math.round(18 * s)).setPosition(w / 2, h * 0.62);
+    const btnSize = Math.round(26 * s);
+    const gap = Math.round(24 * s);
+    let total = 0;
+    for (const { btn } of this.trackButtons) {
+      btn.setFontSize(btnSize).setPadding(Math.round(22 * s), Math.round(12 * s));
+      total += btn.width;
+    }
+    total += gap * (this.trackButtons.length - 1);
+    let x = w / 2 - total / 2;
+    const btnY = h * 0.7;
+    for (const { btn } of this.trackButtons) {
+      btn.setPosition(x + btn.width / 2, btnY);
+      x += btn.width + gap;
+    }
+
+    // Best-time readout, under the selector.
+    this.bestText.setFontSize(Math.round(24 * s)).setPosition(w / 2, h * 0.79);
 
     // Play button — generous tap target.
     const playSize = Math.round(44 * s);

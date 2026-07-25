@@ -1,61 +1,71 @@
-// Central place for tunable constants. Tweak these to change the feel.
+// Central place for shared constants and the *live* course configuration.
+//
+// The game now ships more than one course (see tracks.js). WORLD, TRACK, CAR and
+// STORAGE_KEY are no longer fixed: they describe whichever course is currently
+// selected. `applyTrack()` repopulates them in place, so modules that imported
+// these objects/bindings (Car.js, track.js, RaceScene, TitleScene) always read
+// the active course without needing to know which one it is.
 
 export const DESIGN = {
-  // Landscape design resolution; Scale.FIT letterboxes to any screen.
+  // Landscape design resolution; the Scale Manager fits this to any screen.
   width: 1280,
   height: 720,
 };
+
+// --- Live course configuration --------------------------------------------
+// These start as harmless neutral defaults and are overwritten by applyTrack()
+// the moment tracks.js loads (which happens before any scene is created).
 
 export const WORLD = {
   width: 2400,
   height: 5000,
 };
 
-// Eastbourne Pootle's compressed north-to-south route. The harbour stays on
-// the player's left until the village, before the road turns inland to the RSA.
 export const TRACK = {
   anchors: [
     { x: 800, y: 400 },
-    { x: 650, y: 700 },
-    { x: 740, y: 1100 },
-    { x: 610, y: 1580 },
-    { x: 740, y: 2100 },
-    { x: 580, y: 2660 },
-    { x: 720, y: 3200 },
-    { x: 640, y: 3700 },
-    { x: 850, y: 4050 },
-    { x: 1250, y: 4200 },
-    { x: 1450, y: 4470 },
     { x: 1280, y: 4740 },
   ],
   roadWidth: 180,
-  samplesPerSegment: 20, // spline smoothness
-  numCheckpoints: 10,
+  samplesPerSegment: 20,
+  numCheckpoints: 2,
+  closed: false,
 };
 
-// Arcade handling: fast, punchy, and slidey. Beryl carries a real velocity
-// vector so she can drift — grip on the sideways component is high normally and
-// drops sharply on the handbrake (see entities/Car.js).
 export const CAR = {
-  maxSpeed: 60, // px/s; tuned for an approximately two-minute clean run
+  maxSpeed: 60,
   accel: 72,
   brakeDecel: 150,
   reverseAccel: 42,
   maxReverse: 30,
   coastDrag: 12,
   overspeedDrag: 90,
-  turnRate: 3.3, // rad/s at speed
-  lowSpeedTurn: 0.5, // fraction of turn available near standstill
-  gripNormal: 9.0, // sideways grip on tarmac (high = sticky)
-  gripDrift: 2.4, // sideways grip while handbraking (low = slides)
-  gripGrass: 4.0, // sideways grip off-track (loose)
-  driftTurnBoost: 1.5, // extra steering authority mid-drift
-  grassMaxSpeedFactor: 0.5, // top speed multiplier off-track
-  grassDrag: 100, // extra slow-down off-track
-  driftLateral: 14, // |sideways speed| above this counts as a drift (fx/skids)
+  turnRate: 3.3,
+  lowSpeedTurn: 0.5,
+  gripNormal: 9.0,
+  gripDrift: 2.4,
+  gripGrass: 4.0,
+  driftTurnBoost: 1.5,
+  grassMaxSpeedFactor: 0.5,
+  grassDrag: 100,
+  driftLateral: 14,
 };
 
-export const STORAGE_KEY = 'beryl-racing.eastbourne-pootle.bestTimeMs.v1';
+// Best-time storage key for the active course. It's a `let` (not `const`) so
+// applyTrack() can point it at the selected course's key; ES-module live
+// bindings mean importers see the update automatically.
+export let STORAGE_KEY = 'beryl-racing.eastbourne-pootle.bestTimeMs.v1';
+
+// Copy a course definition (see tracks.js) into the live config objects. TRACK
+// is fully replaced (old geometry keys cleared first) so no stale field from a
+// previously selected course can leak through.
+export function applyTrack(def) {
+  Object.assign(WORLD, def.world);
+  Object.assign(CAR, def.physics);
+  for (const k of Object.keys(TRACK)) delete TRACK[k];
+  Object.assign(TRACK, def.geometry);
+  STORAGE_KEY = def.storageKey;
+}
 
 // Gilmore Games house palette (see gilmore-directory/docs/ART-DIRECTION.md).
 export const COLORS = {

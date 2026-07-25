@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { WORLD, TRACK, COLORS, STORAGE_KEY } from '../config.js';
+import { getSelectedTrack } from '../tracks.js';
 import { buildTrack, distanceToCenterline } from '../track.js';
 import { Car } from '../entities/Car.js';
 import { Hud } from '../ui/Hud.js';
@@ -17,6 +18,10 @@ export class RaceScene extends Phaser.Scene {
   }
 
   create() {
+    // Which course are we driving? Everything themed keys off this.
+    this.def = getSelectedTrack();
+    this.mode = this.def.mode; // 'circuit' (laps) | 'sprint' (one run)
+
     this.track = buildTrack();
     this.captureRadius = TRACK.roadWidth * 0.85;
 
@@ -29,7 +34,8 @@ export class RaceScene extends Phaser.Scene {
     ground.fillStyle(COLORS.hill, 1);
     ground.fillRect(0, 0, WORLD.width, WORLD.height);
 
-    this.drawEastbourneSetting();
+    // Coastal harbour is Eastbourne-only scenery.
+    if (this.def.theme === 'eastbourne') this.drawEastbourneSetting();
 
     this.scatterTrees();
     this.drawTrack();
@@ -152,13 +158,38 @@ export class RaceScene extends Phaser.Scene {
     roadBase.fillStyle(COLORS.tarmac, 1);
     for (const q of quads) roadBase.fillPoints(q, true);
 
-    // Warm painted road edges keep the route obvious without making the public
-    // coastal road look like a purpose-built racing circuit.
-    this.drawKerb(left);
-    this.drawKerb(right);
+    if (this.def.theme === 'manfield') {
+      // Purpose-built circuit: red/white rumble-strip kerbs, checkered start
+      // line and subtle checkpoint markers.
+      this.drawRumbleKerb(left);
+      this.drawRumbleKerb(right);
+      this.drawStartLine();
+      this.drawCheckpointGates();
+    } else {
+      // Public coastal road: warm painted edges and a friendly start gantry,
+      // with recognisable Eastbourne landmarks along the way.
+      this.drawKerb(left);
+      this.drawKerb(right);
+      this.placeStartGantry();
+      this.placeFinishAndLandmarks();
+    }
+  }
 
-    this.placeStartGantry();
-    this.placeFinishAndLandmarks();
+  // Red/white rumble-strip kerb for the Manfield circuit (closed loop, so the
+  // final segment wraps back to the start).
+  drawRumbleKerb(edge) {
+    const g = this.add.graphics().setDepth(2);
+    const n = edge.length;
+    for (let i = 0; i < n; i++) {
+      const a = edge[i];
+      const b = edge[(i + 1) % n];
+      const red = Math.floor(i / 3) % 2 === 0;
+      g.lineStyle(15, red ? COLORS.red : 0xffffff, 1);
+      g.beginPath();
+      g.moveTo(a.x, a.y);
+      g.lineTo(b.x, b.y);
+      g.strokePath();
+    }
   }
 
   drawEastbourneSetting() {
@@ -318,7 +349,8 @@ export class RaceScene extends Phaser.Scene {
       tries++;
       const x = Phaser.Math.Between(120, WORLD.width - 120);
       const y = Phaser.Math.Between(120, WORLD.height - 120);
-      if (x < 470 && y < 4050) continue; // no trees in Wellington Harbour
+      // No trees in Wellington Harbour (Eastbourne's water strip on the left).
+      if (this.def.theme === 'eastbourne' && x < 470 && y < 4050) continue;
       const d = distanceToCenterline(x, y, this.track.centerline);
       if (d < TRACK.roadWidth / 2 + 90) continue; // keep clear of the track
       const key = Phaser.Utils.Array.GetRandom(variants);
@@ -510,9 +542,13 @@ export class RaceScene extends Phaser.Scene {
   applyFx(onTrack, input) {
     const car = this.car;
     const axle = car.rearAxle();
+    // Speed gates scale with the course's top speed, so both the slow coastal
+    // pootle and the fast circuit trigger skids/dust/shake at sensible paces.
+    const fxSpeed = CAR.maxSpeed * 0.3;
+    const shakeSpeed = CAR.maxSpeed * 0.6;
 
     // Skid marks when drifting or handbraking on tarmac.
-    if (onTrack && (car.drifting || (input.handbrake && Math.abs(car.speed) > 25))) {
+    if (onTrack && (car.drifting || (input.handbrake && Math.abs(car.speed) > fxSpeed))) {
       this.skidMarks.lineStyle(7, 0x202124, 0.45);
       if (this.lastSkid) {
         this.skidMarks.lineBetween(this.lastSkid.left.x, this.lastSkid.left.y, axle.left.x, axle.left.y);
@@ -526,7 +562,7 @@ export class RaceScene extends Phaser.Scene {
     // Smoke on drift, dusty puffs off-track.
     if (car.drifting && onTrack) {
       this.smoke.emitParticleAt(axle.center.x, axle.center.y, 2);
-    } else if (!onTrack && Math.abs(car.speed) > 25) {
+    } else if (!onTrack && Math.abs(car.speed) > fxSpeed) {
       this.dust.emitParticleAt(axle.center.x, axle.center.y, 1);
     }
 
@@ -537,7 +573,7 @@ export class RaceScene extends Phaser.Scene {
     cam.setZoom(Phaser.Math.Linear(cam.zoom, targetZoom, 0.05));
 
     // A little kick when you drop onto the grass.
-    if (this.wasOnTrack && !onTrack && Math.abs(car.speed) > 40) {
+    if (this.wasOnTrack && !onTrack && Math.abs(car.speed) > shakeSpeed) {
       cam.shake(120, 0.006);
     }
     this.wasOnTrack = onTrack;
@@ -549,11 +585,45 @@ export class RaceScene extends Phaser.Scene {
     const d = Phaser.Math.Distance.Between(this.car.x, this.car.y, target.x, target.y);
     if (d > this.captureRadius) return;
 
-    if (this.expected === cps.length - 1) this.completeLap();
-    else this.expected += 1;
+    if (this.mode === 'circuit') {
+      // Closed loop: gate 0 is the start/finish line. Crossing it after all the
+      // ordered gates records a lap and starts the next one.
+      if (this.expected === 0) {
+        this.recordLap();
+        this.expected = 1;
+      } else {
+        this.expected = (this.expected + 1) % cps.length;
+      }
+    } else {
+      // Open route: reaching the final gate ends the run.
+      if (this.expected === cps.length - 1) this.finishSprint();
+      else this.expected += 1;
+    }
   }
 
-  completeLap() {
+  // Circuit: record a completed lap and keep racing (no results overlay).
+  recordLap() {
+    const now = this.time.now;
+    const lapMs = now - this.lapStartTime;
+    this.lapStartTime = now;
+    this.hud.setLast(lapMs);
+
+    if (!this.best || lapMs < this.best) {
+      this.best = lapMs;
+      localStorage.setItem(STORAGE_KEY, String(Math.floor(lapMs)));
+      this.hud.setBest(lapMs);
+      this.hud.showMessage('NEW BEST LAP!', '#ffd166');
+      this.cameras.main.flash(240, 255, 209, 102);
+    } else {
+      this.hud.showMessage('LAP COMPLETE', '#fff8e7');
+    }
+
+    this.lapNumber += 1;
+    this.hud.setLap(this.lapNumber);
+  }
+
+  // Sprint: crossing the finish ends the run and shows the results overlay.
+  finishSprint() {
     if (this.finished) return;
     this.finished = true;
     this.timing = false;
@@ -569,7 +639,7 @@ export class RaceScene extends Phaser.Scene {
       this.hud.showMessage('NEW BEST TIME!', '#ffd166');
       this.cameras.main.flash(240, 255, 209, 102);
     } else {
-      this.hud.showMessage('POOTLE COMPLETE', '#fff8e7');
+      this.hud.showMessage('RUN COMPLETE', '#fff8e7');
     }
 
     this.time.delayedCall(700, () => this.showResults(lapMs));
@@ -578,27 +648,37 @@ export class RaceScene extends Phaser.Scene {
   showResults(timeMs) {
     const w = this.scale.width;
     const h = this.scale.height;
+    const copy = this.def.results || {
+      title: 'RUN COMPLETE!',
+      message: 'Nicely done.',
+      retryLabel: '↻  RACE AGAIN',
+    };
     const panel = this.add.container(w / 2, h / 2).setDepth(1400);
     const bg = this.add.graphics();
     bg.fillStyle(COLORS.ink, 0.96);
     bg.lineStyle(5, COLORS.sunshine, 1);
-    bg.fillRoundedRect(-310, -190, 620, 380, 30);
-    bg.strokeRoundedRect(-310, -190, 620, 380, 30);
-    const title = this.add.text(0, -120, 'POOTLE COMPLETE!', {
+    bg.fillRoundedRect(-310, -200, 620, 400, 30);
+    bg.strokeRoundedRect(-310, -200, 620, 400, 30);
+    const title = this.add.text(0, -135, copy.title, {
       fontFamily: FONT, fontSize: '48px', fontStyle: '700', color: '#ffd166',
     }).setOrigin(0.5);
-    const message = this.add.text(0, -50, 'Phew! Just in time for a beer.', {
+    const message = this.add.text(0, -68, copy.message, {
       fontFamily: FONT, fontSize: '25px', color: '#fff8e7', align: 'center',
     }).setOrigin(0.5);
-    const time = this.add.text(0, 10, this.hud.current.text, {
+    const time = this.add.text(0, -8, this.hud.current.text, {
       fontFamily: FONT, fontSize: '42px', fontStyle: '700', color: '#2ec4d6',
     }).setOrigin(0.5);
-    const retry = this.add.text(0, 105, '↻  POOTLE AGAIN', {
+    const retry = this.add.text(0, 80, copy.retryLabel, {
       fontFamily: FONT, fontSize: '30px', fontStyle: '700', color: '#15314b',
       backgroundColor: '#ffd166', padding: { x: 28, y: 14 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     retry.on('pointerup', () => this.scene.restart());
-    panel.add([bg, title, message, time, retry]);
+    const change = this.add.text(0, 152, 'CHANGE COURSE', {
+      fontFamily: FONT, fontSize: '22px', fontStyle: '700', color: '#fff8e7',
+      backgroundColor: '#15314bcc', padding: { x: 20, y: 10 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    change.on('pointerup', () => this.scene.start('Title'));
+    panel.add([bg, title, message, time, retry, change]);
     this.uiObjects.push(panel);
     this.cameras.main.ignore(panel);
     this.uiCamera.ignore([]);
