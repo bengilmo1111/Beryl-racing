@@ -93,6 +93,24 @@ export function buildTrack() {
     });
   }
 
+  // Optional per-sample road surface. `surfaceBands` is an ordered list of
+  // { type, until } where `until` is a fraction (0..1] of the route; each sample
+  // takes the first band whose `until` covers its position. Absent → null, and
+  // everything downstream falls back to a single (sealed) surface.
+  let surfaces = null;
+  if (Array.isArray(TRACK.surfaceBands) && TRACK.surfaceBands.length) {
+    const bands = TRACK.surfaceBands;
+    surfaces = new Array(count);
+    for (let i = 0; i < count; i++) {
+      const frac = count > 1 ? i / (count - 1) : 0;
+      let type = bands[bands.length - 1].type;
+      for (const band of bands) {
+        if (frac <= band.until) { type = band.type; break; }
+      }
+      surfaces[i] = type;
+    }
+  }
+
   // Start pose: on the line, facing along the track from the first sample.
   const start = centerline[0];
   const startNext = centerline[1];
@@ -106,6 +124,7 @@ export function buildTrack() {
     left,
     right,
     checkpoints,
+    surfaces,
     start: { x: start.x, y: start.y, rotation: startRotation },
     half,
     closed,
@@ -133,4 +152,22 @@ export function distanceToCenterline(px, py, centerline) {
     if (d < best) best = d;
   }
   return Math.sqrt(best);
+}
+
+// Road surface ('gravel' | 'sealed' | ...) at the point nearest (px,py), or null
+// when the course has no per-surface tagging. Nearest-sample scan — same cost
+// class as distanceToCenterline, cheap enough to call once per frame.
+export function surfaceAt(px, py, track) {
+  const surfaces = track && track.surfaces;
+  if (!surfaces) return null;
+  const cl = track.centerline;
+  let bestIdx = 0;
+  let best = Infinity;
+  for (let i = 0; i < cl.length; i++) {
+    const dx = cl[i].x - px;
+    const dy = cl[i].y - py;
+    const d = dx * dx + dy * dy;
+    if (d < best) { best = d; bestIdx = i; }
+  }
+  return surfaces[bestIdx];
 }

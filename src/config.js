@@ -87,4 +87,8 @@ export const COLORS = {
   chrome: 0xd8dee2,
   tarmac: 0x53585f,
   tarmacEdge: 0x3c4046,
+  // Ōtaki Rally surfaces & scenery
+  gravel: 0x9a8b74, // warm grey-brown dusty gravel road
+  sand: 0xe6d6a8, // dry beach sand
+  river: 0x5a8f8c, // blue-green river / calm water
 };

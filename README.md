@@ -21,6 +21,10 @@ Pick a course on the title screen (**Choose your course**):
 - **Remutaka Hill Climb** — a point-to-point climb from Te Mārua up SH2 to the
   Remutaka summit: lower sweepers building to tight switchbacks. Skeleton route
   in place; the final hill-road art is a later pass.
+- **Ōtaki Rally** — a gravel-to-coast dash from Ōtaki Forks through the farmland,
+  across the Ōtaki River and railway, through town and out to Ōtaki Beach. Mixed
+  surfaces: gravel is looser/faster, the sealed town grips better. Scaffold route
+  and placeholder scenery in place; the final rally art is a later pass.
 
 Each course has its own world, handling, checkpoints and locally saved best
 time, so records don't clash between them.

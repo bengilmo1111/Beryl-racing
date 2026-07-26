@@ -216,6 +216,101 @@ export const TRACKS = [
     ],
     finishLabel: 'FINISH • SUMMIT',
   },
+  {
+    id: 'otaki',
+    name: 'Ōtaki Rally',
+    tagline: 'Gravel-to-coast rally',
+    mode: 'sprint', // one run, inland foothills down to the coast
+    theme: 'otaki',
+    world: { width: 5200, height: 5200 },
+    // Skeleton route (first cut): a compressed inland-to-coast dash. Start at
+    // Ōtaki Forks in the SE foothills, wind down the valley, blast the open
+    // farmland gravel with a couple of square rural turns, cross the Ōtaki River
+    // and the railway, thread the sealed township, then run out to Ōtaki Beach in
+    // the NW. Open spline; placeholder coordinates tuned so nothing self-overlaps.
+    geometry: {
+      anchors: [
+        { x: 4500, y: 4650 }, // Ōtaki Forks — inland start
+        { x: 4250, y: 4250 },
+        { x: 4380, y: 3820 }, // valley bend
+        { x: 4050, y: 3480 },
+        { x: 4180, y: 3050 },
+        { x: 3720, y: 2780 }, // out onto the farm flats
+        { x: 3120, y: 2760 }, // long gravel straight (west)
+        { x: 3150, y: 2260 }, // square rural turn (north)
+        { x: 2600, y: 2160 }, // turn back west toward the river
+        { x: 2120, y: 2060 }, // Ōtaki River crossing (kept straight)
+        { x: 1720, y: 1940 },
+        { x: 1500, y: 1620 }, // railway crossing / edge of town
+        { x: 1360, y: 1300 }, // into the sealed township
+        { x: 1520, y: 1020 }, // town turn
+        { x: 1140, y: 860 },
+        { x: 780, y: 700 }, // out toward the coast
+        { x: 470, y: 540 }, // Ōtaki Beach finish (NW)
+      ],
+      roadWidth: 160,
+      samplesPerSegment: 20,
+      numCheckpoints: 13,
+      closed: false,
+      // Gravel farmland/river/railway, sealed through town, loose again onto the
+      // beach approach. Fractions of the route length; drives both look and grip.
+      surfaceBands: [
+        { type: 'gravel', until: 0.66 },
+        { type: 'sealed', until: 0.93 },
+        { type: 'gravel', until: 1.0 },
+      ],
+    },
+    // Rally character: the fastest and loosest of the road courses, still
+    // Morris-Minor-flavoured (long acceleration, weak brakes, oversteer). Gravel
+    // is looser than the sealed town section. Tunable.
+    physics: {
+      maxSpeed: 115, // open gravel straights want pace
+      accel: 62, // long acceleration
+      brakeDecel: 100, // poor brakes; plan ahead for the town and river
+      reverseAccel: 46,
+      maxReverse: 38,
+      coastDrag: 9, // slow to stop
+      overspeedDrag: 110,
+      turnRate: 3.4,
+      lowSpeedTurn: 0.6,
+      gripNormal: 6.0, // sealed / town on-road grip
+      gripGravel: 4.2, // gravel — looser, slidier, dusty
+      gripDrift: 2.6,
+      gripGrass: 3.2, // dry roadside grass off-track
+      driftTurnBoost: 1.5,
+      grassMaxSpeedFactor: 0.5,
+      grassDrag: 110,
+      driftLateral: 14,
+    },
+    storageKey: 'beryl-racing.otaki.bestTimeMs.v1',
+    hud: { current: 'RALLY TIME', progress: 'TO THE BEACH' },
+    bestLabel: 'Best rally',
+    results: {
+      title: 'BEACH!',
+      message: 'Made it! Save us a spot at the picnic.',
+      retryLabel: '↻  RALLY AGAIN',
+    },
+    landmarks: [
+      [4650, 4780, 'ŌTAKI FORKS'],
+      [3480, 2680, 'FARMLAND'],
+      [2120, 1840, 'ŌTAKI RIVER'],
+      [1780, 1480, 'RAILWAY'],
+      [1360, 1120, 'ŌTAKI'],
+      [470, 760, 'ŌTAKI BEACH'],
+    ],
+    arrows: [
+      { x: 3020, y: 2440, text: 'TURN  ➜', rot: -1.3 },
+      { x: 2400, y: 1980, text: 'RIVER  ➜', rot: 0.2 },
+    ],
+    finishLabel: 'FINISH • ŌTAKI BEACH',
+    // Code-drawn scenery hooks (see RaceScene.drawOtakiSetting). River & railway
+    // are placed across the road at these checkpoint indices; beach fills the NW.
+    scenery: {
+      riverCp: 6,
+      railwayCp: 8,
+      beach: { x: 0, y: 0, w: 1050, h: 1050 },
+    },
+  },
 ];
 
 const SELECT_KEY = 'beryl-racing.selectedTrack.v1';
