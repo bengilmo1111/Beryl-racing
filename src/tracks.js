@@ -44,19 +44,23 @@ export const TRACKS = [
       numCheckpoints: 10,
       closed: false,
     },
+    // Morris Minor character: a decent top speed you have to work up to (long,
+    // lazy acceleration), weak brakes that are slow to wash off speed, and loose,
+    // low-grip cornering that gently oversteers — the tail drifts wide rather
+    // than the car darting where it's pointed.
     physics: {
-      maxSpeed: 60, // px/s; tuned for an approximately two-minute clean run
-      accel: 72,
-      brakeDecel: 150,
-      reverseAccel: 42,
-      maxReverse: 30,
-      coastDrag: 12,
+      maxSpeed: 88, // px/s; higher top end so the coastal run isn't a crawl
+      accel: 46, // long acceleration — takes ~2s to wind up to top speed
+      brakeDecel: 82, // poor brakes: slow to stop
+      reverseAccel: 40,
+      maxReverse: 34,
+      coastDrag: 8, // carries momentum; reluctant to slow when you lift off
       overspeedDrag: 90,
-      turnRate: 3.3,
-      lowSpeedTurn: 0.5,
-      gripNormal: 9.0,
+      turnRate: 3.1, // slightly lazy turn-in
+      lowSpeedTurn: 0.55,
+      gripNormal: 5.4, // loose rear end — slow oversteer through the bends
       gripDrift: 2.4,
-      gripGrass: 4.0,
+      gripGrass: 3.4,
       driftTurnBoost: 1.5,
       grassMaxSpeedFactor: 0.5,
       grassDrag: 100,
@@ -171,22 +175,22 @@ export const TRACKS = [
       numCheckpoints: 11,
       closed: false,
     },
-    // Pootle-scale handling (same family as Eastbourne so the shared Car.js drift
-    // gate and fx thresholds behave), tuned a touch more spirited and grippy for
-    // a determined hill climb. Tunable.
+    // Same Morris Minor character as Eastbourne (long acceleration, weak brakes,
+    // loose oversteer), scaled a little quicker for the hill and kept just
+    // grippy enough at low speed to hustle the summit hairpins. Tunable.
     physics: {
-      maxSpeed: 72,
-      accel: 88,
-      brakeDecel: 165,
-      reverseAccel: 46,
-      maxReverse: 32,
-      coastDrag: 14,
+      maxSpeed: 100, // decent top end for the lower sweepers
+      accel: 54, // long acceleration — ~2s to top speed
+      brakeDecel: 92, // poor brakes; the switchbacks need planning ahead
+      reverseAccel: 42,
+      maxReverse: 36,
+      coastDrag: 9, // slow to stop
       overspeedDrag: 100,
-      turnRate: 3.6,
-      lowSpeedTurn: 0.55,
-      gripNormal: 10.0,
+      turnRate: 3.3,
+      lowSpeedTurn: 0.6, // a bit more low-speed steer so the hairpins stay doable
+      gripNormal: 5.8, // loose, oversteery — a touch more grip than the coast run
       gripDrift: 2.6,
-      gripGrass: 4.0,
+      gripGrass: 3.4,
       driftTurnBoost: 1.5,
       grassMaxSpeedFactor: 0.5,
       grassDrag: 110,
