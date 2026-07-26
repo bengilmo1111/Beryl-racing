@@ -173,14 +173,23 @@ export class TitleScene extends Phaser.Scene {
 
     // Course selector.
     this.selectorLabel.setFontSize(Math.round(18 * s)).setPosition(w / 2, h * 0.62);
-    const btnSize = Math.round(26 * s);
-    const gap = Math.round(24 * s);
-    let total = 0;
-    for (const { btn } of this.trackButtons) {
-      btn.setFontSize(btnSize).setPadding(Math.round(22 * s), Math.round(12 * s));
-      total += btn.width;
-    }
-    total += gap * (this.trackButtons.length - 1);
+    // Lay the course buttons in one centred row. Measure at the natural size,
+    // then shrink everything by a single fit factor so the whole row always fits
+    // the viewport width even with several long course names on a narrow phone.
+    const measure = (fit) => {
+      let total = 0;
+      for (const { btn } of this.trackButtons) {
+        btn
+          .setFontSize(Math.round(26 * s * fit))
+          .setPadding(Math.round(22 * s * fit), Math.round(12 * s * fit));
+        total += btn.width;
+      }
+      return total + Math.round(24 * s * fit) * (this.trackButtons.length - 1);
+    };
+    const natural = measure(1);
+    const fit = Math.min(1, (w * 0.94) / natural);
+    const total = fit < 1 ? measure(fit) : natural;
+    const gap = Math.round(24 * s * fit);
     let x = w / 2 - total / 2;
     const btnY = h * 0.7;
     for (const { btn } of this.trackButtons) {

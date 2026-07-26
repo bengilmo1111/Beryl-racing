@@ -70,6 +70,17 @@ export const TRACKS = [
       message: 'Phew! Just in time for a beer.',
       retryLabel: '↻  POOTLE AGAIN',
     },
+    // Roadside landmark labels, advance arrows and the finish marker text.
+    landmarks: [
+      [830, 300, '28 FERRY ROAD'],
+      [470, 1100, 'DAYS BAY WHARF'],
+      [900, 1580, 'WILLIAMS PARK'],
+      [470, 2660, 'RONA BAY'],
+      [920, 3700, 'EASTBOURNE VILLAGE'],
+      [1420, 4740, 'EASTBOURNE RSA'],
+    ],
+    arrows: [{ x: 980, y: 4010, text: 'TURN INLAND  ➜', rot: 0.15 }],
+    finishLabel: 'FINISH • RSA',
   },
   {
     id: 'manfield',
@@ -122,6 +133,84 @@ export const TRACKS = [
     storageKey: 'beryl-racing.manfield.bestLapMs.v1',
     hud: { current: 'LAP TIME', progress: 'LAP 1', lapWord: 'LAP' },
     bestLabel: 'Best lap',
+  },
+  {
+    id: 'remutaka',
+    name: 'Remutaka Hill Climb',
+    tagline: 'Summit hill climb',
+    mode: 'sprint', // one run, foot of the hill to the summit
+    theme: 'remutaka',
+    world: { width: 5200, height: 3200 },
+    // Skeleton route (first cut): a compressed climb of SH2 from Te Marua in the
+    // broad, open west, running east through the lower sweepers and the Kaitoke
+    // bend, then tightening into summit switchbacks up to the Remutaka Summit
+    // sign in the high east. Open spline; coordinates are placeholders tuned so
+    // the hairpins don't self-overlap. Final art (guardrails, chevrons, the
+    // summit sign) is a later pass per docs/tracks/REMUTAKA-ART-BRIEF.md.
+    geometry: {
+      anchors: [
+        { x: 360, y: 2000 }, // Te Marua start — broad and low
+        { x: 780, y: 1900 },
+        { x: 1250, y: 1980 },
+        { x: 1750, y: 1780 }, // lower sweepers
+        { x: 2250, y: 1900 },
+        { x: 2750, y: 1620 },
+        { x: 3200, y: 1500 }, // Kaitoke bend
+        { x: 3560, y: 1780 },
+        { x: 3720, y: 2160 }, // foot of the switchbacks
+        { x: 4080, y: 1980 },
+        { x: 3900, y: 1600 }, // hairpin 1
+        { x: 4280, y: 1460 },
+        { x: 4080, y: 1140 }, // hairpin 2
+        { x: 4500, y: 1040 },
+        { x: 4380, y: 780 }, // final charge
+        { x: 4820, y: 680 }, // Remutaka Summit finish
+      ],
+      roadWidth: 150, // narrower and more technical than the coastal road
+      samplesPerSegment: 20,
+      numCheckpoints: 11,
+      closed: false,
+    },
+    // Pootle-scale handling (same family as Eastbourne so the shared Car.js drift
+    // gate and fx thresholds behave), tuned a touch more spirited and grippy for
+    // a determined hill climb. Tunable.
+    physics: {
+      maxSpeed: 72,
+      accel: 88,
+      brakeDecel: 165,
+      reverseAccel: 46,
+      maxReverse: 32,
+      coastDrag: 14,
+      overspeedDrag: 100,
+      turnRate: 3.6,
+      lowSpeedTurn: 0.55,
+      gripNormal: 10.0,
+      gripDrift: 2.6,
+      gripGrass: 4.0,
+      driftTurnBoost: 1.5,
+      grassMaxSpeedFactor: 0.5,
+      grassDrag: 110,
+      driftLateral: 14,
+    },
+    storageKey: 'beryl-racing.remutaka.bestTimeMs.v1',
+    hud: { current: 'CLIMB TIME', progress: 'TO THE SUMMIT' },
+    bestLabel: 'Best climb',
+    results: {
+      title: 'SUMMIT!',
+      message: 'We made it. Hope the brakes work on the way down.',
+      retryLabel: '↻  CLIMB AGAIN',
+    },
+    landmarks: [
+      [360, 2200, 'TE MĀRUA'],
+      [3200, 1360, 'KAITOKE'],
+      [2250, 2060, 'THE SWEEPERS'],
+      [4820, 900, 'REMUTAKA SUMMIT'],
+    ],
+    arrows: [
+      { x: 3760, y: 2360, text: 'HAIRPINS  ➜', rot: -0.5 },
+      { x: 4360, y: 1300, text: '➜', rot: -1.2 },
+    ],
+    finishLabel: 'FINISH • SUMMIT',
   },
 ];
 

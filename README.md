@@ -18,6 +18,9 @@ Pick a course on the title screen (**Choose your course**):
   Eastbourne RSA. One relaxed run against the clock, harbour on your left.
 - **Manfield Racetrack** — the original closed drift circuit. Continuous lap
   racing on a fast, wide track; chase your best lap.
+- **Remutaka Hill Climb** — a point-to-point climb from Te Mārua up SH2 to the
+  Remutaka summit: lower sweepers building to tight switchbacks. Skeleton route
+  in place; the final hill-road art is a later pass.
 
 Each course has its own world, handling, checkpoints and locally saved best
 time, so records don't clash between them.
