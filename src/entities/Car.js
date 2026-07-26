@@ -52,7 +52,7 @@ export class Car {
     return { x: Math.sin(this.rotation), y: -Math.cos(this.rotation) };
   }
 
-  update(dt, input, onTrack) {
+  update(dt, input, onTrack, surface) {
     this.onTrack = onTrack;
     const handbrake = !!input.handbrake;
 
@@ -94,7 +94,14 @@ export class Car {
     this.rotation += input.steer * CAR.turnRate * effectiveness * dir * driftBoost * dt;
 
     // Sideways grip: bleed lateral velocity toward zero. Low grip => slide.
-    let grip = onTrack ? CAR.gripNormal : CAR.gripGrass;
+    // On-road grip can vary by surface — gravel (if the course defines it) is
+    // looser than sealed. Off-road grass and the handbrake override as before.
+    let grip;
+    if (onTrack) {
+      grip = surface === 'gravel' && CAR.gripGravel != null ? CAR.gripGravel : CAR.gripNormal;
+    } else {
+      grip = CAR.gripGrass;
+    }
     if (handbrake) grip = CAR.gripDrift;
     const k = Math.min(grip * dt, 1);
     vLateral -= vLateral * k;

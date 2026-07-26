@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { WORLD, TRACK, COLORS, STORAGE_KEY } from '../config.js';
 import { getSelectedTrack } from '../tracks.js';
-import { buildTrack, distanceToCenterline } from '../track.js';
+import { buildTrack, distanceToCenterline, surfaceAt } from '../track.js';
 import { Car } from '../entities/Car.js';
 import { Hud } from '../ui/Hud.js';
 import { createFullscreenButton } from '../ui/fullscreen.js';
@@ -34,8 +34,9 @@ export class RaceScene extends Phaser.Scene {
     ground.fillStyle(COLORS.hill, 1);
     ground.fillRect(0, 0, WORLD.width, WORLD.height);
 
-    // Coastal harbour is Eastbourne-only scenery.
+    // Theme scenery drawn beneath the road.
     if (this.def.theme === 'eastbourne') this.drawEastbourneSetting();
+    if (this.def.theme === 'otaki') this.drawOtakiSetting();
 
     this.scatterTrees();
     this.drawTrack();
@@ -154,9 +155,20 @@ export class RaceScene extends Phaser.Scene {
       ]);
     }
 
+    // Road fill. With per-segment surfaces (Ōtaki) each quad is tinted by its
+    // surface — gravel warm grey-brown, sealed the usual tarmac — so the
+    // gravel↔seal transition reads at a glance. Without surfaces it's one fill.
     const roadBase = this.add.graphics().setDepth(1);
-    roadBase.fillStyle(COLORS.tarmac, 1);
-    for (const q of quads) roadBase.fillPoints(q, true);
+    const surfaces = this.track.surfaces;
+    if (surfaces) {
+      for (let i = 0; i < quads.length; i++) {
+        roadBase.fillStyle(surfaces[i] === 'gravel' ? COLORS.gravel : COLORS.tarmac, 1);
+        roadBase.fillPoints(quads[i], true);
+      }
+    } else {
+      roadBase.fillStyle(COLORS.tarmac, 1);
+      for (const q of quads) roadBase.fillPoints(q, true);
+    }
 
     if (this.def.theme === 'manfield') {
       // Purpose-built circuit: red/white rumble-strip kerbs, checkered start
@@ -204,6 +216,71 @@ export class RaceScene extends Phaser.Scene {
     }
     // A continuous seawall makes the harbour visible but unreachable.
     for (let y = 450; y < 4000; y += 50) this.obstacles.push({ x: 420, y, r: 32 });
+  }
+
+  // Ōtaki Rally placeholder scenery, all code-drawn (no PNG assets this pass):
+  // a river + bridge and a railway crossing set across the road, plus a beach and
+  // sea strip at the coastal finish. Positions come from the course def's
+  // `scenery` block (checkpoint indices for the crossings, a rect for the beach).
+  drawOtakiSetting() {
+    const sc = this.def.scenery || {};
+    const cps = this.track.checkpoints;
+
+    // Beach + sea filling the NW corner, marking arrival at the coast.
+    if (sc.beach) {
+      const b = sc.beach;
+      const g = this.add.graphics().setDepth(0.08);
+      g.fillStyle(COLORS.sand, 1);
+      g.fillRect(b.x, b.y, b.w, b.h);
+      // Sea beyond the sand along the top/left edges.
+      g.fillStyle(COLORS.river, 1);
+      g.fillRect(b.x, b.y, b.w, 120);
+      g.fillRect(b.x, b.y, 120, b.h);
+    }
+
+    // A band drawn perpendicular to the road at a checkpoint, extending well past
+    // the kerbs. `depth` below the road makes it read as passing under a bridge.
+    const bandAt = (cpIndex, half, length, depth, drawFn) => {
+      const cp = cps[cpIndex];
+      if (!cp) return;
+      const nx = Math.cos(cp.angle + Math.PI / 2);
+      const ny = Math.sin(cp.angle + Math.PI / 2); // across the road
+      const ax = Math.cos(cp.angle);
+      const ay = Math.sin(cp.angle); // along the road
+      drawFn(cp, nx, ny, ax, ay, this.add.graphics().setDepth(depth), half, length);
+    };
+
+    // Ōtaki River: a broad blue-green band under the road (the road is the bridge).
+    bandAt(sc.riverCp ?? 0, this.track.half, 260, 0.2, (cp, nx, ny, ax, ay, g, half, len) => {
+      const w = half + 900; // reach well past both kerbs into the paddocks
+      const p = (sx, sy) => new Phaser.Geom.Point(cp.x + nx * sx + ax * sy, cp.y + ny * sx + ay * sy);
+      g.fillStyle(COLORS.river, 1);
+      g.fillPoints([p(-w, -len / 2), p(w, -len / 2), p(w, len / 2), p(-w, len / 2)], true);
+      // Pale banks along both river edges.
+      g.lineStyle(10, 0xcfc19a, 0.8);
+      g.strokePoints([p(-w, -len / 2), p(w, -len / 2)], false);
+      g.strokePoints([p(-w, len / 2), p(w, len / 2)], false);
+    });
+
+    // Railway crossing: two rails + sleeper ticks across the road, above the
+    // surface but below the car, plus a simple crossbuck marker beside the road.
+    bandAt(sc.railwayCp ?? 0, this.track.half, 70, 2.2, (cp, nx, ny, ax, ay, g, half) => {
+      const w = half + 26;
+      const p = (sx, sy) => new Phaser.Geom.Point(cp.x + nx * sx + ax * sy, cp.y + ny * sx + ay * sy);
+      // Sleepers.
+      g.lineStyle(7, 0x7a5b3a, 0.9);
+      for (let s = -w; s <= w; s += 26) g.strokePoints([p(s, -32), p(s, 32)], false);
+      // Rails.
+      g.lineStyle(5, 0x9099a0, 1);
+      g.strokePoints([p(-w, -14), p(w, -14)], false);
+      g.strokePoints([p(-w, 14), p(w, 14)], false);
+      // Crossbuck 'X' just outside the road edge.
+      const cb = this.add.text(cp.x + nx * (half + 60), cp.y + ny * (half + 60), '✕', {
+        fontFamily: FONT, fontSize: '48px', fontStyle: '700', color: '#fff8e7',
+        stroke: '#15314b', strokeThickness: 8,
+      }).setOrigin(0.5).setDepth(7);
+      void cb;
+    });
   }
 
   // Roadside landmark labels, advance arrows and the finish marker — all driven
@@ -347,6 +424,11 @@ export class RaceScene extends Phaser.Scene {
       const y = Phaser.Math.Between(120, WORLD.height - 120);
       // No trees in Wellington Harbour (Eastbourne's water strip on the left).
       if (this.def.theme === 'eastbourne' && x < 470 && y < 4050) continue;
+      // No trees on Ōtaki Beach / sea (the NW corner).
+      if (this.def.theme === 'otaki') {
+        const b = this.def.scenery && this.def.scenery.beach;
+        if (b && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) continue;
+      }
       const d = distanceToCenterline(x, y, this.track.centerline);
       if (d < TRACK.roadWidth / 2 + 90) continue; // keep clear of the track
       const key = Phaser.Utils.Array.GetRandom(variants);
@@ -481,10 +563,11 @@ export class RaceScene extends Phaser.Scene {
 
     const dist = distanceToCenterline(this.car.x, this.car.y, this.track.centerline);
     const onTrack = dist <= this.track.half;
+    const surface = surfaceAt(this.car.x, this.car.y, this.track);
 
-    this.car.update(dt, input, onTrack);
+    this.car.update(dt, input, onTrack, surface);
     this.resolveObstacles();
-    this.applyFx(onTrack, input);
+    this.applyFx(onTrack, input, surface);
 
     if (this.engine) {
       const speedRatio = Math.abs(this.car.speed) / CAR.maxSpeed;
@@ -535,7 +618,7 @@ export class RaceScene extends Phaser.Scene {
     car.sync();
   }
 
-  applyFx(onTrack, input) {
+  applyFx(onTrack, input, surface) {
     const car = this.car;
     const axle = car.rearAxle();
     // Speed gates scale with the course's top speed, so both the slow coastal
@@ -555,10 +638,10 @@ export class RaceScene extends Phaser.Scene {
       this.lastSkid = null;
     }
 
-    // Smoke on drift, dusty puffs off-track.
+    // Smoke on drift; dusty puffs off-track, and kicked up on gravel at pace.
     if (car.drifting && onTrack) {
       this.smoke.emitParticleAt(axle.center.x, axle.center.y, 2);
-    } else if (!onTrack && Math.abs(car.speed) > fxSpeed) {
+    } else if ((!onTrack || surface === 'gravel') && Math.abs(car.speed) > fxSpeed) {
       this.dust.emitParticleAt(axle.center.x, axle.center.y, 1);
     }
 

@@ -173,32 +173,50 @@ export class TitleScene extends Phaser.Scene {
 
     // Course selector.
     this.selectorLabel.setFontSize(Math.round(18 * s)).setPosition(w / 2, h * 0.62);
-    // Lay the course buttons in one centred row. Measure at the natural size,
-    // then shrink everything by a single fit factor so the whole row always fits
-    // the viewport width even with several long course names on a narrow phone.
-    const measure = (fit) => {
-      let total = 0;
+    // Pack the course buttons into as few centred rows as fit the viewport at
+    // full size, wrapping to a second row (and shrinking only if a row still
+    // overflows) so several long course names stay tappable on a narrow phone.
+    const gapAt = (fit) => Math.round(24 * s * fit);
+    const sizeButtons = (fit) => {
       for (const { btn } of this.trackButtons) {
         btn
           .setFontSize(Math.round(26 * s * fit))
           .setPadding(Math.round(22 * s * fit), Math.round(12 * s * fit));
-        total += btn.width;
       }
-      return total + Math.round(24 * s * fit) * (this.trackButtons.length - 1);
     };
-    const natural = measure(1);
-    const fit = Math.min(1, (w * 0.94) / natural);
-    const total = fit < 1 ? measure(fit) : natural;
-    const gap = Math.round(24 * s * fit);
-    let x = w / 2 - total / 2;
-    const btnY = h * 0.7;
-    for (const { btn } of this.trackButtons) {
-      btn.setPosition(x + btn.width / 2, btnY);
-      x += btn.width + gap;
+    const maxRowW = w * 0.94;
+    sizeButtons(1);
+    const naturalTotal =
+      this.trackButtons.reduce((a, { btn }) => a + btn.width, 0) +
+      gapAt(1) * (this.trackButtons.length - 1);
+    const rowCount = Math.max(1, Math.ceil(naturalTotal / maxRowW));
+    const perRow = Math.ceil(this.trackButtons.length / rowCount);
+    const rows = [];
+    for (let i = 0; i < this.trackButtons.length; i += perRow) {
+      rows.push(this.trackButtons.slice(i, i + perRow));
     }
+    const rowNatural = (row) =>
+      row.reduce((a, { btn }) => a + btn.width, 0) + gapAt(1) * (row.length - 1);
+    const fit = Math.min(1, maxRowW / Math.max(...rows.map(rowNatural)));
+    sizeButtons(fit);
+    const gap = gapAt(fit);
+    const rowH = this.trackButtons[0].btn.height + Math.round(12 * s * fit);
+    const topY = h * 0.7 - ((rows.length - 1) * rowH) / 2;
+    rows.forEach((row, ri) => {
+      const rowW = row.reduce((a, { btn }) => a + btn.width, 0) + gap * (row.length - 1);
+      let x = w / 2 - rowW / 2;
+      const y = topY + ri * rowH;
+      for (const { btn } of row) {
+        btn.setPosition(x + btn.width / 2, y);
+        x += btn.width + gap;
+      }
+    });
 
-    // Best-time readout, under the selector.
-    this.bestText.setFontSize(Math.round(24 * s)).setPosition(w / 2, h * 0.79);
+    // Best-time readout, under the selector (kept clear of a wrapped 2nd row).
+    const selectorBottom = topY + (rows.length - 1) * rowH + rowH / 2;
+    this.bestText
+      .setFontSize(Math.round(24 * s))
+      .setPosition(w / 2, Math.max(h * 0.79, selectorBottom + 20 * s));
 
     // Play button — generous tap target.
     const playSize = Math.round(44 * s);
