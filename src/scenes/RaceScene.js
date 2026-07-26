@@ -23,7 +23,11 @@ export class RaceScene extends Phaser.Scene {
     this.mode = this.def.mode; // 'circuit' (laps) | 'sprint' (one run)
 
     this.track = buildTrack();
-    this.captureRadius = TRACK.roadWidth * 0.85;
+    // Checkpoint capture tolerance. Generous relative to the road width so a
+    // wide slide or a cut corner at the faster speeds still registers the gate —
+    // checkpoints are spaced far enough apart (~1000px+) that this never trips
+    // the next gate early.
+    this.captureRadius = TRACK.roadWidth * 1.25;
 
     // Solid scenery Beryl bumps into: each is a {x, y, r} collision circle.
     this.obstacles = [];
@@ -205,17 +209,24 @@ export class RaceScene extends Phaser.Scene {
   }
 
   drawEastbourneSetting() {
+    // Harbour geometry expressed relative to the (possibly scaled) world so it
+    // stays aligned with the route at any LENGTH_SCALE.
+    const W = WORLD.width;
+    const H = WORLD.height;
+    const hw = W * 0.167; // harbour width (was 400 in a 2400-wide world)
+    const hEnd = H * 0.8; // harbour runs down to the inland turn (was 4000/5000)
+    const wall = hw + W * 0.008;
     const water = this.add.graphics().setDepth(0.1);
     water.fillStyle(0x4fadd0, 1);
-    water.fillRect(0, 0, 400, 4000);
+    water.fillRect(0, 0, hw, hEnd);
     water.lineStyle(20, 0xffe2a6, 0.9);
-    water.lineBetween(400, 0, 400, 4000);
-    for (let y = 200; y < 3950; y += 150) {
+    water.lineBetween(hw, 0, hw, hEnd);
+    for (let y = H * 0.04; y < hEnd - H * 0.01; y += H * 0.03) {
       water.lineStyle(5, 0xb9e1e8, 0.35);
-      water.lineBetween(40, y, 330, y + 25);
+      water.lineBetween(hw * 0.1, y, hw * 0.83, y + H * 0.005);
     }
     // A continuous seawall makes the harbour visible but unreachable.
-    for (let y = 450; y < 4000; y += 50) this.obstacles.push({ x: 420, y, r: 32 });
+    for (let y = H * 0.09; y < hEnd; y += 50) this.obstacles.push({ x: wall, y, r: 32 });
   }
 
   // Ōtaki Rally placeholder scenery, all code-drawn (no PNG assets this pass):
@@ -252,7 +263,7 @@ export class RaceScene extends Phaser.Scene {
 
     // Ōtaki River: a broad blue-green band under the road (the road is the bridge).
     bandAt(sc.riverCp ?? 0, this.track.half, 260, 0.2, (cp, nx, ny, ax, ay, g, half, len) => {
-      const w = half + 900; // reach well past both kerbs into the paddocks
+      const w = half + WORLD.width * 0.17; // reach well past both kerbs into the paddocks
       const p = (sx, sy) => new Phaser.Geom.Point(cp.x + nx * sx + ax * sy, cp.y + ny * sx + ay * sy);
       g.fillStyle(COLORS.river, 1);
       g.fillPoints([p(-w, -len / 2), p(w, -len / 2), p(w, len / 2), p(-w, len / 2)], true);
@@ -418,12 +429,13 @@ export class RaceScene extends Phaser.Scene {
     const layer = this.add.container(0, 0).setDepth(5);
     let placed = 0;
     let tries = 0;
-    while (placed < 46 && tries < 600) {
+    // More trees on the now-larger worlds so the roadside doesn't look bare.
+    while (placed < 90 && tries < 1200) {
       tries++;
       const x = Phaser.Math.Between(120, WORLD.width - 120);
       const y = Phaser.Math.Between(120, WORLD.height - 120);
       // No trees in Wellington Harbour (Eastbourne's water strip on the left).
-      if (this.def.theme === 'eastbourne' && x < 470 && y < 4050) continue;
+      if (this.def.theme === 'eastbourne' && x < WORLD.width * 0.196 && y < WORLD.height * 0.81) continue;
       // No trees on Ōtaki Beach / sea (the NW corner).
       if (this.def.theme === 'otaki') {
         const b = this.def.scenery && this.def.scenery.beach;
