@@ -52,8 +52,13 @@ if (reportPaths.length === 0) {
 await resetOutput();
 const parts = [];
 for (const reportPath of reportPaths) {
-  parts.push(JSON.parse(await readFile(reportPath, 'utf8')));
+  const candidate = JSON.parse(await readFile(reportPath, 'utf8'));
+  if (candidate.ci) continue;
+  parts.push(candidate);
   await copyArtifacts(path.dirname(reportPath));
+}
+if (parts.length === 0) {
+  throw new Error(`No partial playtest reports found beneath ${partsDir}`);
 }
 
 const runs = parts
@@ -99,10 +104,10 @@ const durationMs = Math.max(...parts.map((part) => part.summary?.durationMs || 0
 const report = makeReport({ runs, journey, mobile, failures, durationMs, seed });
 report.ci = {
   schemaVersion: 1,
-  parts: reportPaths.length,
+  parts: parts.length,
   parallelDurationMs: durationMs,
 };
 await writeReport(report);
 process.stdout.write(
-  `Merged ${reportPaths.length} reports: ${report.verdict.toUpperCase()} (${runs.length} runs, ${failures.length} failures)\n`
+  `Merged ${parts.length} reports: ${report.verdict.toUpperCase()} (${runs.length} runs, ${failures.length} failures)\n`
 );
