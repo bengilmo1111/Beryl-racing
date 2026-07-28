@@ -70,6 +70,7 @@ const selectedCourses = (manifest.courses || []).filter(
 const selectedBots = Object.keys(BOT_MODULE_NAMES).filter(
   (bot) => !options.bot || bot === options.bot
 );
+const focusedSimulation = Boolean(options.course || options.bot);
 if (selectedCourses.length === 0) {
   failures.push({
     code: 'unknown-course',
@@ -125,7 +126,7 @@ try {
     for (const run of runs) failures.push(...run.failures);
   }
 
-  if (!options.noMobile) {
+  if (!options.noMobile && (!focusedSimulation || options.mobileOnly || options.journey)) {
     mobile = await inspectMobileControls({
       browser,
       baseUrl,

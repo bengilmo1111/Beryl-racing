@@ -26,16 +26,20 @@ journey. It exits non-zero on any threshold breach.
 For a focused visible run:
 
 ```powershell
-npm run playtest -- --course=otaki --bot=waypoint --headed
+npm run playtest -- --course=otaki-rally --bot=waypoint --headed
 ```
 
 `--course=otaki-rally` is accepted as an alias for the current manifest id
-`otaki`. Other useful switches:
+`otaki`. Supplying `--course` or `--bot` makes this a focused simulation run:
+the unrelated mobile inspection and journey are skipped unless explicitly
+requested. Other useful switches:
 
 - `--skip-build` — reuse the current `dist/` while iterating.
 - `--no-journey` — skip the real-UI journey.
 - `--no-mobile` — skip the separate mobile-control bounds inspection.
 - `--mobile-only --journey` — run shell checks without the bot matrix.
+- `--journey` — explicitly include the mobile inspection and journey with a
+  focused simulation.
 
 The determinism acceptance check remains separately available:
 
