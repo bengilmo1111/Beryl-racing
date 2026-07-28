@@ -37,6 +37,20 @@ export function captureHarnessErrors() {
       this.addEventListener('loadend', () => {
         if (this.status === 0 || this.status >= 400) {
           record('network', `${this.status || 'failed'} ${this.__hUrl || ''}`);
+          return;
+        }
+        const url = String(this.__hUrl || '').split('?')[0].toLowerCase();
+        const contentType = (this.getResponseHeader('content-type') || '').toLowerCase();
+        const expectsImage = /\.(png|jpe?g|gif|webp|svg)$/.test(url);
+        const expectsAudio = /\.(mp3|ogg|wav|m4a|aac)$/.test(url);
+        if (
+          (expectsImage && !contentType.startsWith('image/')) ||
+          (expectsAudio && !contentType.startsWith('audio/'))
+        ) {
+          record(
+            'network',
+            `invalid-content-type ${contentType || 'missing'} ${this.__hUrl || ''}`
+          );
         }
       });
       return super.send(...args);
