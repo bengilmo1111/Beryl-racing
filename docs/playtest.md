@@ -120,3 +120,17 @@ failures to `playtest/run.mjs`.
 The current `new-mobile-player` journey starts with empty storage at 412×915,
 rotates to 915×412, selects the default course, finishes using trusted touch
 events only, retries, and verifies the best time persisted.
+
+## CI
+
+`.github/workflows/playtest.yml` runs on `pull_request`, manual dispatch, and a
+daily schedule. It never uses `pull_request_target`.
+
+Four course jobs run in parallel and a fifth job runs the mobile shell journey.
+An always-running report job downloads the partial artifacts, merges them into
+one schema-versioned report, uploads the complete `playtest-out/`, and creates or
+updates one sticky PR comment. The final verdict step fails the workflow on any
+threshold breach.
+
+AC4 fault-injection evidence is recorded in
+`docs/factory/ac4-fault-injection.md`.
