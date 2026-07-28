@@ -26,9 +26,9 @@ export class Car {
     this.lateral = 0; // sideways speed, for drift fx
     this.drifting = false;
     this.onTrack = true;
-    // Sprite is ~256px long; scale so Beryl reads well on the road. Bumped 1.25×
-    // (0.34 → 0.425) so she takes up a bit more of the lane.
-    this.sprite.setScale(0.425);
+    // Sprite is ~256px long; scale so Beryl reads well on the road. Doubled
+    // (0.425 → 0.85) so she takes up noticeably more of the lane.
+    this.sprite.setScale(0.85);
 
     // Collision model: Beryl is long, so she's approximated by two circles (one
     // at the nose, one at the tail) for obstacle collisions, plus a bounds
