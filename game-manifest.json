@@ -1,4 +1,5 @@
 {
+  "schemaVersion": 1,
   "id": "beryl-racing",
   "title": "Beryl Racing",
   "description": "Drive Beryl, a classic turquoise Morris Minor, around a track and chase your best lap.",
@@ -9,5 +10,11 @@
   "framework": "vite",
   "genre": "racing",
   "players": "1",
-  "status": "in-development"
+  "status": "in-development",
+  "courses": [
+    { "id": "eastbourne-pootle", "title": "Eastbourne Pootle", "mode": "sprint" },
+    { "id": "manfield", "title": "Manfield Racetrack", "mode": "circuit" },
+    { "id": "remutaka", "title": "Remutaka Hill Climb", "mode": "sprint" },
+    { "id": "otaki", "title": "Ōtaki Rally", "mode": "sprint" }
+  ]
 }

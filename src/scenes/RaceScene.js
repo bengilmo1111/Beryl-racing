@@ -102,16 +102,21 @@ export class RaceScene extends Phaser.Scene {
     this.cameras.main.ignore(this.uiObjects);
     this.uiCamera.ignore(this.children.list.filter((o) => !this.uiObjects.includes(o)));
 
-    // Audio: make sure music is running, and start Beryl's engine idling.
-    unlockAudio(this);
-    startMusic(this);
-    this.engine = new EngineSound(this.sound);
+    // Audio follows wall-clock AudioContext time, so deterministic harness runs
+    // leave it disabled. The normal player path is unchanged.
+    const harnessed = !!this.game.registry.get('__harness');
+    if (!harnessed) {
+      unlockAudio(this);
+      startMusic(this);
+    }
+    this.engine = harnessed ? null : new EngineSound(this.sound);
     this.events.once('shutdown', () => this.engine && this.engine.stop());
 
     // Lap state.
     this.lapNumber = 1;
     this.expected = 1;
     this.lapStartTime = 0;
+    this.lastCompletionTimeMs = null;
     this.timing = false;
     this.finished = false;
     this.wasOnTrack = true;
@@ -539,6 +544,13 @@ export class RaceScene extends Phaser.Scene {
 
   readInput() {
     if (!this.timing) return { steer: 0, throttle: 0, handbrake: false };
+    if (this.harnessInput) {
+      return {
+        steer: this.harnessInput.steer,
+        throttle: this.harnessInput.throttle - this.harnessInput.brake,
+        handbrake: false,
+      };
+    }
     const k = this.keys;
     let steer = 0;
     if (k.left.isDown || k.a.isDown) steer -= 1;
@@ -558,6 +570,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    if (this.harnessRenderOnly) return;
     const dt = Math.min(delta / 1000, 0.05);
     const input = this.readInput();
 
@@ -684,6 +697,7 @@ export class RaceScene extends Phaser.Scene {
   recordLap() {
     const now = this.time.now;
     const lapMs = now - this.lapStartTime;
+    this.lastCompletionTimeMs = lapMs;
     this.lapStartTime = now;
     this.hud.setLast(lapMs);
 
@@ -708,6 +722,7 @@ export class RaceScene extends Phaser.Scene {
     this.timing = false;
     const now = this.time.now;
     const lapMs = now - this.lapStartTime;
+    this.lastCompletionTimeMs = lapMs;
     this.lapStartTime = now;
     this.hud.setLast(lapMs);
 
