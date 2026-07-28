@@ -29,13 +29,16 @@ const config = {
   scene: [BootScene, TitleScene, RaceScene],
 };
 
-// eslint-disable-next-line no-new
-const game = new Phaser.Game(config);
+function createGame(gameConfig = config) {
+  const game = new Phaser.Game(gameConfig);
 
-// A small diagnostics hook for automated playtesting. It lets the
-// smoke test inspect the active scene and drive checkpoints without coupling
-// production gameplay code to a testing framework.
-window.__BERYL_GAME__ = game;
+  // A small diagnostics hook for automated playtesting.
+  window.__BERYL_GAME__ = game;
+  return game;
+}
+
+const harnessRequested = new URLSearchParams(window.location.search).get('harness') === '1';
+if (!harnessRequested) createGame();
 
 // Mobile rotation fix.
 //
@@ -72,6 +75,17 @@ window.addEventListener('orientationchange', () => {
 });
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', fitParentToViewport);
+}
+
+// Keep the player path synchronous and unchanged. The harness is a separate
+// chunk and is loaded only when explicitly requested.
+if (harnessRequested) {
+  import('./harness/index.js')
+    .then(({ startHarness }) => startHarness({ Phaser, config, createGame }))
+    .catch((error) => {
+      console.error('[harness] failed to start', error);
+      throw error;
+    });
 }
 
 // Silence unused import warnings in some bundlers while keeping palette handy.
