@@ -66,6 +66,33 @@ const runs = parts
 const journey = parts.map((part) => part.journey).find(Boolean) || null;
 const mobile = parts.map((part) => part.mobile).find(Boolean) || null;
 const failures = parts.flatMap((part) => part.failures || []);
+const presentRuns = new Set(runs.map((run) => `${run.courseId}:${run.bot}`));
+for (const course of manifest.courses) {
+  for (const bot of Object.keys(BOT_MODULE_NAMES)) {
+    const key = `${course.id}:${bot}`;
+    if (!presentRuns.has(key)) {
+      failures.push({
+        code: 'missing-run',
+        scope: key,
+        message: `No report was produced for ${course.id} with ${bot}`,
+      });
+    }
+  }
+}
+if (!journey) {
+  failures.push({
+    code: 'missing-journey',
+    scope: 'new-mobile-player',
+    message: 'The mobile journey report is missing',
+  });
+}
+if (!mobile) {
+  failures.push({
+    code: 'missing-mobile-inspection',
+    scope: 'mobile-controls',
+    message: 'The mobile control inspection report is missing',
+  });
+}
 const seed = parts[0]?.environment?.seed ?? null;
 const durationMs = Math.max(...parts.map((part) => part.summary?.durationMs || 0));
 

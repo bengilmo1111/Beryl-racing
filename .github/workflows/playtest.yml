@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: catalog
-        run: echo "courses=$(node -e 'const m=require(\"./game-manifest.json\"); process.stdout.write(JSON.stringify(m.courses.map((course)=>course.id)))')" >> "$GITHUB_OUTPUT"
+        run: node playtest/catalog.mjs
 
   course:
     name: Course — ${{ matrix.course }}
