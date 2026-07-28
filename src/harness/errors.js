@@ -44,5 +44,8 @@ export function captureHarnessErrors() {
   }
   window.XMLHttpRequest = HarnessXHR;
 
-  return () => entries.map((entry) => ({ ...entry }));
+  return {
+    read: () => entries.map((entry) => ({ ...entry })),
+    record,
+  };
 }

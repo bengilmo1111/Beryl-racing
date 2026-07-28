@@ -1,8 +1,9 @@
 import { TRACKS, setSelectedTrack } from '../tracks.js';
-import { CAR } from '../config.js';
+import { CAR, WORLD } from '../config.js';
 import { distanceToCenterline, surfaceAt } from '../track.js';
 import { captureHarnessErrors } from './errors.js';
 import { createSeededRandom, normalizeSeed } from './rng.js';
+import * as bots from '../../playtest/bots/index.js';
 
 const FIXED_DELTA_MS = 1000 / 60;
 const COUNTDOWN_FRAME_LIMIT = 600;
@@ -37,25 +38,30 @@ function roundTime(value) {
 }
 
 export function startHarness({ Phaser, config, createGame }) {
-  const readErrors = captureHarnessErrors();
-  let random = createSeededRandom(0);
+  const capturedErrors = captureHarnessErrors();
+  const params = new URLSearchParams(window.location.search);
+  const responsiveUi = params.get('ui') === '1';
+  const querySeed = params.get('seed') || 0;
+  let random = createSeededRandom(querySeed);
   Math.random = () => random();
 
   const harnessConfig = {
     ...config,
-    scale: {
-      ...config.scale,
-      mode: Phaser.Scale.NONE,
-      width: 1280,
-      height: 720,
-    },
+    scale: responsiveUi
+      ? { ...config.scale }
+      : {
+          ...config.scale,
+          mode: Phaser.Scale.NONE,
+          width: 1280,
+          height: 720,
+        },
   };
   const game = createGame(harnessConfig);
   game.registry.set('__harness', true);
 
   let absoluteTimeMs = 0;
   let frame = 0;
-  let activeSeed = normalizeSeed(0);
+  let activeSeed = normalizeSeed(querySeed);
   let frameTimesMs = [];
   let virtualInput = { throttle: 0, brake: 0, steer: 0 };
 
@@ -70,7 +76,12 @@ export function startHarness({ Phaser, config, createGame }) {
     // The deterministic contract is simulation stepping. Rendering every
     // internal frame makes long headless runs needlessly GPU-bound; Phaser's
     // headlessStep executes the same managers and scenes without a canvas draw.
-    game.headlessStep(absoluteTimeMs, FIXED_DELTA_MS);
+    try {
+      game.headlessStep(absoluteTimeMs, FIXED_DELTA_MS);
+    } catch (error) {
+      capturedErrors.record('exception', error?.stack || error);
+      throw error;
+    }
     frameTimesMs.push(performance.now() - started);
     frame += 1;
   }
@@ -143,7 +154,7 @@ export function startHarness({ Phaser, config, createGame }) {
 
   const step = (frames) => stepFrames(frames, true);
 
-  function state() {
+  function state(includeFrameTimes = true) {
     const scene = game.scene.getScene('Race');
     if (!scene?.sys?.isActive() || !scene.car) return null;
 
@@ -165,6 +176,7 @@ export function startHarness({ Phaser, config, createGame }) {
       seed: activeSeed,
       frame,
       simTimeMs: round(frame * FIXED_DELTA_MS),
+      world: { width: WORLD.width, height: WORLD.height },
       pos: { x: round(scene.car.x), y: round(scene.car.y) },
       vel: { x: round(scene.car.vx), y: round(scene.car.vy) },
       speed: round(scene.car.speed),
@@ -177,7 +189,7 @@ export function startHarness({ Phaser, config, createGame }) {
       finished,
       finishTimeMs:
         scene.lastCompletionTimeMs == null ? null : roundTime(scene.lastCompletionTimeMs),
-      frameTimesMs: frameTimesMs.map(round),
+      frameTimesMs: includeFrameTimes ? frameTimesMs.map(round) : undefined,
       maxSpeed: CAR.maxSpeed,
     };
   }
@@ -190,8 +202,14 @@ export function startHarness({ Phaser, config, createGame }) {
     // Test-runner optimization: identical simulation step without a draw after
     // every single-frame bot decision. Not part of the public D1 contract.
     _stepNoRender: (frames) => stepFrames(frames, false),
-    state,
-    errors: readErrors,
+    _stateLite: () => state(false),
+    _render: renderFrame,
+    _botInput: (name, snapshot = state(false)) => {
+      if (typeof bots[name] !== 'function') throw new Error(`Unknown bot: ${name}`);
+      return bots[name](snapshot);
+    },
+    state: () => state(true),
+    errors: capturedErrors.read,
   };
   let automaticLoad = null;
   window.advanceTime = async (ms) => {
@@ -205,7 +223,6 @@ export function startHarness({ Phaser, config, createGame }) {
     Math.random = originalRandom;
   }, { once: true });
 
-  const params = new URLSearchParams(window.location.search);
   const requestedCourse = params.get('course');
   if (requestedCourse) {
     automaticLoad = ready
