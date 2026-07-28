@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "seed": 779425,
+  "global": {
+    "maxConsoleErrors": 0,
+    "maxFailedRequests": 0,
+    "maxFramesOver33Ms": 8,
+    "mobileControlsRequired": true,
+    "softlockWindowFrames": 300,
+    "softlockMinDisplacement": 3,
+    "screenshotEveryFrames": 120,
+    "botFrameLimits": {
+      "idle": 600,
+      "pedalToTheMetal": 900,
+      "random": 1800,
+      "waypoint": 18000
+    }
+  },
+  "courses": {
+    "eastbourne-pootle": {
+      "checkpointsTotal": 10,
+      "waypointMustFinish": true,
+      "finishTimeMs": { "min": 50000, "max": 70000 },
+      "minimumWaypointCheckpointRate": 1,
+      "noSoftlock": true,
+      "maxOutOfBoundsEvents": 0
+    },
+    "manfield": {
+      "checkpointsTotal": 6,
+      "waypointMustFinish": true,
+      "finishTimeMs": { "min": 5000, "max": 10000 },
+      "minimumWaypointCheckpointRate": 1,
+      "noSoftlock": true,
+      "maxOutOfBoundsEvents": 0
+    },
+    "remutaka": {
+      "checkpointsTotal": 11,
+      "waypointMustFinish": true,
+      "finishTimeMs": { "min": 65000, "max": 90000 },
+      "minimumWaypointCheckpointRate": 1,
+      "noSoftlock": true,
+      "maxOutOfBoundsEvents": 0
+    },
+    "otaki": {
+      "checkpointsTotal": 13,
+      "waypointMustFinish": true,
+      "finishTimeMs": { "min": 65000, "max": 90000 },
+      "minimumWaypointCheckpointRate": 1,
+      "noSoftlock": true,
+      "maxOutOfBoundsEvents": 0
+    }
+  }
+}
