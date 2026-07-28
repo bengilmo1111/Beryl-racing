@@ -41,7 +41,7 @@ export const TRACKS = [
       ],
       roadWidth: 180,
       samplesPerSegment: 20,
-      numCheckpoints: 10,
+      numCheckpoints: 9,
       closed: false,
     },
     // Morris Minor character: a decent top speed you have to work up to (long,
