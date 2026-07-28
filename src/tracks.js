@@ -313,6 +313,58 @@ export const TRACKS = [
   },
 ];
 
+// --- Global feel tuning ----------------------------------------------------
+// Applied to every course at load. These are the knobs behind the overall
+// "longer and a little faster" feel:
+//   • LENGTH_SCALE stretches the route + world (and the scenery that lives in
+//     world coordinates) so each course is about twice as long to drive. Road
+//     width and the camera zoom are deliberately left alone, so the road looks
+//     the same on screen — there's just more of it.
+//   • SPEED_SCALE multiplies only the velocity-dimension handling values, so
+//     Beryl is about 1.5× faster while each car keeps its character (turn and
+//     grip rates are untouched).
+// (Beryl's sprite is separately drawn 1.25× larger in entities/Car.js.)
+const LENGTH_SCALE = 2;
+const SPEED_SCALE = 1.5;
+// Grip is nudged up by less than the speed increase. At 1.5× speed the car's
+// absolute sideways slide would grow 1.5× on the same-width roads and wash off
+// the tighter corners; lifting grip ~1.25× keeps it on the road while leaving
+// most of the loose, oversteery character intact.
+const GRIP_SCALE = 1.25;
+
+// Handling values measured in px/s or px/s² — everything that scales with speed.
+// Ratios (lowSpeedTurn, driftTurnBoost, grassMaxSpeedFactor) and turnRate are
+// intentionally excluded so the feel is preserved.
+const SPEED_FIELDS = [
+  'maxSpeed', 'accel', 'brakeDecel', 'reverseAccel', 'maxReverse',
+  'coastDrag', 'overspeedDrag', 'grassDrag', 'driftLateral',
+];
+// Lateral-grip rates — scaled up modestly (GRIP_SCALE) to hold the road margin.
+const GRIP_FIELDS = ['gripNormal', 'gripGravel', 'gripDrift', 'gripGrass'];
+
+function scaleCourse(def) {
+  const L = LENGTH_SCALE;
+  def.world = { width: Math.round(def.world.width * L), height: Math.round(def.world.height * L) };
+  const g = def.geometry;
+  g.anchors = g.anchors.map((a) => ({ x: a.x * L, y: a.y * L }));
+  // roadWidth intentionally NOT scaled (keeps the same on-screen road width).
+  if (def.landmarks) def.landmarks = def.landmarks.map(([x, y, t]) => [x * L, y * L, t]);
+  if (def.arrows) def.arrows = def.arrows.map((a) => ({ ...a, x: a.x * L, y: a.y * L }));
+  if (def.scenery && def.scenery.beach) {
+    const b = def.scenery.beach;
+    def.scenery.beach = { x: b.x * L, y: b.y * L, w: b.w * L, h: b.h * L };
+  }
+  for (const f of SPEED_FIELDS) {
+    if (def.physics[f] != null) def.physics[f] *= SPEED_SCALE;
+  }
+  for (const f of GRIP_FIELDS) {
+    if (def.physics[f] != null) def.physics[f] *= GRIP_SCALE;
+  }
+  return def;
+}
+
+TRACKS.forEach(scaleCourse);
+
 const SELECT_KEY = 'beryl-racing.selectedTrack.v1';
 
 let selectedId = TRACKS[0].id;
