@@ -1,0 +1,30 @@
+name: Determinism
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: determinism-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    name: Deterministic replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # The first run on this route-replacement PR records the intentionally new
+      # Eastbourne baseline. This flag is removed once the values are committed.
+      - name: Record deliberate route baseline
+        run: RECORD_BASELINES=1 npm run test:determinism
