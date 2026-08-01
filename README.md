@@ -23,9 +23,9 @@ Part of the **[Gilmore Games](https://gilmore.games)** family.
 
 Pick a course on the title screen (**Choose your course**):
 
-- **Eastbourne Pootle** — a gentle coastal point-to-point from Days Bay to the
-  Eastbourne RSA. One relaxed run against the clock, harbour on your left, and a
-  steep drop off Ferry Road to get you rolling.
+- **Eastbourne Dash** — a coastal point-to-point from Days Bay to the Eastbourne
+  RSA. One run against the clock, harbour on your left, starting with a steep
+  drop off Ferry Road to get you moving.
 - **Manfield Racetrack** — the original closed drift circuit. Continuous lap
   racing on a fast, wide track; chase your best lap.
 - **Remutaka Hill Climb** — a point-to-point climb from Te Mārua up SH2 to the

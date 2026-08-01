@@ -17,12 +17,12 @@
     }
   },
   "courses": {
-    "eastbourne-pootle": {
+    "eastbourne-dash": {
       "checkpointsTotal": 10,
       "waypointMustFinish": true,
       "finishTimeMs": {
-        "min": 84000,
-        "max": 118000
+        "min": 70000,
+        "max": 98000
       },
       "minimumWaypointCheckpointRate": 1,
       "noSoftlock": true,
@@ -32,8 +32,8 @@
       "checkpointsTotal": 6,
       "waypointMustFinish": true,
       "finishTimeMs": {
-        "min": 11000,
-        "max": 16000
+        "min": 9000,
+        "max": 13000
       },
       "minimumWaypointCheckpointRate": 1,
       "noSoftlock": true,
@@ -43,8 +43,8 @@
       "checkpointsTotal": 11,
       "waypointMustFinish": true,
       "finishTimeMs": {
-        "min": 174000,
-        "max": 245000
+        "min": 143000,
+        "max": 202000
       },
       "minimumWaypointCheckpointRate": 1,
       "noSoftlock": true,
@@ -54,8 +54,8 @@
       "checkpointsTotal": 13,
       "waypointMustFinish": true,
       "finishTimeMs": {
-        "min": 94000,
-        "max": 132000
+        "min": 77000,
+        "max": 108000
       },
       "minimumWaypointCheckpointRate": 1,
       "noSoftlock": true,

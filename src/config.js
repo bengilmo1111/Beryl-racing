@@ -54,7 +54,7 @@ export const CAR = {
 // Best-time storage key for the active course. It's a `let` (not `const`) so
 // applyTrack() can point it at the selected course's key; ES-module live
 // bindings mean importers see the update automatically.
-export let STORAGE_KEY = 'beryl-racing-3d.eastbourne-pootle.bestTimeMs.v1';
+export let STORAGE_KEY = 'beryl-racing-3d.eastbourne-dash.bestTimeMs.v1';
 
 // Copy a course definition (see tracks.js) into the live config objects. TRACK
 // is fully replaced (old geometry keys cleared first) so no stale field from a

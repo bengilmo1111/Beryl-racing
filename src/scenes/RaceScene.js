@@ -271,7 +271,7 @@ export class RaceScene extends Phaser.Scene {
     const car = this.car;
     const axle = car.rearAxle();
     // Speed gates scale with the course's top speed, so both the slow coastal
-    // pootle and the fast circuit trigger skids/dust/shake at sensible paces.
+    // dash and the fast circuit trigger skids/dust/shake at sensible paces.
     const fxSpeed = CAR.maxSpeed * 0.3;
     const shakeSpeed = CAR.maxSpeed * 0.6;
 

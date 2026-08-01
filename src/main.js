@@ -30,6 +30,14 @@ const config = {
     mode: Phaser.Scale.RESIZE,
     width: DESIGN.width,
     height: DESIGN.height,
+    // Fullscreen the whole container, not just Phaser's canvas.
+    //
+    // Left unset, Phaser creates its own wrapper div and moves *only* its canvas
+    // into it (see ScaleManager.getFullscreenTarget). The Three.js canvas is a
+    // sibling, so it gets left behind outside the fullscreen element — the HUD
+    // and buttons keep working while the entire world goes black. Pointing at
+    // #game takes both canvases in together.
+    fullscreenTarget: 'game',
   },
   render: {
     antialias: true,

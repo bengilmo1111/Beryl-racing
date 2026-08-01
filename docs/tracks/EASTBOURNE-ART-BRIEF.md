@@ -1,6 +1,6 @@
-# Eastbourne Pootle — Track Art Brief
+# Eastbourne Dash — Track Art Brief
 
-**Course:** Eastbourne Pootle  
+**Course:** Eastbourne Dash  
 **Route:** 28 Ferry Road → Marine Drive → Days Bay / Williams Park → Rona Bay → Eastbourne village → inland turn near Muritai Road / Oroua Street → Eastbourne RSA  
 **Time:** Warm late afternoon  
 **Mood:** Breezy, familiar, relaxed and gently celebratory
@@ -9,7 +9,7 @@ Read with:
 
 - `docs/ART-DIRECTION.md`
 - `docs/ART-PRODUCTION.md`
-- `docs/tracks/EASTBOURNE-POOTLE-PRD.md`
+- `docs/tracks/EASTBOURNE-DASH-PRD.md`
 
 ---
 

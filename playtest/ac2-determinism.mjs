@@ -24,22 +24,25 @@ import { TRACKS } from '../src/tracks.js';
 // have height profiles and gravity along the slope; Manfield is deliberately
 // flat, and its numbers being unchanged to the last digit is the check that the
 // `grade !== 0` guard in Car.update really does cost a flat course nothing.
-// Remutaka is ~33% slower (the climb); Eastbourne and Ōtaki are slightly faster
-// (net descents).
+// Remutaka is much slower than its flat version (the climb); Eastbourne and
+// Ōtaki are slightly faster than theirs (net descents).
+//
+// Re-recorded once more when Beryl was given more pep — SPEED_SCALE 1.5 -> 1.8
+// plus a dedicated ACCEL_SCALE — which took roughly 18% off every course.
 const BASELINES = {
-  'eastbourne-pootle': {
-    finishTimeMs: 98650,
-    pos: { x: 2607.355623469, y: 9260.286448813 },
+  'eastbourne-dash': {
+    finishTimeMs: 81966.666667,
+    pos: { x: 2610.024317998, y: 9261.698154028 },
     obstacles: '94932d480a8bac9b',
   },
   manfield: {
-    finishTimeMs: 12950,
-    pos: { x: 1267.719065648, y: 2845.114155003 },
+    finishTimeMs: 10616.666667,
+    pos: { x: 1242.957769971, y: 2871.563587842 },
     obstacles: 'e9472f88b60d3f2a',
   },
   remutaka: {
-    finishTimeMs: 204383.333333,
-    pos: { x: 9482.231109242, y: 1460.089313903 },
+    finishTimeMs: 168733.333333,
+    pos: { x: 9482.148246004, y: 1459.792089087 },
     obstacles: '7ce0cd7df381210a',
   },
   // Ōtaki alone moved when the 2D renderer came out, and the reason is worth
@@ -53,8 +56,8 @@ const BASELINES = {
   // runs at the top of RaceScene.create(), before any text or HUD exists, so UI
   // churn can no longer perturb gameplay placement.
   otaki: {
-    finishTimeMs: 110183.333333,
-    pos: { x: 1116.682112488, y: 1168.829838599 },
+    finishTimeMs: 90333.333333,
+    pos: { x: 1118.756526421, y: 1169.695843734 },
     obstacles: 'd06a791d3b7d28f2',
   },
 };

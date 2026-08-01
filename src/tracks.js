@@ -7,7 +7,7 @@
 //
 //   * Manfield Racetrack  — the original closed drift circuit (lap racing,
 //     large fast world, red/white rumble kerbs).
-//   * Eastbourne Pootle   — a gentle coastal point-to-point sprint (single run
+//   * Eastbourne Dash   — a gentle coastal point-to-point sprint (single run
 //     to the RSA, harbour on your left, warm late afternoon).
 //
 // Because they were authored at different scales, each carries its own physics.
@@ -16,8 +16,8 @@ import { applyTrack } from './config.js';
 
 export const TRACKS = [
   {
-    id: 'eastbourne-pootle',
-    name: 'Eastbourne Pootle',
+    id: 'eastbourne-dash',
+    name: 'Eastbourne Dash',
     tagline: 'Coastal point-to-point',
     mode: 'sprint', // one run, start to finish
     theme: 'eastbourne',
@@ -86,13 +86,13 @@ export const TRACKS = [
       maxClimbPenalty: 0.78, // cap vs accel — full throttle always climbs
       downhillOverspeed: 0.18, // Ferry Road is a proper run down
     },
-    storageKey: 'beryl-racing-3d.eastbourne-pootle.bestTimeMs.v1',
-    hud: { current: 'POOTLE TIME', progress: 'TO EASTBOURNE' },
+    storageKey: 'beryl-racing-3d.eastbourne-dash.bestTimeMs.v1',
+    hud: { current: 'DASH TIME', progress: 'TO EASTBOURNE' },
     bestLabel: 'Eastbourne best',
     results: {
-      title: 'POOTLE COMPLETE!',
+      title: 'DASH COMPLETE!',
       message: 'Phew! Just in time for a beer.',
-      retryLabel: '↻  POOTLE AGAIN',
+      retryLabel: '↻  DASH AGAIN',
     },
     // Roadside landmark labels, advance arrows and the finish marker text.
     landmarks: [
@@ -386,12 +386,20 @@ export const TRACKS = [
 //     grip rates are untouched).
 // (Beryl's sprite is separately drawn 1.25× larger in entities/Car.js.)
 const LENGTH_SCALE = 2;
-const SPEED_SCALE = 1.5;
-// Grip is nudged up by less than the speed increase. At 1.5× speed the car's
-// absolute sideways slide would grow 1.5× on the same-width roads and wash off
-// the tighter corners; lifting grip ~1.25× keeps it on the road while leaving
-// most of the loose, oversteery character intact.
-const GRIP_SCALE = 1.25;
+// Raised from 1.5: the courses were still reading as too slow to drive. This
+// lifts top speed and every acceleration term together, so each car keeps its
+// character rather than just gaining a higher ceiling it takes forever to reach.
+const SPEED_SCALE = 1.8;
+// Extra pep on top of the speed lift, applied to acceleration only. Top speed is
+// what a course is capable of; acceleration is what it *feels* like, and a
+// Morris Minor that takes three seconds to wind up feels slow even when the
+// number at the end is high. Getting there quicker is most of the fix.
+const ACCEL_SCALE = 1.3;
+// Grip is nudged up by less than the speed increase. At higher speed the car's
+// absolute sideways slide would grow on the same-width roads and wash off the
+// tighter corners; lifting grip by less keeps it on the road while leaving most
+// of the loose, oversteery character intact.
+const GRIP_SCALE = 1.4;
 
 // Handling values measured in px/s or px/s² — everything that scales with speed.
 // Ratios (lowSpeedTurn, driftTurnBoost, grassMaxSpeedFactor) and turnRate are
@@ -448,6 +456,10 @@ function scaleCourse(def) {
   for (const f of SPEED_FIELDS) {
     if (def.physics[f] != null) def.physics[f] *= SPEED_SCALE;
   }
+  // Acceleration gets the extra pep on top. Braking rises with it so the cars
+  // don't become quick to gather speed and hopeless at losing it again.
+  def.physics.accel *= ACCEL_SCALE;
+  if (def.physics.brakeDecel != null) def.physics.brakeDecel *= ACCEL_SCALE;
   for (const f of GRIP_FIELDS) {
     if (def.physics[f] != null) def.physics[f] *= GRIP_SCALE;
   }

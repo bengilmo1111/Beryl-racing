@@ -15,7 +15,7 @@
 > **Beyond the MVP.** The MVP acceptance criteria in §12 are met and the game is
 > playable. Development has moved past the original single-course MVP: the game
 > now ships **multiple selectable courses** (see §6), starting with **Eastbourne
-> Pootle** (coastal point-to-point) and **Manfield Racetrack** (the original
+> Dash** (coastal point-to-point) and **Manfield Racetrack** (the original
 > closed drift circuit), chosen from a course selector on the title screen. Items
 > in §13 are reprioritised accordingly — multiple tracks are now **in**.
 
@@ -118,7 +118,7 @@ own best-time storage key), so records don't clash between them.
 
 Two courses ship today, in two game modes:
 
-- **Eastbourne Pootle** — an **open point-to-point sprint**: one timed run from
+- **Eastbourne Dash** — an **open point-to-point sprint**: one timed run from
   Days Bay to the Eastbourne RSA, harbour on the player's left.
 - **Manfield Racetrack** — a **closed-loop circuit** for continuous lap racing;
   the original MVP course, restored as a second option.
@@ -282,7 +282,7 @@ This is a deploy checklist item, **not** part of building this repo.
 
 **Delivered since the MVP:**
 
-- ✅ **Multiple courses** with a title-screen selector (Eastbourne Pootle +
+- ✅ **Multiple courses** with a title-screen selector (Eastbourne Dash +
   Manfield Racetrack) — see §6.
 - ✅ **Music and a synthesised engine** (per-course music brief in the track PRDs).
 - ✅ **Drift mechanics / arcade handling** (velocity-vector drift, handbrake).

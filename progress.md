@@ -414,3 +414,62 @@ rather than bodging, so it is left failing and visible.
 Two genuine bugs *were* found on the way here and are fixed: the steering-direction
 chatter in `Car.update` (above), and the harness leaving the Title scene running
 under the race.
+
+## 2026-08-01 — Fullscreen fix, icon controls, more pep, Pootle → Dash
+
+### Fullscreen blanked the world
+
+Going fullscreen left the HUD and buttons working over a completely black world.
+
+`ScaleManager.getFullscreenTarget()` creates its own wrapper div and moves **only
+`this.canvas`** into it. The Three.js canvas is a sibling in `#game`, so it was
+left behind outside the fullscreen element — Phaser's transparent HUD canvas went
+fullscreen on its own, with nothing underneath it.
+
+Fixed with `scale.fullscreenTarget: 'game'`, so the container and both canvases go
+in together. Verified: the target is now `#game`, `_createdFullscreenTarget` is
+false, and both canvases report as inside it.
+
+### Controls are icons
+
+"FULL SCREEN" and "SOUND ON" ate a lot of a phone screen and competed with the
+HUD. They are now square icon buttons (`src/ui/iconButton.js`).
+
+The glyphs are **drawn as vectors, not set as text**. Font and emoji coverage for
+⛶ and 🔇 is patchy — Android substitutes or drops them — and a control that
+renders as a blank box is worse than a wordy one.
+
+One geometry note worth keeping: the fullscreen brackets first shipped with arms
+a third of the button long, which made all four meet in the middle and read as a
+solid filled square. Opposing arms need a clear gap.
+
+### More pep
+
+`SPEED_SCALE` 1.5 → 1.8, plus a new `ACCEL_SCALE` of 1.3 applied to acceleration
+and braking only. Top speed is what a course is capable of; acceleration is what
+it *feels* like, and a car that takes three seconds to wind up feels slow however
+high the number at the end is. Braking rises with it so the cars don't become
+quick to gather speed and hopeless at losing it. `GRIP_SCALE` 1.25 → 1.4 to keep
+the faster car on the same-width roads.
+
+About 18% off every course:
+
+| course | was | now |
+|---|---|---|
+| eastbourne-dash | 98650 | **81967** |
+| manfield | 12950 | **10617** |
+| remutaka | 204383 | **168733** |
+| otaki | 110183 | **90333** |
+
+Obstacle fingerprints are unchanged — speed does not touch scenery placement.
+
+### Eastbourne Pootle → Eastbourne Dash
+
+Renamed throughout, including the course id (`eastbourne-pootle` →
+`eastbourne-dash`), its `storageKey`, the HUD and results copy, `game-manifest.json`,
+`playtest-spec.json`, the AC2 baseline key, and `docs/tracks/EASTBOURNE-DASH-PRD.md`.
+No "pootle" remains outside this progress log, which is a historical record.
+
+Because the course id is also the best-time storage key, any local best time saved
+under the old name is orphaned. That is fine here: this is a separate deployment
+with its own keys and no published records.
