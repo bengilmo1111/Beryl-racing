@@ -38,7 +38,19 @@ export const FOG_FAR = 3000;
 // near = 10 — useful headroom, given how many near-coplanar flat surfaces the
 // road stack has (ground, apron, road, skid decals, start line).
 export const CAMERA_NEAR = 50;
-export const CAMERA_FAR = 3600;
+// Far has to clear the whole course, not just the fogged world.
+//
+// Fog hides everything past FOG_FAR anyway, so 3600 was ample for terrain and
+// road. It is not enough for the unfogged background bands (themes/*Parallax),
+// which sit at fixed world points along a 10,000-unit route: a cloud simply
+// vanished at the far plane instead of fading, and popped back as the camera
+// closed on it.
+//
+// This is close to free. Depth precision is dominated by the *near* plane —
+// with near at 50, moving far from 3600 to 14000 changes the resolution by well
+// under a percent — and nothing extra is actually shaded, since the geometry
+// beyond the fog band resolves to sky colour.
+export const CAMERA_FAR = 14000;
 
 export function makeFog() {
   return new Fog(C.sky.getHex(), FOG_NEAR, FOG_FAR);

@@ -473,3 +473,37 @@ No "pootle" remains outside this progress log, which is a historical record.
 Because the course id is also the best-time storage key, any local best time saved
 under the old name is orphaned. That is fine here: this is a separate deployment
 with its own keys and no published records.
+
+## 2026-08-01 — Eastbourne parallax backgrounds (PR #20)
+
+Merged. Distant harbour ridges, inland bush, a village roofline, sun and clouds,
+placed as real geometry in depth bands beyond the playable route, so the chase
+camera gets parallax for free rather than needing per-frame background code.
+Render-only, no collision, no RNG — determinism verified unchanged.
+
+The harbour previously faded to a bare flat horizon; it now reads as Wellington
+Harbour with a far shore, and the inland turn toward the RSA has hills behind it.
+
+### One defect fixed on merge: the far plane
+
+The background bands are deliberately `fog: false` — they sit well past `FOG_FAR`,
+so with fog on they would wash entirely to sky and be invisible. That is the right
+call, but it left them at the mercy of the camera's far plane: `CAMERA_FAR` was
+3600, and the clouds and sun sit at fixed world points along a 10,000-unit route.
+A cloud simply vanished at the far plane instead of fading, then popped back as
+the camera closed on it.
+
+`CAMERA_FAR` is now 14000. This is close to free: depth precision is dominated by
+the *near* plane, and with near at 50 the change costs well under a percent of
+resolution. Nothing extra is really shaded either, since everything beyond the fog
+band already resolves to sky colour.
+
+Worth remembering for other courses: an unfogged background layer has to be inside
+the far plane for the whole route, not just where it was authored.
+
+### Noted, not fixed
+
+The `28 FERRY ROAD` landmark sign sits about 200 units from the start line, so at
+the opening frame it fills most of the screen. It predates this PR (it came in
+with the signage pass) and it is arguably charming — it is Beryl's home address —
+but it does bury the first thing a player sees.
