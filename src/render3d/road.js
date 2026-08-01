@@ -4,7 +4,7 @@
 // filled as quads.
 import { BufferGeometry, BufferAttribute, Mesh, PlaneGeometry, DoubleSide } from 'three';
 import { WORLD } from '../config.js';
-import { C, basic } from './palette.js';
+import { C, basic, lambert } from './palette.js';
 
 // Strictly ordered so nothing z-fights: ground below the road, apron just above
 // it, kerbs a real lip above that. The ground sits a clear 8 units down rather
@@ -29,7 +29,10 @@ const UV_REPEAT_LENGTH = 512;
 // a surface change (gravel↔sealed, or a rumble strip's red↔white) stays a hard
 // edge exactly as the 2D version drew it. An indexed mesh would share vertices
 // between neighbouring quads and gradient the colour across a segment instead.
+// `y` is either a constant height or a per-sample lookup (i) => height, which is
+// how the elevated courses lift the road onto the hillside.
 function buildRibbon(inner, outer, y, colorAt, closed) {
+  const heightAt = typeof y === 'function' ? y : () => y;
   const n = inner.length;
   const segments = closed ? n : n - 1;
 
@@ -43,13 +46,13 @@ function buildRibbon(inner, outer, y, colorAt, closed) {
   let t = 0;
   let arc = 0;
 
-  const push = (point, u, v, col) => {
+  const push = (point, u, v, col, h) => {
     positions[p] = point.x;
-    positions[p + 1] = y;
+    positions[p + 1] = h;
     positions[p + 2] = point.y;
-    // These strips are flat, so every normal points straight up. Setting them
-    // explicitly means winding never has to be inferred, which is what makes the
-    // DoubleSide fix below safe.
+    // Straight up. These strips are unlit (see the material note below), so the
+    // normals are never shaded with — they exist only so nothing downstream has
+    // to infer them from the winding, which is what makes DoubleSide safe here.
     normals[p] = 0;
     normals[p + 1] = 1;
     normals[p + 2] = 0;
@@ -76,13 +79,16 @@ function buildRibbon(inner, outer, y, colorAt, closed) {
     const v1 = (arc + segLen) / UV_REPEAT_LENGTH;
     arc += segLen;
 
-    push(i0, 0, v0, col);
-    push(o0, 1, v0, col);
-    push(o1, 1, v1, col);
+    const h0 = heightAt(i);
+    const h1 = heightAt(j);
 
-    push(i0, 0, v0, col);
-    push(o1, 1, v1, col);
-    push(i1, 0, v1, col);
+    push(i0, 0, v0, col, h0);
+    push(o0, 1, v0, col, h0);
+    push(o1, 1, v1, col, h1);
+
+    push(i0, 0, v0, col, h0);
+    push(o1, 1, v1, col, h1);
+    push(i1, 0, v1, col, h1);
   }
 
   const geometry = new BufferGeometry();
@@ -125,10 +131,17 @@ function offsetOutward(edge, centerline, amount) {
   return out;
 }
 
+// Per-sample height for one of the road strips, at a fixed offset above the road
+// surface. Flat courses collapse to a constant.
+function heightsFor(track, offset) {
+  if (!track.heights) return offset;
+  return (i) => track.heights[i] + offset;
+}
+
 export function buildRoad(track) {
   const { left, right, surfaces, closed } = track;
   const colorAt = (i) => (surfaces && surfaces[i] === 'gravel' ? C.gravel : C.tarmac);
-  return buildRibbon(left, right, ROAD_Y, colorAt, closed);
+  return buildRibbon(left, right, heightsFor(track, ROAD_Y), colorAt, closed);
 }
 
 // Kerbs, in the two flavours the 2D game had: red/white rumble strips on the
@@ -140,7 +153,13 @@ export function buildKerbs(track, theme) {
   const colorAt = rumble ? (i) => (Math.floor(i / 3) % 2 === 0 ? C.red : C.white) : () => C.cream;
 
   return [left, right].map((edge) =>
-    buildRibbon(edge, offsetOutward(edge, centerline, KERB_WIDTH), KERB_Y, colorAt, closed)
+    buildRibbon(
+      edge,
+      offsetOutward(edge, centerline, KERB_WIDTH),
+      heightsFor(track, KERB_Y),
+      colorAt,
+      closed
+    )
   );
 }
 
@@ -152,7 +171,7 @@ export function buildApron(track) {
     buildRibbon(
       offsetOutward(edge, centerline, KERB_WIDTH),
       offsetOutward(edge, centerline, KERB_WIDTH + APRON_WIDTH),
-      APRON_Y,
+      heightsFor(track, APRON_Y),
       colorAt,
       closed
     )
@@ -166,12 +185,60 @@ export function buildApron(track) {
 // past a world-sized plane when the car is near an edge, and a visible plane
 // edge at the horizon instantly reads as "the ground has run out". Big enough
 // that fog always saturates to sky before the edge could come into view.
-export function buildGround() {
+export function buildGround(terrain) {
+  const info = terrain && terrain.describe();
+
+  // Elevated courses get a real surface built from the same height grid the
+  // physics reads, so what the player drives on and what they see are the same
+  // data. Flat courses keep the single cheap quad.
+  if (info && !info.flat) return buildTerrainMesh(info);
+
   const span = Math.max(WORLD.width, WORLD.height) * 6;
   const geometry = new PlaneGeometry(span, span);
   geometry.rotateX(-Math.PI / 2);
   const mesh = new Mesh(geometry, basic(C.hill, { fog: true }));
   mesh.position.set(WORLD.width / 2, GROUND_Y, WORLD.height / 2);
+  mesh.frustumCulled = false;
+  return mesh;
+}
+
+// The height grid as a lit mesh. Lit, unlike the road: this one has real form,
+// so shading is doing actual work — it is what makes a hillside read as a
+// hillside rather than a flat green field.
+function buildTerrainMesh(info) {
+  const { cols, rows, cell, minX, minY, grid } = info;
+  const positions = new Float32Array(cols * rows * 3);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const k = (r * cols + c) * 3;
+      positions[k] = minX + c * cell;
+      positions[k + 1] = grid[r * cols + c] + GROUND_Y;
+      positions[k + 2] = minY + r * cell;
+    }
+  }
+
+  const quads = (cols - 1) * (rows - 1);
+  const indices = new Uint32Array(quads * 6);
+  let t = 0;
+  for (let r = 0; r < rows - 1; r++) {
+    for (let c = 0; c < cols - 1; c++) {
+      const a = r * cols + c;
+      const b = a + 1;
+      const d = a + cols;
+      const e = d + 1;
+      indices[t++] = a; indices[t++] = d; indices[t++] = e;
+      indices[t++] = a; indices[t++] = e; indices[t++] = b;
+    }
+  }
+
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new BufferAttribute(positions, 3));
+  geometry.setIndex(new BufferAttribute(indices, 1));
+  // Indexed, so shared vertices average into a smooth hillside rather than
+  // showing every grid facet.
+  geometry.computeVertexNormals();
+
+  const mesh = new Mesh(geometry, lambert(C.hill, { fog: true }));
   mesh.frustumCulled = false;
   return mesh;
 }

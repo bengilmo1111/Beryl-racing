@@ -224,3 +224,193 @@ worktree: identical result, identical 17% checkpoints / 86% off-road. That bot
 holds full throttle with no steering, drives into the world bounds and is pinned
 there by the clamp in `Car.js`. It is a bot artifact rather than a game defect,
 so it is flagged rather than papered over by loosening the softlock rule.
+
+## 2026-08-01 — Elevation (Phase 4)
+
+Hills are a **gameplay** feature, not a visual one: gravity acts along the slope,
+so climbs bleed speed and descents give it back. The point of Remutaka is a slow
+car struggling up a steep windy road, and a chase camera made a dead-flat hill
+climb absurd.
+
+- **Eastbourne** — a ~20% drop off Ferry Road (28 Ferry Road is anchor 0, the top
+  of the hill) onto the flat harbour road, then a gentle rise inland to the RSA.
+- **Remutaka** — gentle rise through the lower sweepers hardening into a sustained
+  ~13–14% grind through the summit switchbacks.
+- **Ōtaki** — steep loose descent out of the valley, easing across the farm flats,
+  near-flat through the township to the beach.
+- **Manfield** — deliberately flat. It is a purpose-built circuit.
+
+### Design
+
+- `geometry.elevation.profile` is a list of `{ at, h }` control points keyed to a
+  fraction of the route, smoothstepped between (`sampleProfile` in `track.js`).
+  Linear interpolation put a visible crease across the road at every control
+  point. `buildTrack()` returns `heights[]` per sample, mirroring `surfaces[]`.
+- Profile heights scale with `LENGTH_SCALE` alongside the anchors, so the
+  **grade** is preserved. Without that, doubling route length would have halved
+  every gradient and quietly turned the climb back into a ramp.
+- `gravity` joins `SPEED_FIELDS` for the same reason — it is px/s² like `accel`,
+  and if it did not scale with it the climb penalty would shrink relative to
+  Beryl's power.
+- **`src/terrain.js` is one grid with one query.** Each cell takes the height of
+  its nearest centreline sample, a few blur passes soften the Voronoi seams into
+  a hillside, and cells near the road are re-stamped to exact road height so the
+  road stays embedded rather than hovering over a smoothed version of itself.
+  Beryl's height, the camera, the physics grade, the ground mesh and (next) the
+  scenery all read `heightAt()`. The obvious alternative — road height on-road,
+  terrain height off-road — steps at the boundary and floats the car the moment
+  she leaves a switchback, which on a hill climb is most of the time.
+- **The hill never wins.** The climb penalty is capped below Beryl's own
+  acceleration (`maxClimbPenalty`), so full throttle always nets forward
+  progress. She crawls and strains, but is never stopped dead.
+- Descents earn a little over the flat top speed (`downhillOverspeed`). Without
+  it the existing hard clamp to `maxV` swallowed everything gravity gave back and
+  a descent felt identical to the flat. Measured: Beryl hits 156 down Ferry Road
+  against a flat top speed of 132.
+
+### Results
+
+| course | was | now | note |
+|---|---|---|---|
+| eastbourne-pootle | 100633 | **98650** | net faster — the descent outweighs the inland rise |
+| manfield | 12950 | **12950** | flat, and unchanged to the last digit |
+| remutaka | 142933 | **204383** | **+43%** — the climb, exactly the point |
+| otaki | 117433 | **110183** | net faster — inland-to-coast descent |
+
+Obstacle fingerprints are unchanged on all four: elevation touches no RNG.
+
+**Manfield being byte-identical is the real check.** Flat courses pass `grade = 0`
+and the `if (grade !== 0)` guard in `Car.update` means not one extra
+floating-point operation runs, so a course with no hills cannot drift.
+
+### Two render bugs found and fixed
+
+- The chase camera tracked the slope ahead exactly, which on a 14% grade pitched
+  it so far that Beryl slid off the bottom of the frame — the road ahead framed
+  beautifully, the car you are driving gone. It now follows 45% of the slope.
+- The slope tilt was applied to the chassis, which is the parent of the body but
+  not the wheels, so the shell tipped over four wheels lying flat. The terrain
+  tilt now goes on the root (wheels included) and only weight transfer stays on
+  the chassis. The root also needs `rotation.order = 'YXZ'`, or pitch is applied
+  in world space and shears the car sideways whenever she is turned *and* on a
+  slope at once.
+
+## 2026-08-01 — Scenery, signage and FX (Phases 5–7)
+
+The port is now feature-complete against the 2D build.
+
+- **Trees** (`render3d/trees.js`): three instanced low-poly variants with distinct
+  silhouettes — broad pōhutukawa, tall shelter-belt conifer, wide macrocarpa — plus
+  instanced contact shadows, seated on `terrain.heightAt()`. Canopy diameter tracks
+  the sprite width the collision radius derives from, so what you bump is what you
+  see. Yaw comes from a positional hash, never `Math.random`.
+- **Eastbourne** (`themes/eastbourne.js`): harbour water, foam line along the shore,
+  and the seawall as a **real mesh**. In 2D it was an invisible row of collision
+  circles you bumped into for no visible reason.
+- **Ōtaki** (`themes/otaki.js`): the river running under the road as a proper
+  bridge crossing, with banks and parapets, plus the railway sleepers and rails and
+  the beach.
+- **Signage** (`render3d/signs.js`): landmarks, arrows, the finish marker and the
+  crossbuck as upright boards on posts, yawed to face oncoming traffic. Not
+  billboards — a board that swivels as you drive past instantly reads as a sprite
+  pretending to be an object.
+- **FX**: skid marks as a 2000-quad ring buffer whose corners follow the terrain,
+  and a 120-sprite puff pool with one material per particle so each fades on its
+  own schedule. Both use local seeded PRNGs, never the global stream.
+
+### Water needs the ground carved out from under it
+
+The height field follows the road, so anything at a *fixed* level starts out
+buried. Eastbourne's harbour sat inside the Ferry Road hill (every cell out in the
+water took its height from a road sample 200 units up the slope) and Ōtaki's river
+vanished under the bridge it runs beneath.
+
+`Terrain` now carves regions to a fixed level before blurring — oriented
+rectangles, so a river can cut across the road at an angle; a coastline is just
+the angle-0 case. Road cells are pinned first, so the bridge deck stays up while
+the land either side drops to the water. The river region is generated in
+`buildTrack()` rather than authored, because it has to line up with the checkpoint
+the crossing scenery is already keyed to.
+
+Tightening `ROAD_PIN_FACTOR` (so water reaches closer to the bridge) changes the
+height field, and therefore the grade, and therefore the physics — the three
+elevated courses were re-recorded again. Manfield, being flat, did not move.
+
+## 2026-08-01 — A real steering bug, found by the hill
+
+Elevation made `remutaka/waypoint` softlock in the playtest matrix: the bot
+finished the course, but spent minutes at a near standstill on the way.
+
+The first two diagnoses were wrong and are worth recording, because both looked
+convincing:
+
+1. *"The climb penalty cap isn't working."* It was. Full throttle on a 26% slope
+   still nets ~+18 px/s². Softening the profile and dropping `gravity` from 270 to
+   200 changed nothing.
+2. *"She's wedged head-on against a tree."* She was, once — at frame 5660, nose
+   exactly on a trunk, full throttle, zero steer, going nowhere for 56 seconds.
+   But a tangential escape nudge only moved the stall somewhere else. (My first
+   attempt scaled the nudge by the overlap, which is *zero* once the push-out has
+   done its job — a fraction of a pixel per frame. The second recomputed the
+   escape direction every frame, so the contact normal swung and she vibrated
+   sideways at 21 px/s instead of leaving.)
+
+The actual bug is in `Car.update` and predates all of this:
+
+```js
+const dir = vForward >= 0 ? 1 : -1;   // steering inverts when reversing
+```
+
+Taking the raw sign of `vForward` makes `dir` chatter whenever speed hovers
+around zero. A car nudged back and forth — stopped on a hill, or resting against
+scenery — gets its steering direction flipped every few frames, so it jitters on
+the spot and can never turn to point anywhere. The bot was steering hard the
+whole time and going nowhere.
+
+A small deadband (`vForward < -maxSpeed * 0.01`) fixes it: steering only inverts
+once she is genuinely reversing. The longest near-static window on Remutaka went
+from ~9,000 frames to 10.
+
+The hill did not cause this. It only made Beryl stop often enough to expose it —
+which is a fair argument for keeping a dumb bot in CI.
+
+**Baselines after the fix:** eastbourne, manfield and otaki are byte-identical to
+their pre-fix values; only remutaka moved (202817 → 204383 ms). The deadband can
+only matter where a car actually hovers around zero speed, and only the hill
+climb does.
+
+The tangential-escape experiments were reverted. They did not fix the real
+problem, and "you can never rest against a tree" is a gameplay change that should
+be argued on its own merits rather than smuggled in as a bug fix.
+
+### Known failure: `remutaka/waypoint` softlock (unresolved)
+
+The playtest matrix fails this one case. Beryl drives head-on into a tree at full
+throttle and stops dead for ~5 seconds — under 3px of movement across 300 frames,
+which is exactly what the softlock rule is meant to catch. She does finish the
+course afterwards; the run is not lost.
+
+The mechanism is a sharp edge in `resolveObstacles()` that predates elevation. A
+head-on contact cancels the entire inbound velocity *and* the geometric push-out
+re-seats her on the obstacle surface every frame, so nothing she does with the
+throttle can free her — only a tangential escape can, and she has none.
+
+Four fixes were tried and all reverted:
+
+| attempt | result |
+|---|---|
+| tangential escape scaled by overlap | overlap is zero once the push-out has run — worth a fraction of a pixel |
+| tangential escape at 14% of top speed, direction recomputed per frame | contact normal swings, so the side flips every frame and she vibrates in place |
+| same, direction latched | frees her, but shoulders her far enough off line that she never finishes |
+| same at 5% | worse — stuck outright elsewhere |
+| partial collision response below a crawl | no effect; the position push-out, not the velocity, is what holds her |
+| widening tree clearance from the road | no effect on this contact |
+
+Elevation did not introduce this; it made it reachable, by giving Beryl somewhere
+she actually comes to a stop. Fixing it properly means reworking the collision
+resolver so a stationary contact can be escaped — worth scoping deliberately
+rather than bodging, so it is left failing and visible.
+
+Two genuine bugs *were* found on the way here and are fixed: the steering-direction
+chatter in `Car.update` (above), and the harness leaving the Title scene running
+under the race.

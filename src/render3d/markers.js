@@ -20,6 +20,13 @@ function acrossRoad(cp) {
   return { x: Math.cos(cp.angle + Math.PI / 2), y: Math.sin(cp.angle + Math.PI / 2) };
 }
 
+// Road height at a checkpoint. Checkpoints carry their centreline index, so this
+// reads the same per-sample heights the road mesh is built from — furniture
+// stays welded to the tarmac rather than floating over a hill.
+function roadHeight(track, cp) {
+  return track.heights ? track.heights[cp.index] : 0;
+}
+
 // Checkered start/finish line, laid on the road surface.
 export function buildStartLine(track) {
   const cp = track.checkpoints[0];
@@ -29,7 +36,7 @@ export function buildStartLine(track) {
     geometry,
     basic(0xffffff, { map: checkerTexture(10, 4), fog: true, depthWrite: false })
   );
-  mesh.position.set(cp.x, START_LINE_Y, cp.y);
+  mesh.position.set(cp.x, roadHeight(track, cp) + START_LINE_Y, cp.y);
   mesh.rotation.y = yawAlongRoad(cp.angle);
   mesh.renderOrder = 1;
   return mesh;
@@ -46,9 +53,10 @@ export function buildCheckpointGates(track, { from = 1 } = {}) {
   for (let i = from; i < track.checkpoints.length; i++) {
     const cp = track.checkpoints[i];
     const n = acrossRoad(cp);
+    const h = roadHeight(track, cp);
     for (const side of [-1, 1]) {
       const post = new Mesh(geometry, material);
-      post.position.set(cp.x + n.x * track.half * side, 70, cp.y + n.y * track.half * side);
+      post.position.set(cp.x + n.x * track.half * side, h + 70, cp.y + n.y * track.half * side);
       group.add(post);
     }
   }
@@ -95,7 +103,7 @@ export function buildStartGantry(track, label = 'START') {
   banner.rotation.y = Math.PI;
   group.add(banner);
 
-  group.position.set(cp.x, 0, cp.y);
+  group.position.set(cp.x, roadHeight(track, cp), cp.y);
   // yawAlongRoad already puts local +Z along the road and local X across it,
   // which is exactly what the posts at ±postX need.
   group.rotation.y = yawAlongRoad(cp.angle);

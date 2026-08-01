@@ -3,6 +3,7 @@ import { WORLD, TRACK, COLORS, STORAGE_KEY } from '../config.js';
 import { getSelectedTrack } from '../tracks.js';
 import { buildTrack, distanceToCenterline, surfaceAt } from '../track.js';
 import { scatterScenery } from '../scenery.js';
+import { Terrain } from '../terrain.js';
 import { Car } from '../entities/Car.js';
 import { Hud } from '../ui/Hud.js';
 import { createFullscreenButton } from '../ui/fullscreen.js';
@@ -29,6 +30,10 @@ export class RaceScene extends Phaser.Scene {
     // checkpoints are spaced far enough apart (~1000px+) that this never trips
     // the next gate early.
     this.captureRadius = TRACK.roadWidth * 1.25;
+
+    // The height field. Flat courses build nothing and answer 0, so they take no
+    // extra work and — critically — no extra arithmetic in the physics step.
+    this.terrain = new Terrain(this.track, WORLD);
 
     // Solid scenery Beryl bumps into: each is a {x, y, r} collision circle.
     // Seeded placement lives in src/scenery.js; theme setpieces add their own.
@@ -204,7 +209,12 @@ export class RaceScene extends Phaser.Scene {
     const onTrack = dist <= this.track.half;
     const surface = surfaceAt(this.car.x, this.car.y, this.track);
 
-    this.car.update(dt, input, onTrack, surface);
+    // Slope along Beryl's heading. Flat courses return a hard 0, which the guard
+    // in Car.update uses to skip the gravity term entirely.
+    const f = this.car.forward;
+    const grade = this.terrain.gradeAlong(this.car.x, this.car.y, f.x, f.y);
+
+    this.car.update(dt, input, onTrack, surface, grade);
     this.resolveObstacles();
     this.applyFx(onTrack, input, surface);
 

@@ -10,6 +10,12 @@ import { getRenderer, showCanvas, syncSize, getCanvas } from './renderer.js';
 import { buildRoad, buildKerbs, buildApron, buildGround } from './road.js';
 import { buildStartLine, buildCheckpointGates, buildStartGantry } from './markers.js';
 import { buildBeryl, updateBeryl } from './beryl.js';
+import { buildTrees } from './trees.js';
+import { buildSigns } from './signs.js';
+import { buildEastbourne } from './themes/eastbourne.js';
+import { buildOtaki } from './themes/otaki.js';
+import { SkidRibbon } from './fx/skid.js';
+import { PuffPool } from './fx/puffs.js';
 import { ChaseCamera } from './chaseCamera.js';
 import { isCompact } from '../ui/format.js';
 
@@ -41,7 +47,8 @@ class RaceWorld {
     this.scene3d.add(sun);
 
     // Ground first, then apron, road, kerbs — painted outward-in and bottom-up.
-    this.scene3d.add(buildGround());
+    this.terrain = scene.terrain;
+    this.scene3d.add(buildGround(this.terrain));
     for (const strip of buildApron(scene.track)) this.scene3d.add(strip);
     this.scene3d.add(buildRoad(scene.track));
     for (const strip of buildKerbs(scene.track, scene.def.theme)) this.scene3d.add(strip);
@@ -55,6 +62,17 @@ class RaceWorld {
     } else {
       this.scene3d.add(buildStartGantry(scene.track, 'START'));
     }
+
+    // Theme setpieces sit under the trees and signage.
+    if (scene.def.theme === 'eastbourne') this.scene3d.add(buildEastbourne(this.terrain));
+    if (scene.def.theme === 'otaki') this.scene3d.add(buildOtaki(scene.track, scene.def, this.terrain));
+
+    this.scene3d.add(buildTrees(scene.scenery.trees, this.terrain));
+    this.scene3d.add(buildSigns(scene.track, scene.def, this.terrain));
+
+    this.skid = new SkidRibbon(this.terrain);
+    this.scene3d.add(this.skid.mesh);
+    this.puffs = new PuffPool(this.scene3d, this.terrain);
 
     this.beryl = buildBeryl();
     this.scene3d.add(this.beryl.root);
@@ -89,22 +107,18 @@ class RaceWorld {
   // --- FX hooks --------------------------------------------------------------
   // RaceScene decides *when* an effect happens (inside update(), as pure data
   // writes, so headless simulation stays draw-free) and this layer decides how
-  // it looks. Phase 6 fills these in with the skid ribbon and particle pool;
-  // until then they are deliberately inert.
+  // it looks.
 
   addSkid(from, to) {
-    void from;
-    void to;
+    this.skid.add(from, to);
   }
 
   emitSmoke(at, count) {
-    void at;
-    void count;
+    this.puffs.emit('smoke', at, count);
   }
 
   emitDust(at, count) {
-    void at;
-    void count;
+    this.puffs.emit('dust', at, count);
   }
 
   // Pull render-only state off the simulation and draw. Called once per real
@@ -114,8 +128,12 @@ class RaceWorld {
     if (!car) return;
     syncSize(this.scene.game.canvas, this.chase.camera);
 
-    updateBeryl(this.beryl, car, this.scene.lastInput, dt);
-    this.chase.update(car, dt);
+    const ground = this.terrain.heightAt(car.x, car.y);
+    const f = car.forward;
+    const grade = this.terrain.gradeAlong(car.x, car.y, f.x, f.y);
+    updateBeryl(this.beryl, car, this.scene.lastInput, dt, ground, grade);
+    this.puffs.update(dt);
+    this.chase.update(car, dt, this.terrain);
     this.renderer.render(this.scene3d, this.chase.camera);
   }
 

@@ -59,7 +59,10 @@ export class Car {
     return { x: Math.sin(this.rotation), y: -Math.cos(this.rotation) };
   }
 
-  update(dt, input, onTrack, surface) {
+  // `grade` is the slope along Beryl's heading as a rise-over-run ratio, positive
+  // uphill. Flat courses pass 0 and take no extra arithmetic at all — see the
+  // guard below, which is what keeps Manfield's recorded baselines untouched.
+  update(dt, input, onTrack, surface, grade = 0) {
     this.onTrack = onTrack;
     const handbrake = !!input.handbrake;
 
@@ -85,8 +88,31 @@ export class Car {
       vForward = approach(vForward, 0, CAR.coastDrag * dt);
     }
 
+    // Gravity along the slope. Climbs bleed speed, descents give it back — this
+    // is the whole point of the hill climb: a slow car labouring up a steep road.
+    if (grade !== 0) {
+      let pull = CAR.gravity * grade;
+      if (pull > 0) {
+        // The hill never wins. Capping the climb penalty below Beryl's own
+        // acceleration guarantees full throttle always nets forward progress, so
+        // she crawls and strains up the switchbacks but is never stopped dead by
+        // them — which matters for a family game, and keeps the playtest bots
+        // able to summit.
+        const cap = CAR.accel * (CAR.maxClimbPenalty != null ? CAR.maxClimbPenalty : 0.78);
+        if (pull > cap) pull = cap;
+      }
+      vForward -= pull * dt;
+    }
+
     // Surface speed cap (soft pull-back if over).
-    const maxV = onTrack ? CAR.maxSpeed : CAR.maxSpeed * CAR.grassMaxSpeedFactor;
+    let maxV = onTrack ? CAR.maxSpeed : CAR.maxSpeed * CAR.grassMaxSpeedFactor;
+    // Running downhill earns a little over the flat top speed. Without this the
+    // hard clamp below swallows every metre gravity gives back and a descent
+    // feels identical to the flat.
+    if (grade < 0 && CAR.downhillOverspeed) {
+      const over = Math.min(1, -grade / 0.15);
+      maxV *= 1 + CAR.downhillOverspeed * over;
+    }
     if (vForward > maxV) {
       vForward = approach(vForward, maxV, (onTrack ? CAR.overspeedDrag : CAR.grassDrag) * dt);
     }
@@ -96,7 +122,13 @@ export class Car {
     // Steering: scales with speed, flips when reversing, sharper mid-drift.
     const speedRatio = Phaser.Math.Clamp(Math.abs(vForward) / CAR.maxSpeed, 0, 1);
     const effectiveness = CAR.lowSpeedTurn + (1 - CAR.lowSpeedTurn) * speedRatio;
-    const dir = vForward >= 0 ? 1 : -1;
+    // Steering only inverts once she is genuinely reversing. Taking the raw sign
+    // of vForward makes this chatter whenever speed hovers around zero: a car
+    // nudged back and forth — stopped on a hill, or resting against scenery —
+    // gets its steering flipped every few frames and jitters on the spot instead
+    // of turning, unable to point itself anywhere. A small deadband makes a
+    // stationary car steer consistently forwards.
+    const dir = vForward < -CAR.maxSpeed * 0.01 ? -1 : 1;
     const driftBoost = handbrake ? CAR.driftTurnBoost : 1;
     this.rotation += input.steer * CAR.turnRate * effectiveness * dir * driftBoost * dt;
 

@@ -21,8 +21,8 @@
       "checkpointsTotal": 10,
       "waypointMustFinish": true,
       "finishTimeMs": {
-        "min": 86000,
-        "max": 121000
+        "min": 84000,
+        "max": 118000
       },
       "minimumWaypointCheckpointRate": 1,
       "noSoftlock": true,
@@ -43,8 +43,8 @@
       "checkpointsTotal": 11,
       "waypointMustFinish": true,
       "finishTimeMs": {
-        "min": 121000,
-        "max": 172000
+        "min": 174000,
+        "max": 245000
       },
       "minimumWaypointCheckpointRate": 1,
       "noSoftlock": true,
@@ -54,8 +54,8 @@
       "checkpointsTotal": 13,
       "waypointMustFinish": true,
       "finishTimeMs": {
-        "min": 98000,
-        "max": 138000
+        "min": 94000,
+        "max": 132000
       },
       "minimumWaypointCheckpointRate": 1,
       "noSoftlock": true,

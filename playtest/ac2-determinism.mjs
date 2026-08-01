@@ -19,10 +19,17 @@ import { TRACKS } from '../src/tracks.js';
 // progress.md's 2026-07-28 entry, which were never refreshed after 8bf33c6
 // ("Longer/faster courses, bigger Beryl sprite") scaled every route ×2 and
 // Beryl's speed ×1.5 — so those were already stale on main before this branch.
+//
+// Re-recorded again when elevation landed. Eastbourne, Remutaka and Ōtaki now
+// have height profiles and gravity along the slope; Manfield is deliberately
+// flat, and its numbers being unchanged to the last digit is the check that the
+// `grade !== 0` guard in Car.update really does cost a flat course nothing.
+// Remutaka is ~33% slower (the climb); Eastbourne and Ōtaki are slightly faster
+// (net descents).
 const BASELINES = {
   'eastbourne-pootle': {
-    finishTimeMs: 100633.333333,
-    pos: { x: 2607.891752503, y: 9260.87269146 },
+    finishTimeMs: 98650,
+    pos: { x: 2607.355623469, y: 9260.286448813 },
     obstacles: '94932d480a8bac9b',
   },
   manfield: {
@@ -31,8 +38,8 @@ const BASELINES = {
     obstacles: 'e9472f88b60d3f2a',
   },
   remutaka: {
-    finishTimeMs: 142933.333333,
-    pos: { x: 9482.258917054, y: 1460.035772636 },
+    finishTimeMs: 204383.333333,
+    pos: { x: 9482.231109242, y: 1460.089313903 },
     obstacles: '7ce0cd7df381210a',
   },
   // Ōtaki alone moved when the 2D renderer came out, and the reason is worth
@@ -46,8 +53,8 @@ const BASELINES = {
   // runs at the top of RaceScene.create(), before any text or HUD exists, so UI
   // churn can no longer perturb gameplay placement.
   otaki: {
-    finishTimeMs: 117433.333333,
-    pos: { x: 1118.01265735, y: 1169.616217772 },
+    finishTimeMs: 110183.333333,
+    pos: { x: 1116.682112488, y: 1168.829838599 },
     obstacles: 'd06a791d3b7d28f2',
   },
 };

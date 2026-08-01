@@ -82,6 +82,10 @@ export function buildBeryl() {
   };
 
   const root = new Group();
+  // Yaw first, then pitch about the already-yawed lateral axis. The default XYZ
+  // order applies pitch in world space, which shears the car sideways as soon as
+  // she is both turned and on a slope.
+  root.rotation.order = 'YXZ';
   const chassis = new Group();
   root.add(chassis);
 
@@ -167,7 +171,7 @@ export function buildBeryl() {
     wheels,
     shadow,
     // Render-only animation state. None of this is ever read by the simulation.
-    state: { roll: 0, pitch: 0, steer: 0, lastSpeed: 0 },
+    state: { roll: 0, pitch: 0, slope: 0, steer: 0, lastSpeed: 0 },
   };
 }
 
@@ -178,10 +182,10 @@ const MAX_PITCH = 0.035;
 const MAX_STEER = 0.42;
 const _pos = new Vector3();
 
-export function updateBeryl(rig, car, input, dt) {
+export function updateBeryl(rig, car, input, dt, ground = 0, grade = 0) {
   const { root, chassis, wheels, state } = rig;
 
-  toThree(car.x, car.y, 0, _pos);
+  toThree(car.x, car.y, ground, _pos);
   root.position.copy(_pos);
   root.rotation.y = yawFor(car.rotation);
 
@@ -202,6 +206,15 @@ export function updateBeryl(rig, car, input, dt) {
   state.lastSpeed = car.speed;
   const targetPitch = clamp(accel / CAR.accel, -1, 1) * MAX_PITCH;
   state.pitch += (targetPitch - state.pitch) * a;
+
+  // The slope she is standing on tilts the WHOLE car, wheels included, so it
+  // goes on the root rather than the chassis. Pitching only the body leaves the
+  // wheels lying flat while the shell tips over them, which reads as the car
+  // coming apart on every gradient. Positive rotation about X lifts the nose,
+  // and the nose is at -Z, so an uphill grade adds directly.
+  const targetSlope = Math.atan(grade);
+  state.slope += (targetSlope - state.slope) * a;
+  root.rotation.x = state.slope;
 
   chassis.rotation.z = state.roll;
   chassis.rotation.x = state.pitch;

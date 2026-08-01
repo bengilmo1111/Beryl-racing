@@ -43,6 +43,23 @@ export const TRACKS = [
       samplesPerSegment: 20,
       numCheckpoints: 10,
       closed: false,
+      // Ferry Road is genuinely steep, and the route starts at the top of it
+      // (28 Ferry Road is anchor 0). Beryl drops off the hill onto the flat
+      // harbour road, runs the coast at sea level, then climbs gently inland to
+      // the RSA. Heights are world units; see track.js sampleProfile.
+      elevation: {
+        // Wellington Harbour: the western strip, flat at sea level, so the
+        // Ferry Road hill falls to the water instead of the water climbing the
+        // hill. Matches the 2D harbour (width * 0.167, down to height * 0.8).
+        // Pre-scale coordinates, like the anchors.
+        sea: [{ x: -400, y: -400, w: 801, h: 4400, level: 0 }],
+        profile: [
+          { at: 0, h: 105 }, // top of Ferry Road
+          { at: 0.1, h: 10 }, // down on the coast road — roughly a 20% drop
+          { at: 0.8, h: 6 }, // flat along the harbour
+          { at: 1, h: 30 }, // up a little into the village and the RSA
+        ],
+      },
     },
     // Morris Minor character: a decent top speed you have to work up to (long,
     // lazy acceleration), weak brakes that are slow to wash off speed, and loose,
@@ -65,6 +82,9 @@ export const TRACKS = [
       grassMaxSpeedFactor: 0.5,
       grassDrag: 100,
       driftLateral: 14,
+      gravity: 300, // px/s^2 along the slope (scaled with the other speed fields)
+      maxClimbPenalty: 0.78, // cap vs accel — full throttle always climbs
+      downhillOverspeed: 0.18, // Ferry Road is a proper run down
     },
     storageKey: 'beryl-racing-3d.eastbourne-pootle.bestTimeMs.v1',
     hud: { current: 'POOTLE TIME', progress: 'TO EASTBOURNE' },
@@ -174,6 +194,19 @@ export const TRACKS = [
       samplesPerSegment: 20,
       numCheckpoints: 11,
       closed: false,
+      // The point of the course: a long, gentle rise through the lower sweepers
+      // that hardens into a sustained ~13-14% grind once the switchbacks start.
+      // Caricatured for feel, not surveyed — see PRD/ART-DIRECTION on compressed
+      // distances and exaggerated hills.
+      elevation: {
+        profile: [
+          { at: 0, h: 0 }, // Te Mārua, low and broad
+          { at: 0.3, h: 45 }, // lower sweepers, barely climbing
+          { at: 0.55, h: 160 }, // Kaitoke bend, it starts to bite
+          { at: 0.8, h: 320 }, // deep in the switchbacks
+          { at: 1, h: 440 }, // Remutaka Summit
+        ],
+      },
     },
     // Same Morris Minor character as Eastbourne (long acceleration, weak brakes,
     // loose oversteer), scaled a little quicker for the hill and kept just
@@ -195,6 +228,13 @@ export const TRACKS = [
       grassMaxSpeedFactor: 0.5,
       grassDrag: 110,
       driftLateral: 14,
+      // Lowest in the game. The switchbacks are the steepest thing Beryl drives,
+      // and a heavier pull here stalled her outright whenever a driver lifted off
+      // mid-hairpin — she hovered around zero instead of either climbing or
+      // rolling back, which is neither fun nor recoverable.
+      gravity: 200,
+      maxClimbPenalty: 0.78,
+      downhillOverspeed: 0.12,
     },
     storageKey: 'beryl-racing-3d.remutaka.bestTimeMs.v1',
     hud: { current: 'CLIMB TIME', progress: 'TO THE SUMMIT' },
@@ -259,6 +299,24 @@ export const TRACKS = [
         { type: 'sealed', until: 0.93 },
         { type: 'gravel', until: 1.0 },
       ],
+      // Inland foothills down to the coast, as the tagline says: a steep loose
+      // descent out of the valley, easing across the farm flats, then all but
+      // flat through the township and out to the beach.
+      elevation: {
+        // The Tasman, beyond Ōtaki Beach in the north-west corner (the beach
+        // rect in `scenery` is 1050 x 1050 from the origin). Pre-scale.
+        sea: [{ x: -400, y: -400, w: 700, h: 1450, level: 0 },
+              { x: -400, y: -400, w: 1450, h: 700, level: 0 }],
+        // The Ōtaki River, carved under the bridge at the same checkpoint the
+        // crossing scenery uses. Pre-scale, like the anchors.
+        river: { cp: 6, halfWidth: 130, halfLength: 925, drop: 45 },
+        profile: [
+          { at: 0, h: 420 }, // Ōtaki Forks, up in the foothills
+          { at: 0.3, h: 140 }, // down the valley — the fast, loose part
+          { at: 0.62, h: 60 }, // out onto the farmland flats
+          { at: 1, h: 10 }, // Ōtaki Beach, sea level
+        ],
+      },
     },
     // Rally character: the fastest and loosest of the road courses, still
     // Morris-Minor-flavoured (long acceleration, weak brakes, oversteer). Gravel
@@ -281,6 +339,9 @@ export const TRACKS = [
       grassMaxSpeedFactor: 0.5,
       grassDrag: 110,
       driftLateral: 14,
+      gravity: 300,
+      maxClimbPenalty: 0.78,
+      downhillOverspeed: 0.15, // gravel descent out of the valley
     },
     storageKey: 'beryl-racing-3d.otaki.bestTimeMs.v1',
     hud: { current: 'RALLY TIME', progress: 'TO THE BEACH' },
@@ -338,6 +399,11 @@ const GRIP_SCALE = 1.25;
 const SPEED_FIELDS = [
   'maxSpeed', 'accel', 'brakeDecel', 'reverseAccel', 'maxReverse',
   'coastDrag', 'overspeedDrag', 'grassDrag', 'driftLateral',
+  // Gravity is px/s^2, same as accel. It has to scale with accel or the climb
+  // penalty would quietly shrink relative to Beryl's power and the hills would
+  // stop mattering. (maxClimbPenalty and downhillOverspeed are ratios, so they
+  // are deliberately excluded, like lowSpeedTurn and grassMaxSpeedFactor.)
+  'gravity',
 ];
 // Lateral-grip rates — scaled up modestly (GRIP_SCALE) to hold the road margin.
 const GRIP_FIELDS = ['gripNormal', 'gripGravel', 'gripDrift', 'gripGrass'];
@@ -347,6 +413,31 @@ function scaleCourse(def) {
   def.world = { width: Math.round(def.world.width * L), height: Math.round(def.world.height * L) };
   const g = def.geometry;
   g.anchors = g.anchors.map((a) => ({ x: a.x * L, y: a.y * L }));
+  // Elevation scales with length so the *grade* is preserved. Routes get twice
+  // as long; if the heights stayed put, every hill would halve in steepness and
+  // the climb would quietly stop being a climb.
+  if (g.elevation) {
+    g.elevation = { ...g.elevation };
+    if (g.elevation.profile) {
+      g.elevation.profile = g.elevation.profile.map((p) => ({ at: p.at, h: p.h * L }));
+    }
+    // Sea rects are world geometry like the anchors, so they scale in x/y. The
+    // level is a height, and scales for the same reason the profile does.
+    if (g.elevation.river) {
+      const r = g.elevation.river;
+      g.elevation.river = {
+        cp: r.cp,
+        halfWidth: r.halfWidth * L,
+        halfLength: r.halfLength * L,
+        drop: r.drop * L,
+      };
+    }
+    if (g.elevation.sea) {
+      g.elevation.sea = g.elevation.sea.map((r) => ({
+        x: r.x * L, y: r.y * L, w: r.w * L, h: r.h * L, level: r.level * L,
+      }));
+    }
+  }
   // roadWidth intentionally NOT scaled (keeps the same on-screen road width).
   if (def.landmarks) def.landmarks = def.landmarks.map(([x, y, t]) => [x * L, y * L, t]);
   if (def.arrows) def.arrows = def.arrows.map((a) => ({ ...a, x: a.x * L, y: a.y * L }));

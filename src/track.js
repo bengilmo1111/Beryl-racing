@@ -111,6 +111,21 @@ export function buildTrack() {
     }
   }
 
+  // Optional per-sample road height, from an ordered { at, h } profile keyed to
+  // a fraction of the route. Interpolated with a smoothstep between control
+  // points so grade changes ease in and out rather than breaking sharply — a
+  // linear profile puts a visible crease across the road at every control point.
+  // Absent → null, and the course is flat with gravity disabled entirely.
+  let heights = null;
+  const profile = TRACK.elevation && TRACK.elevation.profile;
+  if (Array.isArray(profile) && profile.length > 1) {
+    heights = new Array(count);
+    for (let i = 0; i < count; i++) {
+      const frac = count > 1 ? i / (count - 1) : 0;
+      heights[i] = sampleProfile(profile, frac);
+    }
+  }
+
   // Start pose: on the line, facing along the track from the first sample.
   const start = centerline[0];
   const startNext = centerline[1];
@@ -125,10 +140,61 @@ export function buildTrack() {
     right,
     checkpoints,
     surfaces,
+    heights,
+    // Standing water the terrain builder holds flat, instead of letting it
+    // follow the nearest road height uphill. Coastlines are authored as rects;
+    // the river is generated here because it has to line up with the checkpoint
+    // the bridge crossing is already keyed to.
+    sea: buildWaterRegions(checkpoints, heights),
     start: { x: start.x, y: start.y, rotation: startRotation },
     half,
     closed,
   };
+}
+
+// Coastline rects plus, if the course has one, an oriented carve for the river.
+//
+// The river has to be generated rather than authored: it runs across the road at
+// whatever angle the route happens to take through its checkpoint, and the
+// terrain either side has to drop to the water while the road stays up on the
+// bridge. Road cells are pinned before carving, so the bridge survives.
+function buildWaterRegions(checkpoints, heights) {
+  const elevation = TRACK.elevation;
+  if (!elevation) return null;
+  const regions = [...(elevation.sea || [])];
+  const river = elevation.river;
+  if (river && checkpoints[river.cp]) {
+    const cp = checkpoints[river.cp];
+    // `angle` is the along-road direction, so halfW measures the water the car
+    // crosses and halfL runs up and downstream.
+    regions.push({
+      cx: cp.x,
+      cy: cp.y,
+      angle: cp.angle,
+      halfW: river.halfWidth,
+      halfL: river.halfLength,
+      level: (heights ? heights[cp.index] : 0) - river.drop,
+    });
+  }
+  return regions.length ? regions : null;
+}
+
+// Height at a fraction along an ordered [{ at, h }] profile. Smoothstep between
+// control points, flat beyond the ends.
+function sampleProfile(profile, frac) {
+  if (frac <= profile[0].at) return profile[0].h;
+  const last = profile[profile.length - 1];
+  if (frac >= last.at) return last.h;
+  for (let i = 1; i < profile.length; i++) {
+    const b = profile[i];
+    if (frac > b.at) continue;
+    const a = profile[i - 1];
+    const span = b.at - a.at;
+    const t = span > 0 ? (frac - a.at) / span : 0;
+    const eased = t * t * (3 - 2 * t);
+    return a.h + (b.h - a.h) * eased;
+  }
+  return last.h;
 }
 
 // Shortest distance from (px,py) to the centreline polyline. On a closed loop

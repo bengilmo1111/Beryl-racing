@@ -27,6 +27,11 @@ const A_POS = 0.16;
 const A_YAW = 0.09;
 const A_LENS = 0.05;
 
+// How much of the slope ahead the camera's aim follows. 1 tracks the hill
+// exactly and loses the car off the bottom of the frame on a steep climb; 0
+// stares at the horizon and hides the road. See the note where it is used.
+const LOOK_SLOPE_FOLLOW = 0.45;
+
 export class ChaseCamera {
   constructor(compact) {
     this.camera = new PerspectiveCamera(RIG.desktop.fov, 1, CAMERA_NEAR, CAMERA_FAR);
@@ -71,12 +76,16 @@ export class ChaseCamera {
     this.primed = false;
   }
 
-  update(car, dt) {
+  // `terrain` lifts the whole rig onto the hillside. Without it the camera stays
+  // at sea level on a climb and ends up buried in the hill, or staring at open
+  // sky on the way back down.
+  update(car, dt, terrain = null) {
     const rig = this.rig;
 
     // Targets.
     const targetX = car.x;
     const targetZ = car.y;
+    const targetGround = terrain ? terrain.heightAt(car.x, car.y) : 0;
     // Feed a little of the slide into the camera yaw so a drift shows Beryl's
     // flank rather than nailing the camera to her tail. Body heading, not
     // velocity heading — velocity heading swings wildly on the handbrake.
@@ -89,7 +98,7 @@ export class ChaseCamera {
 
     if (!this.primed) {
       // First frame of a race, and every zero-delta harness render.
-      this.anchor.set(targetX, 0, targetZ);
+      this.anchor.set(targetX, targetGround, targetZ);
       this.yaw = targetYaw;
       this.fov = targetFov;
       this.dist = targetDist;
@@ -100,6 +109,7 @@ export class ChaseCamera {
       const aLens = alphaFor(A_LENS, dt);
       this.anchor.x += (targetX - this.anchor.x) * aPos;
       this.anchor.z += (targetZ - this.anchor.z) * aPos;
+      this.anchor.y += (targetGround - this.anchor.y) * aPos;
       // Via the shortest arc, or the camera whips the long way round at ±π.
       this.yaw += angleDelta(this.yaw, targetYaw) * aYaw;
       this.fov += (targetFov - this.fov) * aLens;
@@ -110,16 +120,27 @@ export class ChaseCamera {
     // inverse, so this converts the camera yaw back into a game rotation.
     forwardXZ(yawFor(this.yaw), this._fwd);
 
-    this._eye.set(
-      this.anchor.x - this._fwd.x * this.dist,
-      rig.height,
-      this.anchor.z - this._fwd.z * this.dist
-    );
-    this._look.set(
-      this.anchor.x + this._fwd.x * rig.lookAhead,
-      rig.lookHeight,
-      this.anchor.z + this._fwd.z * rig.lookAhead
-    );
+    // The eye rides above whichever is higher: the ground under Beryl, or the
+    // ground under the camera itself. On a steep climb the camera sits back down
+    // the slope, so anchoring purely to her height would push it into the hill.
+    const eyeX = this.anchor.x - this._fwd.x * this.dist;
+    const eyeZ = this.anchor.z - this._fwd.z * this.dist;
+    const eyeGround = terrain ? terrain.heightAt(eyeX, eyeZ) : 0;
+    this._eye.set(eyeX, Math.max(this.anchor.y, eyeGround) + rig.height, eyeZ);
+
+    // Aim at the road ahead rather than a fixed height, or a climb points the
+    // camera at open sky and a descent buries it in the road.
+    //
+    // Only *partly* follow the slope, though. Tracking the look target all the
+    // way up a 14% grade pitches the camera so far that Beryl slides off the
+    // bottom of the frame — the road ahead is beautifully framed and the car
+    // you're driving is gone. Splitting the difference keeps her seated in the
+    // lower third while still opening up the climb.
+    const lookX = this.anchor.x + this._fwd.x * rig.lookAhead;
+    const lookZ = this.anchor.z + this._fwd.z * rig.lookAhead;
+    const lookGround = terrain ? terrain.heightAt(lookX, lookZ) : 0;
+    const followed = this.anchor.y + (lookGround - this.anchor.y) * LOOK_SLOPE_FOLLOW;
+    this._look.set(lookX, followed + rig.lookHeight, lookZ);
 
     // Shake displaces eye and look together, so it reads as a jolt of the whole
     // rig rather than a pan.

@@ -15,27 +15,32 @@ Part of the **[Gilmore Games](https://gilmore.games)** family.
 - **Stack:** Phaser 3 (simulation, HUD, input, audio) + Three.js (the 3D world)
   + Vite. The Phaser canvas is a transparent overlay above the Three.js canvas;
   see `src/render3d/`.
-- **Status:** 🚗 All four courses drivable in 3D. Roadside scenery, signage and
-  drift FX are still being ported from the 2D build.
+- **Status:** 🚗 All four courses drivable in 3D, with roadside scenery, signage
+  and drift FX ported. Remutaka, Ōtaki and Eastbourne have real elevation —
+  gravity acts along the slope, so climbs cost you and descents pay you back.
 
 ## Courses
 
 Pick a course on the title screen (**Choose your course**):
 
 - **Eastbourne Pootle** — a gentle coastal point-to-point from Days Bay to the
-  Eastbourne RSA. One relaxed run against the clock, harbour on your left.
+  Eastbourne RSA. One relaxed run against the clock, harbour on your left, and a
+  steep drop off Ferry Road to get you rolling.
 - **Manfield Racetrack** — the original closed drift circuit. Continuous lap
   racing on a fast, wide track; chase your best lap.
 - **Remutaka Hill Climb** — a point-to-point climb from Te Mārua up SH2 to the
-  Remutaka summit: lower sweepers building to tight switchbacks. Skeleton route
-  in place; the final hill-road art is a later pass.
-- **Ōtaki Rally** — a gravel-to-coast dash from Ōtaki Forks through the farmland,
+  Remutaka summit: lower sweepers building to tight switchbacks. The hill is
+  real — gravity acts along the slope, so Beryl genuinely labours up the
+  ~13–14% switchback grades and the climb takes noticeably longer than the
+  distance alone suggests. The final hill-road art is a later pass.
+- **Ōtaki Rally** — a gravel-to-coast dash downhill from Ōtaki Forks through the farmland,
   across the Ōtaki River and railway, through town and out to Ōtaki Beach. Mixed
   surfaces: gravel is looser/faster, the sealed town grips better. Scaffold route
   and placeholder scenery in place; the final rally art is a later pass.
 
-Each course has its own world, handling, checkpoints and locally saved best
-time, so records don't clash between them.
+Each course has its own world, handling, elevation profile, checkpoints and
+locally saved best time, so records don't clash between them. Manfield is
+deliberately flat — it is a purpose-built circuit.
 
 The current gameplay loop includes the countdown, keyboard and touch driving,
 ordered route checkpoints, an off-road penalty, a locally saved best time, and
