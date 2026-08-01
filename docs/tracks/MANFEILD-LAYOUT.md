@@ -53,12 +53,12 @@ line — about **1.5 m** at true scale, on a road 12 m wide.
 - **Speed.** Beryl's handling numbers are unchanged from the old course, so a
   lap is around 20 s rather than the couple of minutes a real Morris Minor
   would need.
-- **Everything above the tarmac.** Grandstands, pit buildings, the Higgins
-  bridge and the rest of the venue are not modelled. The CRO map does not show
-  them either. The site is at least kept *open*: `scatterScenery` keeps trees
-  outside the convex hull of any `mode: 'circuit'` centreline, so the infield is
-  grass and the trees sit around the boundary rather than in the gaps between
-  the straights.
+- **The venue art.** Manfeild opened in 1973, so the current scenery is not
+  presented as a literal 1960s reconstruction. It keeps the real circuit layout
+  and applies a late-1960s New Zealand club-racing treatment: modest corrugated
+  pit buildings, timber seating, marshal huts, painted boards, fences and straw
+  bales. The site is deliberately tree-free. See `MANFEILD-ART-PASS.md` for the
+  research basis, asset inventory and acceptance criteria.
 
 ## 4. If the layout is re-traced
 
