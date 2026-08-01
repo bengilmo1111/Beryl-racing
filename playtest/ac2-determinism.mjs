@@ -29,21 +29,29 @@ import { TRACKS } from '../src/tracks.js';
 //
 // Re-recorded once more when Beryl was given more pep — SPEED_SCALE 1.5 -> 1.8
 // plus a dedicated ACCEL_SCALE — which took roughly 18% off every course.
+// Every course re-baselined when roadWidth doubled to two lanes. That change
+// reaches the simulation three ways: the on-track test (`dist <= track.half`)
+// covers twice the width, so the grass speed penalty applies far less often;
+// tree placement rejects anything within `roadWidth / 2 + 90`, moving the whole
+// obstacle field outward and changing every fingerprint; and the terrain road-
+// pinning radius grows with it. The bots therefore drive visibly better rather
+// than merely differently — Remutaka halved, from 168.7s to 82.3s, because the
+// waypoint bot stops falling off the switchbacks.
 const BASELINES = {
   'eastbourne-dash': {
-    finishTimeMs: 81966.666667,
-    pos: { x: 2610.024317998, y: 9261.698154028 },
-    obstacles: '94932d480a8bac9b',
+    finishTimeMs: 63166.666667,
+    pos: { x: 2564.543957223, y: 9031.06365964 },
+    obstacles: '03391c49f50abb65',
   },
   manfield: {
-    finishTimeMs: 10616.666667,
-    pos: { x: 1242.957769971, y: 2871.563587842 },
-    obstacles: 'e9472f88b60d3f2a',
+    finishTimeMs: 8383.333333,
+    pos: { x: 1220.017018722, y: 2438.055489707 },
+    obstacles: '709bb1c9d2fc8774',
   },
   remutaka: {
-    finishTimeMs: 168733.333333,
-    pos: { x: 9482.148246004, y: 1459.792089087 },
-    obstacles: '7ce0cd7df381210a',
+    finishTimeMs: 82316.666667,
+    pos: { x: 9333.184911596, y: 1575.236578998 },
+    obstacles: '3b593a468267faa2',
   },
   // Ōtaki alone moved when the 2D renderer came out, and the reason is worth
   // knowing. Phaser's Text constructor keys its canvas texture with a UUID built
@@ -56,9 +64,9 @@ const BASELINES = {
   // runs at the top of RaceScene.create(), before any text or HUD exists, so UI
   // churn can no longer perturb gameplay placement.
   otaki: {
-    finishTimeMs: 90333.333333,
-    pos: { x: 1118.756526421, y: 1169.695843734 },
-    obstacles: 'd06a791d3b7d28f2',
+    finishTimeMs: 79050,
+    pos: { x: 1289.93976714, y: 1270.228007763 },
+    obstacles: '8d8d49d4f5e674c1',
   },
 };
 

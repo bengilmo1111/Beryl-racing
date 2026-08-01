@@ -383,7 +383,15 @@ The tangential-escape experiments were reverted. They did not fix the real
 problem, and "you can never rest against a tree" is a gameplay change that should
 be argued on its own merits rather than smuggled in as a bug fix.
 
-### Known failure: `remutaka/waypoint` softlock (unresolved)
+### Known failure: `remutaka/waypoint` softlock (RESOLVED — see the road-width entry below)
+
+> **Update, later the same day:** this stopped failing when `roadWidth` doubled.
+> The wider road keeps the waypoint bot away from the tree line on the
+> switchbacks, so she never reaches the head-on contact described here. The sharp
+> edge in `resolveObstacles()` is still there and still worth reworking — nothing
+> below is wrong — but it is no longer reachable from a normal racing line, and
+> the matrix now passes this case. Kept in full because the diagnosis stands.
+
 
 The playtest matrix fails this one case. Beryl drives head-on into a tree at full
 throttle and stops dead for ~5 seconds — under 3px of movement across 300 frames,
@@ -507,3 +515,65 @@ The `28 FERRY ROAD` landmark sign sits about 200 units from the start line, so a
 the opening frame it fills most of the screen. It predates this PR (it came in
 with the signage pass) and it is arguably charming — it is Beryl's home address —
 but it does bury the first thing a player sees.
+
+## 2026-08-01 — Two-lane roads and a dashed centre line
+
+### The roads were one lane wide
+
+Doubled `roadWidth` on every course: Eastbourne 180 → 360, Manfield 300 → 600,
+Remutaka 150 → 300, Ōtaki 160 → 320. The default in `config.js` moved with them.
+
+Worth writing down why the request and the scale agree. Beryl is 217.6 units for
+a ~3.7m car, so the world runs at about 59 units/metre. That made Eastbourne's
+180-unit road **3 metres** wide — a single lane with just enough room for one
+car, which is why a centre line had nowhere to go. At 360 it is a little over 6m:
+a real two-lane road, and now wide enough to mark.
+
+Nothing needed rewiring. Everything downstream already derived from
+`TRACK.roadWidth` or `track.half`: the offset edge polylines, the on-track test,
+tree clearance, terrain road-pinning, signage and gate-post offsets. `roadWidth`
+is still deliberately *not* scaled by `LENGTH_SCALE` — that would change apparent
+road width with route length, which is not what the scale pass is for.
+
+### It is a gameplay change, and the bots say so
+
+All four AC2 baselines and every finish-time window were re-recorded. The width
+reaches the simulation three ways: the on-track test covers twice the area, so
+the grass speed penalty applies far less often; tree placement rejects anything
+within `roadWidth / 2 + 90`, moving the whole obstacle field outward and changing
+every fingerprint; and the terrain pinning radius grows with it.
+
+| course | was | now |
+|---|---|---|
+| eastbourne-dash | 81967 | **63167** |
+| manfield | 10617 | **8383** |
+| remutaka | 168733 | **82317** |
+| otaki | 90333 | **79050** |
+
+Remutaka halving is the headline. The bots are not faster — they are no longer
+falling off the switchbacks and grinding along the grass, which is also why the
+`remutaka/waypoint` softlock above stopped reproducing. The matrix is 15/16, with
+only the pre-existing `manfield/pedal-to-the-metal` softlock left.
+
+### The centre line
+
+`buildCentreLine()` in `render3d/road.js`, one mesh and one draw call for the
+whole course.
+
+The dashes are laid by walking the centreline and **clipping each segment against
+accumulated arc length**, not by painting every Nth sample. Samples are evenly
+spaced in *parameter*, not distance — a long straight anchor span and a tight
+hairpin produce very differently sized steps — so per-sample dashes would visibly
+stretch on the straights and bunch in the corners. Clipping keeps every dash the
+same length on the ground, which is the thing the eye actually checks.
+
+Two places it deliberately does not paint:
+
+- **Gravel.** Ōtaki's unsealed section has no seal to mark, so the loop skips any
+  sample where `surfaces[i] === 'gravel'`.
+- **Manfield.** A race circuit has no centre line. It already has rumble kerbs and
+  a start/finish line, which is what actually marks a racing surface. One
+  condition in `render3d/index.js`, trivially flipped if that reads wrong.
+
+Sits at y = 0.4 — above the apron at 0.2, below the kerb lip at 5 — so it stacks
+cleanly in the existing road-surface ordering without z-fighting.

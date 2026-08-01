@@ -7,7 +7,7 @@ import Phaser from 'phaser';
 import { Scene, HemisphereLight, DirectionalLight } from 'three';
 import { C, makeFog } from './palette.js';
 import { getRenderer, showCanvas, syncSize, getCanvas } from './renderer.js';
-import { buildRoad, buildKerbs, buildApron, buildGround } from './road.js';
+import { buildRoad, buildKerbs, buildApron, buildGround, buildCentreLine } from './road.js';
 import { buildStartLine, buildCheckpointGates, buildStartGantry } from './markers.js';
 import { buildBeryl, updateBeryl } from './beryl.js';
 import { buildTrees } from './trees.js';
@@ -46,11 +46,15 @@ class RaceWorld {
     sun.position.set(-1, 2, -0.6);
     this.scene3d.add(sun);
 
-    // Ground first, then apron, road, kerbs — painted outward-in and bottom-up.
+    // Ground first, then apron, road, markings, kerbs — painted outward-in and
+    // bottom-up.
     this.terrain = scene.terrain;
     this.scene3d.add(buildGround(this.terrain));
     for (const strip of buildApron(scene.track)) this.scene3d.add(strip);
     this.scene3d.add(buildRoad(scene.track));
+    // A race circuit has no centre line — Manfield gets rumble kerbs and a
+    // start/finish line instead, which is what actually marks a racing surface.
+    if (scene.def.theme !== 'manfield') this.scene3d.add(buildCentreLine(scene.track));
     for (const strip of buildKerbs(scene.track, scene.def.theme)) this.scene3d.add(strip);
 
     // Course furniture, matching what each theme had in 2D: the purpose-built

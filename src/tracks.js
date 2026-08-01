@@ -39,7 +39,10 @@ export const TRACKS = [
         { x: 1450, y: 4470 },
         { x: 1280, y: 4740 },
       ],
-      roadWidth: 180,
+      // Two lanes wide. At ~59 units/metre (Beryl is 217.6 units for a 3.7m car)
+      // this is about 6m of sealed road, which is what a marked centre line
+      // needs — the old 180 was a single 3m lane with room for one car.
+      roadWidth: 360,
       samplesPerSegment: 20,
       numCheckpoints: 10,
       closed: false,
@@ -131,7 +134,7 @@ export const TRACKS = [
         { x: 470, y: 1240 },
         { x: 560, y: 1480 },
       ],
-      roadWidth: 300, // wide, for drifting room
+      roadWidth: 600, // wide, for drifting room
       samplesPerSegment: 20,
       numCheckpoints: 6, // includes the start/finish gate (index 0)
       closed: true,
@@ -190,7 +193,7 @@ export const TRACKS = [
         { x: 4380, y: 780 }, // final charge
         { x: 4820, y: 680 }, // Remutaka Summit finish
       ],
-      roadWidth: 150, // narrower and more technical than the coastal road
+      roadWidth: 300, // narrower and more technical than the coastal road
       samplesPerSegment: 20,
       numCheckpoints: 11,
       closed: false,
@@ -288,7 +291,7 @@ export const TRACKS = [
         { x: 780, y: 700 }, // out toward the coast
         { x: 470, y: 540 }, // Ōtaki Beach finish (NW)
       ],
-      roadWidth: 160,
+      roadWidth: 320,
       samplesPerSegment: 20,
       numCheckpoints: 13,
       closed: false,

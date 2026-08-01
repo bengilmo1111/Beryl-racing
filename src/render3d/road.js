@@ -14,10 +14,20 @@ import { C, basic, lambert } from './palette.js';
 export const GROUND_Y = -8;
 export const ROAD_Y = 0;
 export const APRON_Y = 0.2;
+export const CENTRE_LINE_Y = 0.4;
 export const KERB_Y = 5;
 
 const KERB_WIDTH = 14;
 const APRON_WIDTH = 54; // matches the 2D lineStyle(54, deepHill) run-off band
+
+// Centre line markings. At ~59 units/metre these are a 15cm-wide stripe in a
+// 2.2m-on/3.2m-off cadence — a touch fatter and tighter than the real thing, so
+// the dashes still resolve individually at chase-camera distance instead of
+// strobing into a dotted blur.
+const CENTRE_LINE_WIDTH = 9;
+const DASH_LENGTH = 130;
+const DASH_GAP = 190;
+const DASH_PERIOD = DASH_LENGTH + DASH_GAP;
 
 // Metres of road per texture repeat once a surface texture is dropped in. The
 // UVs are generated now so that becomes a material swap rather than a rebuild.
@@ -161,6 +171,101 @@ export function buildKerbs(track, theme) {
       closed
     )
   );
+}
+
+// Dashed centre line down the sealed road.
+//
+// Built by walking the centreline and clipping each segment against the dash
+// cadence, rather than by dropping a dash at every Nth sample. Samples are
+// evenly spaced in *parameter*, not in distance — a long straight anchor span
+// and a tight hairpin produce very differently sized steps — so per-sample
+// dashes would stretch and bunch with the curvature. Clipping against
+// accumulated arc length keeps every dash the same length on the ground.
+//
+// Skipped on gravel, where there is no seal to paint, and on the circuit, which
+// has racing kerbs instead (see buildKerbs).
+export function buildCentreLine(track) {
+  const { centerline, left, surfaces, closed, heights } = track;
+  const n = centerline.length;
+  const segments = closed ? n : n - 1;
+
+  const positions = [];
+  const normals = [];
+  const uvs = [];
+
+  // Unit normal pointing to the left edge, which is the direction track.js
+  // already offset that polyline along.
+  const normalAt = (i) => {
+    const nx = left[i].x - centerline[i].x;
+    const ny = left[i].y - centerline[i].y;
+    const len = Math.hypot(nx, ny) || 1;
+    return { x: nx / len, y: ny / len };
+  };
+  const heightAt = (i) => (heights ? heights[i] : 0) + CENTRE_LINE_Y;
+
+  const half = CENTRE_LINE_WIDTH / 2;
+  const push = (px, pz, h, u, v) => {
+    positions.push(px, h, pz);
+    normals.push(0, 1, 0);
+    uvs.push(u, v);
+  };
+
+  // One dash quad, spanning parameter t0..t1 of the segment i→j.
+  const emit = (i, j, t0, t1) => {
+    const a = centerline[i];
+    const b = centerline[j];
+    const na = normalAt(i);
+    const nb = normalAt(j);
+    const ha = heightAt(i);
+    const hb = heightAt(j);
+
+    const at = (t) => ({
+      x: a.x + (b.x - a.x) * t,
+      z: a.y + (b.y - a.y) * t,
+      nx: na.x + (nb.x - na.x) * t,
+      nz: na.y + (nb.y - na.y) * t,
+      h: ha + (hb - ha) * t,
+    });
+
+    const p0 = at(t0);
+    const p1 = at(t1);
+    push(p0.x - p0.nx * half, p0.z - p0.nz * half, p0.h, 0, 0);
+    push(p0.x + p0.nx * half, p0.z + p0.nz * half, p0.h, 1, 0);
+    push(p1.x + p1.nx * half, p1.z + p1.nz * half, p1.h, 1, 1);
+    push(p0.x - p0.nx * half, p0.z - p0.nz * half, p0.h, 0, 0);
+    push(p1.x + p1.nx * half, p1.z + p1.nz * half, p1.h, 1, 1);
+    push(p1.x - p1.nx * half, p1.z - p1.nz * half, p1.h, 0, 1);
+  };
+
+  let arc = 0;
+  for (let i = 0; i < segments; i++) {
+    const j = (i + 1) % n;
+    const segLen = Math.hypot(centerline[j].x - centerline[i].x, centerline[j].y - centerline[i].y);
+    if (segLen <= 0) continue;
+
+    if (!(surfaces && surfaces[i] === 'gravel')) {
+      const end = arc + segLen;
+      // Every dash window that overlaps this segment, clipped to it. Usually one
+      // or none, but a long segment can span several.
+      for (let k = Math.floor(arc / DASH_PERIOD); k * DASH_PERIOD < end; k++) {
+        const dStart = Math.max(arc, k * DASH_PERIOD);
+        const dEnd = Math.min(end, k * DASH_PERIOD + DASH_LENGTH);
+        if (dEnd > dStart) emit(i, j, (dStart - arc) / segLen, (dEnd - arc) / segLen);
+      }
+    }
+    arc += segLen;
+  }
+
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3));
+  geometry.setAttribute('normal', new BufferAttribute(new Float32Array(normals), 3));
+  geometry.setAttribute('uv', new BufferAttribute(new Float32Array(uvs), 2));
+
+  // Unlit and DoubleSide for the same reasons the road itself is — see
+  // buildRibbon. One mesh for every dash on the course, so one draw call.
+  const mesh = new Mesh(geometry, basic(C.cream, { side: DoubleSide, fog: true }));
+  mesh.frustumCulled = false;
+  return mesh;
 }
 
 // Darker run-off band outside each kerb, for depth against the grass.
