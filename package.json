@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run test:tree-art && vite build",
     "preview": "vite preview",
     "playtest": "node playtest/run.mjs",
-    "test:determinism": "node playtest/ac2-determinism.mjs"
+    "test:determinism": "node playtest/ac2-determinism.mjs",
+    "test:tree-art": "node scripts/validate-nz-tree-models.mjs"
   },
   "dependencies": {
     "phaser": "^3.80.1",
