@@ -1,6 +1,6 @@
 // Start line, checkpoint gates and the start gantry — the things that tell the
 // player where the course begins and where it wants them to go next.
-import { Group, Mesh, PlaneGeometry, BoxGeometry, CylinderGeometry } from 'three';
+import { Group, Mesh, PlaneGeometry, BoxGeometry } from 'three';
 import { C, basic, lambert } from './palette.js';
 import { checkerTexture, labelTexture } from './textures.js';
 
@@ -12,12 +12,6 @@ const START_LINE_DEPTH = 64; // 4 rows x 16, matching the 2D drawStartLine
 // gives θ = π/2 − a.
 function yawAlongRoad(angle) {
   return Math.PI / 2 - angle;
-}
-
-// The across-road unit vector at a checkpoint, same construction the 2D code
-// used for its gate markers.
-function acrossRoad(cp) {
-  return { x: Math.cos(cp.angle + Math.PI / 2), y: Math.sin(cp.angle + Math.PI / 2) };
 }
 
 // Road height at a checkpoint. Checkpoints carry their centreline index, so this
@@ -42,25 +36,13 @@ export function buildStartLine(track) {
   return mesh;
 }
 
-// Marker posts either side of the road at each gate.
-//
-// The 2D game drew these as 10px dots, which worked from a bird's-eye view but
-// would be invisible from behind the car — so they stand up as posts instead.
-export function buildCheckpointGates(track, { from = 1 } = {}) {
-  const group = new Group();
-  const geometry = new CylinderGeometry(8, 8, 140, 8);
-  const material = lambert(C.sunshine);
-  for (let i = from; i < track.checkpoints.length; i++) {
-    const cp = track.checkpoints[i];
-    const n = acrossRoad(cp);
-    const h = roadHeight(track, cp);
-    for (const side of [-1, 1]) {
-      const post = new Mesh(geometry, material);
-      post.position.set(cp.x + n.x * track.half * side, h + 70, cp.y + n.y * track.half * side);
-      group.add(post);
-    }
-  }
-  return group;
+// Manfeild previously used bright yellow posts at every invisible simulation
+// checkpoint. They were useful greybox furniture but fought the period venue
+// pass and made the circuit read like a training course. The eight physical
+// marshal huts now provide trackside rhythm, while checkpoints remain fully
+// active in the simulation and invisible as they should be.
+export function buildCheckpointGates() {
+  return new Group();
 }
 
 // A friendly arch over the start, replacing the top-down start-gantry.png (which
