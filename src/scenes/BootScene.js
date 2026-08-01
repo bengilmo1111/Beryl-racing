@@ -23,9 +23,19 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('music-race', `${B}assets/music-race.mp3`);
   }
 
-  create() {
+  async create() {
     // Smoke/dust puffs stay procedural.
     drawPuff(this);
+
+    // Pull the 3D renderer in as its own chunk, during the loading splash. Doing
+    // it here rather than in RaceScene.create() is deliberate: that method is
+    // synchronous and the playtest harness spins on the countdown starting
+    // immediately, so it cannot afford to await anything. Every path into a race
+    // — player and harness alike — goes through Boot, so by the time
+    // RaceScene.create() runs this import has always resolved.
+    // Stashed on the registry rather than re-imported by RaceScene: a static
+    // import there would pull three.js back into the default chunk.
+    this.game.registry.set('__render3d', await import('../render3d/index.js'));
 
     // Hide the HTML loading splash now that textures are ready.
     const loading = document.getElementById('loading');

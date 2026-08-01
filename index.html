@@ -37,7 +37,14 @@
         inset: 0;
         touch-action: none;
       }
+      /* Two stacked canvases: the Three.js world underneath, the transparent
+         Phaser canvas (HUD, touch controls, overlays) on top. Absolute
+         positioning is required — as static blocks they would stack vertically.
+         Paint order follows document order, so no z-index juggling is needed. */
       #game canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
         display: block;
       }
       /* Rotate-to-landscape prompt for portrait mobile */

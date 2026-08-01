@@ -112,6 +112,13 @@ export function startHarness({ Phaser, config, createGame }) {
     absoluteTimeMs = 0;
 
     if (game.scene.isActive('Race')) game.scene.stop('Race');
+    // Stop Title explicitly. The player path gets this for free — TitleScene
+    // calls scene.start('Race'), which stops it — but the harness starts Race
+    // directly, so Title stayed active underneath. That was invisible while the
+    // race drew an opaque ground rect over the whole viewport; now that the
+    // Phaser canvas is a transparent HUD overlay, a live Title scene would paint
+    // its grass backdrop straight over the 3D world.
+    if (game.scene.isActive('Title')) game.scene.stop('Title');
     setSelectedTrack(id);
     game.scene.start('Race');
 
@@ -204,6 +211,15 @@ export function startHarness({ Phaser, config, createGame }) {
     _stepNoRender: (frames) => stepFrames(frames, false),
     _stateLite: () => state(false),
     _render: renderFrame,
+    // Screenshots must composite both layers. The Phaser canvas is transparent
+    // now, so reading it alone yields HUD-on-nothing — which would leave CI
+    // green while quietly making every captured image useless.
+    _screenshot: () => {
+      renderFrame();
+      const render3d = game.registry.get('__render3d');
+      if (!render3d) return game.canvas.toDataURL('image/png');
+      return render3d.compositeCanvases(game.canvas);
+    },
     _botInput: (name, snapshot = state(false)) => {
       if (typeof bots[name] !== 'function') throw new Error(`Unknown bot: ${name}`);
       return bots[name](snapshot);

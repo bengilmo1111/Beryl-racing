@@ -13,7 +13,13 @@ function approach(value, target, maxDelta) {
 export class Car {
   constructor(scene, x, y, rotation) {
     this.scene = scene;
-    this.sprite = scene.add.sprite(x, y, 'beryl');
+    // Made, not added. Beryl is drawn as a mesh on the 3D canvas now, but this
+    // sprite still defines her collision footprint, and those numbers are pinned
+    // by the determinism baselines: collideRadius 54.4, axleOffset 60.928,
+    // boundsMargin 108.8, all derived below from beryl.png's 128x256 at 0.85
+    // scale. Keeping the real texture-backed object is what guarantees they stay
+    // exactly what they were; it simply never joins the display list.
+    this.sprite = scene.make.sprite({ x, y, key: 'beryl', add: false });
     this.sprite.setOrigin(0.5, 0.5);
     this.sprite.setDepth(10);
     this.sprite.rotation = rotation;

@@ -35,10 +35,20 @@ const BASELINES = {
     pos: { x: 9482.258917054, y: 1460.035772636 },
     obstacles: '7ce0cd7df381210a',
   },
+  // Ōtaki alone moved when the 2D renderer came out, and the reason is worth
+  // knowing. Phaser's Text constructor keys its canvas texture with a UUID built
+  // from Math.random, so every text object silently consumed draws from the
+  // seeded stream. Ōtaki's crossbuck label was the only one created *before*
+  // tree placement, so deleting it shifted that course's scenery and, with it,
+  // the collision circles the run bumps into.
+  //
+  // This class of fragility is now gone rather than papered over: scatterScenery
+  // runs at the top of RaceScene.create(), before any text or HUD exists, so UI
+  // churn can no longer perturb gameplay placement.
   otaki: {
-    finishTimeMs: 114900,
-    pos: { x: 1117.056728411, y: 1169.167557303 },
-    obstacles: 'b18d1bde99ea4b85',
+    finishTimeMs: 117433.333333,
+    pos: { x: 1118.01265735, y: 1169.616217772 },
+    obstacles: 'd06a791d3b7d28f2',
   },
 };
 

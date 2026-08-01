@@ -31,46 +31,17 @@ export class RaceScene extends Phaser.Scene {
     this.captureRadius = TRACK.roadWidth * 1.25;
 
     // Solid scenery Beryl bumps into: each is a {x, y, r} collision circle.
+    // Seeded placement lives in src/scenery.js; theme setpieces add their own.
     this.obstacles = [];
+    if (this.def.theme === 'eastbourne') this.placeSeawall();
+    this.scenery = scatterScenery(this.track, this.def);
+    for (const o of this.scenery.obstacles) this.obstacles.push(o);
 
-    // World + grass backdrop.
-    this.cameras.main.setBounds(0, 0, WORLD.width, WORLD.height);
-    const ground = this.add.graphics().setDepth(0);
-    ground.fillStyle(COLORS.hill, 1);
-    ground.fillRect(0, 0, WORLD.width, WORLD.height);
-
-    // Theme scenery drawn beneath the road.
-    if (this.def.theme === 'eastbourne') this.drawEastbourneSetting();
-    if (this.def.theme === 'otaki') this.drawOtakiSetting();
-
-    this.scatterTrees();
-    this.drawTrack();
-
-    // Persistent vector skid layer. A world-sized RenderTexture would exceed
-    // common mobile GPU texture limits on this long point-to-point course.
-    this.skidMarks = this.add.graphics().setDepth(3);
     this.lastSkid = null;
-
-    // Drift smoke (white) and off-track dust (tan) — separate emitters so we
-    // never have to retint at runtime.
-    const puffCfg = {
-      lifespan: 420,
-      speed: { min: 8, max: 46 },
-      scale: { start: 0.5, end: 1.1 },
-      alpha: { start: 0.45, end: 0 },
-      frequency: -1,
-    };
-    this.smoke = this.add.particles(0, 0, 'puff', puffCfg).setDepth(9);
-    this.dust = this.add.particles(0, 0, 'puff', { ...puffCfg, tint: 0xcaa46a }).setDepth(9);
 
     // Beryl.
     const s = this.track.start;
     this.car = new Car(this, s.x, s.y, s.rotation);
-    this.cameras.main.startFollow(this.car.sprite, true, 0.16, 0.16);
-    // Pull the camera back a little on small screens so there's enough track
-    // visible ahead to actually race on a phone.
-    this.baseZoom = isCompact(this) ? 0.64 : 0.82;
-    this.cameras.main.setZoom(this.baseZoom);
     this.scale.on('resize', this.onResize, this);
     this.events.once('shutdown', () => this.scale.off('resize', this.onResize, this));
 
@@ -90,22 +61,17 @@ export class RaceScene extends Phaser.Scene {
 
     // HUD + fullscreen + sound.
     this.hud = new Hud(this);
-    const fsBtn = createFullscreenButton(this);
-    const sndBtn = createSoundButton(this);
+    createFullscreenButton(this);
+    createSoundButton(this);
     this.best = Number(localStorage.getItem(STORAGE_KEY)) || null;
     if (this.best) this.hud.setBest(this.best);
 
-    // Render the UI through a dedicated camera that never scrolls or zooms. The
-    // world camera follows Beryl and zooms, and a scrollFactor(0) HUD rendered
-    // by that camera ends up with its input hit-areas stranded in world space
-    // (they don't track the zoom), which made the on-screen buttons untappable.
-    // A separate, unzoomed UI camera keeps the HUD in plain screen space for
-    // both rendering AND input.
-    this.uiObjects = [this.hud.layer, fsBtn, sndBtn];
-    if (this.touch) this.uiObjects.push(this.touch.layer);
-    this.uiCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
-    this.cameras.main.ignore(this.uiObjects);
-    this.uiCamera.ignore(this.children.list.filter((o) => !this.uiObjects.includes(o)));
+    // There used to be a second, unzoomed UI camera here. It existed only
+    // because the world camera followed Beryl and zoomed, which stranded the
+    // HUD's input hit-areas out in world space and made the on-screen buttons
+    // untappable. The world now lives on the Three.js canvas, so this scene's
+    // display list is nothing but UI and cameras.main never scrolls or zooms —
+    // screen space and world space are the same thing again.
 
     // Audio follows wall-clock AudioContext time, so deterministic harness runs
     // leave it disabled. The normal player path is unchanged.
@@ -126,284 +92,43 @@ export class RaceScene extends Phaser.Scene {
     this.finished = false;
     this.wasOnTrack = true;
 
+    // The 3D view of everything above. It reads car and track state and draws;
+    // it never writes back into the simulation.
+    //
+    // Fetched from the registry rather than imported: BootScene dynamic-imports
+    // the module so three.js lands in its own chunk, and a static import here
+    // would drag it straight back into the default one.
+    const render3d = this.game.registry.get('__render3d');
+    this.world3d = render3d.createRaceWorld(this);
+
     this.input.keyboard.once('keydown-ESC', () => this.scene.start('Title'));
     this.startCountdown();
   }
 
   onResize() {
-    // Keep the pull-back sensible if the device rotates or the window resizes.
-    this.baseZoom = isCompact(this) ? 0.64 : 0.82;
-    if (this.uiCamera) this.uiCamera.setSize(this.scale.width, this.scale.height);
+    // Keep the camera pull-back sensible if the device rotates or resizes.
+    if (this.world3d) this.world3d.setCompact(isCompact(this));
   }
 
-  // --- Track rendering -------------------------------------------------------
+  // --- Collision-only setpieces ----------------------------------------------
+  //
+  // The visuals for these live in src/render3d/. What stays here is the part the
+  // simulation reads: the obstacle circles. Their positions and push order are
+  // unchanged from the 2D build, because resolveObstacles() walks this list
+  // every frame and the determinism baselines are pinned to it.
 
-  drawTrack() {
-    const { left, right } = this.track;
-
-    // Darker run-off apron just outside the kerbs for depth. Drawn as strokes
-    // instead of filled offset polygons so no self-intersecting fill can cut a
-    // green stripe through the masked tarmac on tight curves.
-    const apron = this.add.graphics().setDepth(0.5);
-    apron.lineStyle(54, COLORS.deepHill, 0.95);
-    apron.strokePoints(left, false);
-    apron.strokePoints(right, false);
-
-    // Draw the road as flat per-segment quads. The previous world-sized tiled
-    // texture plus geometry mask made this long route run at single-digit FPS
-    // on integrated/mobile GPUs. The low-contrast base is both clearer and far
-    // cheaper; small surface detail can be added later as camera-local decals.
-    const quads = [];
-    const n = left.length;
-    for (let i = 0; i < n - 1; i++) {
-      const j = i + 1;
-      quads.push([
-        new Phaser.Geom.Point(left[i].x, left[i].y),
-        new Phaser.Geom.Point(left[j].x, left[j].y),
-        new Phaser.Geom.Point(right[j].x, right[j].y),
-        new Phaser.Geom.Point(right[i].x, right[i].y),
-      ]);
-    }
-
-    // Road fill. With per-segment surfaces (Ōtaki) each quad is tinted by its
-    // surface — gravel warm grey-brown, sealed the usual tarmac — so the
-    // gravel↔seal transition reads at a glance. Without surfaces it's one fill.
-    const roadBase = this.add.graphics().setDepth(1);
-    const surfaces = this.track.surfaces;
-    if (surfaces) {
-      for (let i = 0; i < quads.length; i++) {
-        roadBase.fillStyle(surfaces[i] === 'gravel' ? COLORS.gravel : COLORS.tarmac, 1);
-        roadBase.fillPoints(quads[i], true);
-      }
-    } else {
-      roadBase.fillStyle(COLORS.tarmac, 1);
-      for (const q of quads) roadBase.fillPoints(q, true);
-    }
-
-    if (this.def.theme === 'manfield') {
-      // Purpose-built circuit: red/white rumble-strip kerbs, checkered start
-      // line and subtle checkpoint markers.
-      this.drawRumbleKerb(left);
-      this.drawRumbleKerb(right);
-      this.drawStartLine();
-      this.drawCheckpointGates();
-    } else {
-      // Public coastal road: warm painted edges and a friendly start gantry,
-      // with recognisable Eastbourne landmarks along the way.
-      this.drawKerb(left);
-      this.drawKerb(right);
-      this.placeStartGantry();
-      this.placeFinishAndLandmarks();
-    }
-  }
-
-  // Red/white rumble-strip kerb for the Manfield circuit (closed loop, so the
-  // final segment wraps back to the start).
-  drawRumbleKerb(edge) {
-    const g = this.add.graphics().setDepth(2);
-    const n = edge.length;
-    for (let i = 0; i < n; i++) {
-      const a = edge[i];
-      const b = edge[(i + 1) % n];
-      const red = Math.floor(i / 3) % 2 === 0;
-      g.lineStyle(15, red ? COLORS.red : 0xffffff, 1);
-      g.beginPath();
-      g.moveTo(a.x, a.y);
-      g.lineTo(b.x, b.y);
-      g.strokePath();
-    }
-  }
-
-  drawEastbourneSetting() {
-    // Harbour geometry expressed relative to the (possibly scaled) world so it
-    // stays aligned with the route at any LENGTH_SCALE.
+  // Eastbourne's continuous seawall, which makes the harbour visible but
+  // unreachable. Geometry is expressed relative to the (possibly scaled) world
+  // so it stays aligned with the route at any LENGTH_SCALE.
+  placeSeawall() {
     const W = WORLD.width;
     const H = WORLD.height;
     const hw = W * 0.167; // harbour width (was 400 in a 2400-wide world)
-    const hEnd = H * 0.8; // harbour runs down to the inland turn (was 4000/5000)
+    const hEnd = H * 0.8; // harbour runs down to the inland turn
     const wall = hw + W * 0.008;
-    const water = this.add.graphics().setDepth(0.1);
-    water.fillStyle(0x4fadd0, 1);
-    water.fillRect(0, 0, hw, hEnd);
-    water.lineStyle(20, 0xffe2a6, 0.9);
-    water.lineBetween(hw, 0, hw, hEnd);
-    for (let y = H * 0.04; y < hEnd - H * 0.01; y += H * 0.03) {
-      water.lineStyle(5, 0xb9e1e8, 0.35);
-      water.lineBetween(hw * 0.1, y, hw * 0.83, y + H * 0.005);
-    }
-    // A continuous seawall makes the harbour visible but unreachable.
     for (let y = H * 0.09; y < hEnd; y += 50) this.obstacles.push({ x: wall, y, r: 32 });
   }
 
-  // Ōtaki Rally placeholder scenery, all code-drawn (no PNG assets this pass):
-  // a river + bridge and a railway crossing set across the road, plus a beach and
-  // sea strip at the coastal finish. Positions come from the course def's
-  // `scenery` block (checkpoint indices for the crossings, a rect for the beach).
-  drawOtakiSetting() {
-    const sc = this.def.scenery || {};
-    const cps = this.track.checkpoints;
-
-    // Beach + sea filling the NW corner, marking arrival at the coast.
-    if (sc.beach) {
-      const b = sc.beach;
-      const g = this.add.graphics().setDepth(0.08);
-      g.fillStyle(COLORS.sand, 1);
-      g.fillRect(b.x, b.y, b.w, b.h);
-      // Sea beyond the sand along the top/left edges.
-      g.fillStyle(COLORS.river, 1);
-      g.fillRect(b.x, b.y, b.w, 120);
-      g.fillRect(b.x, b.y, 120, b.h);
-    }
-
-    // A band drawn perpendicular to the road at a checkpoint, extending well past
-    // the kerbs. `depth` below the road makes it read as passing under a bridge.
-    const bandAt = (cpIndex, half, length, depth, drawFn) => {
-      const cp = cps[cpIndex];
-      if (!cp) return;
-      const nx = Math.cos(cp.angle + Math.PI / 2);
-      const ny = Math.sin(cp.angle + Math.PI / 2); // across the road
-      const ax = Math.cos(cp.angle);
-      const ay = Math.sin(cp.angle); // along the road
-      drawFn(cp, nx, ny, ax, ay, this.add.graphics().setDepth(depth), half, length);
-    };
-
-    // Ōtaki River: a broad blue-green band under the road (the road is the bridge).
-    bandAt(sc.riverCp ?? 0, this.track.half, 260, 0.2, (cp, nx, ny, ax, ay, g, half, len) => {
-      const w = half + WORLD.width * 0.17; // reach well past both kerbs into the paddocks
-      const p = (sx, sy) => new Phaser.Geom.Point(cp.x + nx * sx + ax * sy, cp.y + ny * sx + ay * sy);
-      g.fillStyle(COLORS.river, 1);
-      g.fillPoints([p(-w, -len / 2), p(w, -len / 2), p(w, len / 2), p(-w, len / 2)], true);
-      // Pale banks along both river edges.
-      g.lineStyle(10, 0xcfc19a, 0.8);
-      g.strokePoints([p(-w, -len / 2), p(w, -len / 2)], false);
-      g.strokePoints([p(-w, len / 2), p(w, len / 2)], false);
-    });
-
-    // Railway crossing: two rails + sleeper ticks across the road, above the
-    // surface but below the car, plus a simple crossbuck marker beside the road.
-    bandAt(sc.railwayCp ?? 0, this.track.half, 70, 2.2, (cp, nx, ny, ax, ay, g, half) => {
-      const w = half + 26;
-      const p = (sx, sy) => new Phaser.Geom.Point(cp.x + nx * sx + ax * sy, cp.y + ny * sx + ay * sy);
-      // Sleepers.
-      g.lineStyle(7, 0x7a5b3a, 0.9);
-      for (let s = -w; s <= w; s += 26) g.strokePoints([p(s, -32), p(s, 32)], false);
-      // Rails.
-      g.lineStyle(5, 0x9099a0, 1);
-      g.strokePoints([p(-w, -14), p(w, -14)], false);
-      g.strokePoints([p(-w, 14), p(w, 14)], false);
-      // Crossbuck 'X' just outside the road edge.
-      const cb = this.add.text(cp.x + nx * (half + 60), cp.y + ny * (half + 60), '✕', {
-        fontFamily: FONT, fontSize: '48px', fontStyle: '700', color: '#fff8e7',
-        stroke: '#15314b', strokeThickness: 8,
-      }).setOrigin(0.5).setDepth(7);
-      void cb;
-    });
-  }
-
-  // Roadside landmark labels, advance arrows and the finish marker — all driven
-  // by the active course def so every sprint course supplies its own set.
-  placeFinishAndLandmarks() {
-    const labels = this.def.landmarks || [];
-    for (const [x, y, text] of labels) {
-      this.add.text(x, y, text, {
-        fontFamily: FONT, fontSize: '34px', fontStyle: '700',
-        color: '#fff8e7', backgroundColor: '#15314bcc', padding: { x: 14, y: 8 },
-      }).setOrigin(0.5).setDepth(7);
-    }
-    const finish = this.track.checkpoints.at(-1);
-    this.add.text(finish.x, finish.y + 190, this.def.finishLabel || 'FINISH', {
-      fontFamily: FONT, fontSize: '42px', fontStyle: '700', color: '#15314b',
-      backgroundColor: '#ffd166', padding: { x: 18, y: 10 },
-    }).setOrigin(0.5).setDepth(7);
-    for (const a of this.def.arrows || []) {
-      this.add.text(a.x, a.y, a.text, {
-        fontFamily: FONT, fontSize: '44px', fontStyle: '700', color: '#fff8e7',
-        stroke: '#15314b', strokeThickness: 8,
-      }).setOrigin(0.5).setDepth(7).setRotation(a.rot || 0);
-    }
-  }
-
-  placeStartGantry() {
-    const cp = this.track.checkpoints[0];
-    // Depth 4: on the road surface (above tarmac/kerbs) but below the car, so
-    // Beryl is always visible crossing the line.
-    const gantry = this.add.image(cp.x, cp.y, 'start-gantry').setDepth(4);
-    gantry.setRotation(cp.angle + Math.PI / 2);
-    const span = this.track.half * 2 + 170; // road width + posts either side
-    gantry.setScale(span / gantry.width);
-  }
-
-  drawKerb(edge) {
-    const g = this.add.graphics().setDepth(2);
-    const n = edge.length;
-    for (let i = 0; i < n - 1; i++) {
-      const a = edge[i];
-      const b = edge[i + 1];
-      g.lineStyle(10, COLORS.cream, 0.95);
-      g.beginPath();
-      g.moveTo(a.x, a.y);
-      g.lineTo(b.x, b.y);
-      g.strokePath();
-    }
-  }
-
-  // Placement lives in src/scenery.js because it is part of the determinism
-  // contract (it seeds the obstacle list); this method only draws the result.
-  scatterTrees() {
-    const { trees, obstacles } = scatterScenery(this.track, this.def);
-    const layer = this.add.container(0, 0).setDepth(5);
-    for (const t of trees) {
-      layer.add(this.add.image(t.x, t.y, t.variant).setScale(t.scale));
-    }
-    for (const o of obstacles) this.obstacles.push(o);
-  }
-
-  drawStartLine() {
-    const cp = this.track.checkpoints[0];
-    const half = this.track.half;
-    const nx = Math.cos(cp.angle + Math.PI / 2);
-    const ny = Math.sin(cp.angle + Math.PI / 2);
-    const ax = Math.cos(cp.angle);
-    const ay = Math.sin(cp.angle);
-
-    const g = this.add.graphics().setDepth(2.5);
-    const cols = 10;
-    const rows = 4;
-    const cw = (half * 2) / cols;
-    const cl = 16;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const black = (r + c) % 2 === 0;
-        g.fillStyle(black ? 0x1b1b1b : 0xffffff, 1);
-        const bx = cp.x - nx * half + nx * cw * c + ax * cl * (r - rows / 2);
-        const by = cp.y - ny * half + ny * cw * c + ay * cl * (r - rows / 2);
-        g.fillPoints(
-          [
-            new Phaser.Geom.Point(bx, by),
-            new Phaser.Geom.Point(bx + nx * cw, by + ny * cw),
-            new Phaser.Geom.Point(bx + nx * cw + ax * cl, by + ny * cw + ay * cl),
-            new Phaser.Geom.Point(bx + ax * cl, by + ay * cl),
-          ],
-          true
-        );
-      }
-    }
-  }
-
-  drawCheckpointGates() {
-    const g = this.add.graphics().setDepth(2.4);
-    const half = this.track.half;
-    for (let i = 1; i < this.track.checkpoints.length; i++) {
-      const cp = this.track.checkpoints[i];
-      const nx = Math.cos(cp.angle + Math.PI / 2);
-      const ny = Math.sin(cp.angle + Math.PI / 2);
-      g.fillStyle(COLORS.sunshine, 0.9);
-      g.fillCircle(cp.x - nx * half, cp.y - ny * half, 10);
-      g.fillCircle(cp.x + nx * half, cp.y + ny * half, 10);
-    }
-  }
-
-  // --- Flow ------------------------------------------------------------------
 
   startCountdown() {
     const w = this.scale.width;
@@ -421,8 +146,6 @@ export class RaceScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(1200);
-    // The countdown is screen-space UI: show it on the UI camera only.
-    if (this.uiCamera) this.cameras.main.ignore(label);
 
     const steps = ['3', '2', '1', 'GO!'];
     let i = 0;
@@ -473,6 +196,9 @@ export class RaceScene extends Phaser.Scene {
     if (this.harnessRenderOnly) return;
     const dt = Math.min(delta / 1000, 0.05);
     const input = this.readInput();
+    // Stashed for the 3D layer, which steers Beryl's front wheels with it. Read
+    // only for rendering — this has no effect on the simulation.
+    this.lastInput = input;
 
     const dist = distanceToCenterline(this.car.x, this.car.y, this.track.centerline);
     const onTrack = dist <= this.track.half;
@@ -539,12 +265,12 @@ export class RaceScene extends Phaser.Scene {
     const fxSpeed = CAR.maxSpeed * 0.3;
     const shakeSpeed = CAR.maxSpeed * 0.6;
 
-    // Skid marks when drifting or handbraking on tarmac.
+    // Skid marks when drifting or handbraking on tarmac. This only decides
+    // *where* a mark belongs; the 3D layer owns how it is drawn. Note this is a
+    // pure data write inside update(), so headless simulation stays draw-free.
     if (onTrack && (car.drifting || (input.handbrake && Math.abs(car.speed) > fxSpeed))) {
-      this.skidMarks.lineStyle(7, 0x202124, 0.45);
-      if (this.lastSkid) {
-        this.skidMarks.lineBetween(this.lastSkid.left.x, this.lastSkid.left.y, axle.left.x, axle.left.y);
-        this.skidMarks.lineBetween(this.lastSkid.right.x, this.lastSkid.right.y, axle.right.x, axle.right.y);
+      if (this.lastSkid && this.world3d) {
+        this.world3d.addSkid(this.lastSkid, axle);
       }
       this.lastSkid = { left: { ...axle.left }, right: { ...axle.right } };
     } else {
@@ -552,21 +278,21 @@ export class RaceScene extends Phaser.Scene {
     }
 
     // Smoke on drift; dusty puffs off-track, and kicked up on gravel at pace.
-    if (car.drifting && onTrack) {
-      this.smoke.emitParticleAt(axle.center.x, axle.center.y, 2);
-    } else if ((!onTrack || surface === 'gravel') && Math.abs(car.speed) > fxSpeed) {
-      this.dust.emitParticleAt(axle.center.x, axle.center.y, 1);
+    if (this.world3d) {
+      if (car.drifting && onTrack) {
+        this.world3d.emitSmoke(axle.center, 2);
+      } else if ((!onTrack || surface === 'gravel') && Math.abs(car.speed) > fxSpeed) {
+        this.world3d.emitDust(axle.center, 1);
+      }
     }
 
-    // Dynamic zoom: pull back with speed for a sense of pace.
-    const speedRatio = Phaser.Math.Clamp(Math.abs(car.speed) / CAR.maxSpeed, 0, 1);
-    const targetZoom = this.baseZoom - 0.12 * speedRatio;
-    const cam = this.cameras.main;
-    cam.setZoom(Phaser.Math.Linear(cam.zoom, targetZoom, 0.05));
+    // Speed now widens the chase camera's FOV and pulls it back, in place of the
+    // old top-down zoom-out (see render3d/chaseCamera.js).
 
-    // A little kick when you drop onto the grass.
-    if (this.wasOnTrack && !onTrack && Math.abs(car.speed) > shakeSpeed) {
-      cam.shake(120, 0.006);
+    // A little kick when you drop onto the grass. The old 2D shake amplitude was
+    // a fraction of the viewport; the 3D equivalent is in world units.
+    if (this.wasOnTrack && !onTrack && Math.abs(car.speed) > shakeSpeed && this.world3d) {
+      this.world3d.shake(120, 2.4);
     }
     this.wasOnTrack = onTrack;
   }
@@ -673,9 +399,6 @@ export class RaceScene extends Phaser.Scene {
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     change.on('pointerup', () => this.scene.start('Title'));
     panel.add([bg, title, message, time, retry, change]);
-    this.uiObjects.push(panel);
-    this.cameras.main.ignore(panel);
-    this.uiCamera.ignore([]);
     void timeMs;
   }
 }

@@ -111,3 +111,116 @@ Re-baselined to −15%/+20% around the measured waypoint times:
 | otaki | 65000–90000 | 98000–138000 | 114900 |
 
 No other threshold in the spec was touched.
+
+## 2026-08-01 — 3D chase-cam pivot, Phase 1 (layering spike)
+
+The world now renders in 3D from behind the car. Phaser keeps the simulation,
+HUD, touch controls, audio, scene flow and the harness; its canvas is a
+transparent overlay, and a Three.js canvas underneath draws the world.
+
+- `src/render3d/`: `coords` (the single 2D↔3D mapping), `renderer` (singleton
+  canvas + size mirroring), `palette`, `road` (ribbon + ground), `chaseCamera`,
+  `index` (scene assembly + render hook). Beryl is a placeholder box this phase.
+- The road mesh is built straight from `buildTrack()`'s existing `left`/`right`
+  polylines — no new track maths — with per-quad vertex colours carrying the
+  Ōtaki gravel/sealed split.
+- Phaser is now `Phaser.CANVAS` with `transparent: true`. It draws only text and
+  rounded rects, so a Canvas2D overlay keeps the page to **one** WebGL context
+  rather than two — which matters most in headless CI, where SwiftShader has
+  produced black captures before.
+- The `uiCamera` workaround is gone. It only ever existed because the world
+  camera zoomed and stranded HUD hit-areas in world space; with no world objects
+  left in the Phaser scene, screen space and world space coincide again.
+- three.js is dynamic-imported in `BootScene.create()` during the loading splash
+  and passed to `RaceScene` via the registry, so it lands in its own chunk.
+
+### Verified
+
+- Heading mapping confirmed visually: at the start line the car sits centred on
+  the road facing along it, camera squarely behind, on all four courses.
+- The render hook is `POST_RENDER` guarded on its `renderer` argument.
+  `headlessStep` emits that event with `renderer = null` and `step` passes the
+  real renderer (checked in `phaser/src/core/Game.js`), so deterministic runs
+  stay completely draw-free.
+- `npm run build`: default chunk **1,516.03 kB (352.44 kB gzip)** — slightly
+  *below* the pre-pivot 1,522.64 kB / 354.37 kB — plus a lazy
+  **514.48 kB (130.41 kB gzip)** three.js chunk.
+
+### Two real bugs this surfaced
+
+**The harness never stopped the Title scene.** `loadCourse` starts Race directly
+rather than going through TitleScene, so Title stayed active underneath. That was
+invisible while the race painted an opaque ground rect over the viewport; with a
+transparent HUD canvas, Title's grass backdrop covered the entire 3D world. Fixed
+in the harness.
+
+**Phaser `Text` consumes the seeded RNG.** Its constructor keys the text's canvas
+texture with a UUID built from `Math.random`, so every text object quietly drew
+from the stream the harness seeds. Ōtaki's crossbuck label was the only one
+created *before* tree placement, so removing the 2D scenery shifted that course's
+trees — and therefore its collision circles. Ōtaki's baseline is re-recorded
+below; the other three courses are byte-identical to `main`.
+
+This is now structurally fixed rather than worked around: `scatterScenery()` runs
+at the top of `RaceScene.create()`, before any text or HUD exists, so UI churn can
+no longer perturb gameplay placement.
+
+| course | finish (ms) | obstacles | vs main |
+|---|---|---|---|
+| eastbourne-pootle | 100633.333333 | `94932d480a8bac9b` | unchanged |
+| manfield | 12950 | `e9472f88b60d3f2a` | unchanged |
+| remutaka | 142933.333333 | `7ce0cd7df381210a` | unchanged |
+| otaki | 117433.333333 | `d06a791d3b7d28f2` | **changed** (see above) |
+
+Ōtaki's new time still sits inside its re-baselined 98–138 s spec window.
+
+## 2026-08-01 — 3D chase-cam pivot, Phases 2–3 (Beryl, road dressing)
+
+- **Beryl** (`src/render3d/beryl.js`): procedural low-poly Morris Minor — turquoise
+  body, lighter roof shell, dark glass band, chrome bumpers and hubcaps, round
+  headlights, red pinstripe and tail lights, whitewall tyres. Built to the exact
+  108.8 × 217.6 collision footprint. Visual-only body roll from `car.lateral`,
+  pitch from acceleration, wheel spin from speed, front wheels following steering
+  input, plus a flat contact-shadow disc. `buildBeryl()` returns
+  `{ root, chassis, wheels, shadow }` so a glTF model can swap into `chassis`
+  later without touching anything else.
+- `Car.js` now uses `scene.make.sprite({ add: false })`. The texture-backed sprite
+  still defines the collision footprint — `collideRadius` 54.4, `axleOffset`
+  60.928, `boundsMargin` 108.8 — it simply never joins the display list.
+- **Road dressing** (`road.js`, `markers.js`, `textures.js`): the road, kerbs and
+  run-off apron now share one `buildRibbon()` builder. Manfield gets red/white
+  rumble kerbs, a checkered start line and gate markers; the public roads get
+  cream edging and a start gantry. The top-down `start-gantry.png` is replaced by
+  a modest procedural arch — it sits directly over the car at the start, and a
+  taller one swamped the opening frame.
+- Checkpoint gate markers stand up as posts rather than the old 10px dots, which
+  would have been invisible from behind the car.
+
+### Tuning notes
+
+- **Lighting.** A hemisphere light gives a horizontal normal the midpoint of its
+  sky and ground colours, so the first rig (dim, deep-grass ground colour) left
+  Beryl's turquoise rear panel — the one face the player looks at all race —
+  reading as a muddy teal. Brighter sky, pale warm bounce, gentler sun.
+- **Road and ground are unlit** (`MeshBasicMaterial`). They are flat horizontal
+  surfaces, so Lambert shades every triangle by the same constant anyway; all the
+  lighting rig added was a layer between the authored palette and the screen, and
+  it had `COLORS.tarmac` reading as near-black. Meshes with real form stay lit.
+- **Camera** raised and pulled back (dist 430, height 235, lookAhead 520). A chase
+  camera shows far less of the route ahead than a bird's-eye view, so the rig buys
+  back what forward visibility it can.
+- `CAMERA_NEAR` 10 → 50 and the ground plane dropped to y = −8. Nothing renders
+  between the chase camera and Beryl, so the tighter near plane was free
+  resolution, and the road stack (ground, apron, road, start line, future skid
+  decals) has enough near-coplanar surfaces to want the headroom.
+
+### Playtest
+
+Full matrix: **15/16**, mobile controls PASS, touch-only journey PASS.
+
+The one failure — `manfield/pedal-to-the-metal`, softlock — is **pre-existing and
+unrelated**. Verified by running the same focused case on a clean `origin/main`
+worktree: identical result, identical 17% checkpoints / 86% off-road. That bot
+holds full throttle with no steering, drives into the world bounds and is pinned
+there by the clamp in `Car.js`. It is a bot artifact rather than a game defect,
+so it is flagged rather than papered over by loosening the softlock rule.

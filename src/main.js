@@ -4,10 +4,23 @@ import { BootScene } from './scenes/BootScene.js';
 import { TitleScene } from './scenes/TitleScene.js';
 import { RaceScene } from './scenes/RaceScene.js';
 
+// Phaser now draws only the HUD, touch controls and overlays — the world is a
+// Three.js canvas underneath (see src/render3d/). That is why this is CANVAS
+// rather than AUTO: a Canvas2D overlay keeps the page to a single WebGL context
+// instead of two, which matters most in headless CI, where SwiftShader has
+// already produced black captures once (see progress.md 2026-07-28). A few dozen
+// text and rounded-rect draws per frame is nothing for Canvas2D, and toDataURL
+// on a 2D canvas is far more reliable for playtest screenshots.
+//
+// Switch to Phaser.AUTO here if the overlay ever needs WebGL-only features.
+const RENDERER_TYPE = Phaser.CANVAS;
+
 const config = {
-  type: Phaser.AUTO,
+  type: RENDERER_TYPE,
   parent: 'game',
-  backgroundColor: '#246b45',
+  // The world shows through from the Three canvas below, so no background fill.
+  // TitleScene sets its own camera background, since it has no 3D behind it.
+  transparent: true,
   scale: {
     // RESIZE: the canvas always fills the whole viewport, so there are no
     // letterbox bars squashing the game into the middle of the screen. Scenes
