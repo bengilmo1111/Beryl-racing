@@ -507,3 +507,51 @@ The `28 FERRY ROAD` landmark sign sits about 200 units from the start line, so a
 the opening frame it fills most of the screen. It predates this PR (it came in
 with the signage pass) and it is arguably charming — it is Beryl's home address —
 but it does bury the first thing a player sees.
+
+## 2026-08-01 — Manfeild: the real layout
+
+The circuit course is no longer an invented oval. Its centreline is now the
+actual Manfeild Circuit Chris Amon layout, traced from MotorSport New Zealand's
+official CRO map (`CRO004d`). Method, source and the deliberate departures from
+reality are in `docs/tracks/MANFEILD-LAYOUT.md`; the short version is that the
+map's track outline is a bitmap, so the line was recovered by separating the
+loop's inside from the page's outside and keeping the pixels equidistant from
+both. 46 anchors hold it to ~1.5 m at true scale.
+
+The lap is the real 3.03 km, clockwise, starting at the real start/finish line,
+with the eight marshal posts signed where the map puts them.
+
+### Three things had to move with it
+
+- **Road width 300 → 180.** The real layout's tightest corner has a ~14 m
+  radius. A 300-wide road pinches its inside edge to nothing; 180 (≈22 m, still
+  nearly twice the real 12 m) clears it with room to drift.
+- **Checkpoints 6 → 18.** Not a gameplay call. The waypoint bot steers straight
+  at the next checkpoint, and this layout doubles back on itself twice, so gates
+  6 apart put the bot's target line across the infield rather than along the
+  road. At 6 it wandered into the grass and never finished a lap; at 18 it drives
+  the circuit.
+- **Lap-time window 9–13 s → 16–25 s**, for a lap that is now roughly twice as
+  long. `playtest-spec.json` carries both this and the checkpoint count.
+
+Beryl's handling numbers are untouched.
+
+### Baselines
+
+The waypoint bot laps in **19867 ms**, 100% of checkpoints, no softlock, zero
+out-of-bounds. Off-road time went *down*, 62% → 25%: with gates this close
+together the bot follows the road instead of cutting across the middle of it.
+The AC2 determinism baseline for `manfield` is re-recorded — geometry this
+different necessarily moves the finish position and the scenery fingerprint.
+The other three courses are untouched and byte-identical.
+
+The full suite has one failure, `remutaka/waypoint` softlock, and it is not
+this change: stashing the change and re-running gives the identical failure,
+and remutaka's recorded finish time and obstacle fingerprint never moved.
+
+### Noted, not fixed
+
+The tree scatter fills the infield, and on a folded layout that means woodland
+in the gaps between straights. Real Manfeild is open farmland with a venue in
+the middle. That is an art pass, not a layout one — `scatterScenery` is
+theme-aware already and could take a circuit-infield rule.
