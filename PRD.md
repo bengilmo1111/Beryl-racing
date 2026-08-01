@@ -1,5 +1,13 @@
 # Beryl Racing — Product Requirements Document
 
+> **Branch note (3D port).** This branch renders the game as a 3D
+> behind-the-car driving view and deploys as its own Vercel project
+> (`beryl-racing-3d`). The shipping top-down 2D game is unchanged on `main`.
+> **Only the view changes** — courses, handling, checkpoints, timing, best times,
+> HUD, touch controls and game modes are all as specified below. Where this
+> document says "top-down", read it as describing the 2D build on `main`; §5's
+> driving model and §6's course rules still apply verbatim.
+
 **Status:** Post-MVP — shipping, multi-course
 **Owner:** Ben Gilmore
 **Last updated:** 2026-07-25
@@ -15,7 +23,8 @@
 
 ## 1. Overview & vision
 
-**Beryl Racing** is a lighthearted, top-down 2D time-trial game where you drive
+**Beryl Racing** is a lighthearted time-trial game (top-down 2D on `main`, 3D
+chase-cam on the 3D-port branch) where you drive
 **Beryl** — a beloved turquoise 1960s Morris Minor 1000 — around a race track,
 chasing your best lap time. It's casual, charming, and quick to pick up: hop in,
 do a few laps, try to beat your own record.
@@ -34,8 +43,10 @@ The game is one of the **Gilmore Games** and lives at
 - Works on **desktop** (keyboard) and **landscape-mode mobile** (touch) — both
   are first-class targets for the MVP, not later add-ons.
 - **Fullscreen** available from the start (title screen and in-game).
-- Built with **[Phaser 3](https://phaser.io/)** (2D game framework) and bundled
-  with **[Vite](https://vitejs.dev/)**.
+- Built with **[Phaser 3](https://phaser.io/)** (simulation, HUD, input, audio)
+  and bundled with **[Vite](https://vitejs.dev/)**. The 3D port adds
+  **[Three.js](https://threejs.org/)** for the world, rendered on its own canvas
+  beneath a transparent Phaser overlay — see `src/render3d/`.
 - Deployed as static files to its **own Vercel project**, served under the
   Gilmore Games directory at `gilmore.games/beryl-racing/`.
 
@@ -81,7 +92,8 @@ Touch controls render only on touch devices; keyboard hints show only on desktop
 
 ## 5. Driving model (MVP)
 
-Arcade-style top-down physics — **fun and forgiving**, not a simulation:
+Arcade-style physics — **fun and forgiving**, not a simulation. The model is
+purely 2D and view-independent, so it is identical in both builds:
 
 - Acceleration up to a **top speed**, with drag/friction decelerating when
   coasting.
@@ -91,7 +103,8 @@ Arcade-style top-down physics — **fun and forgiving**, not a simulation:
   staying on the racing line is rewarded.
 - Optional handbrake for tighter turns.
 
-Physics via **Phaser Arcade Physics**. Handling values (accel, top speed, grip,
+Physics is a small custom kinematic model in `src/entities/Car.js` (Arcade
+Physics is not used). Handling values (accel, top speed, grip,
 grass drag) are tunable constants so we can dial in the feel.
 
 ---

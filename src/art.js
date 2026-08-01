@@ -23,8 +23,24 @@ export function preloadBerylPhoto(scene) {
 // ---------------------------------------------------------------------------
 // SPRITE SPECIFICATION FOR AN IMAGE GENERATOR
 // ---------------------------------------------------------------------------
-// Use this to generate a top-down sprite of Beryl to replace the procedural
-// `drawBeryl` car below. Feed BERYL_TOPDOWN_SPRITE_PROMPT to the image agent,
+//
+// ⚠ STALE ON THIS BRANCH — these prompts describe the 2D game on `main`.
+//
+// The 3D port renders the world from behind the car, where a strict top-down
+// sprite is unusable: you would be looking at the roof of a flat cut-out. Every
+// prompt below still demands orthographic top-down with no horizon and no tilt,
+// so following them would regenerate assets this build cannot use.
+//
+// They are kept because `main` still needs them and because the identity
+// sections (turquoise body, whitewall tyres, chrome trim, 1960s NZ warmth) are
+// exactly right and should carry over verbatim. What must be rewritten before
+// the next art pass for this branch is the VIEW and ORIENTATION requirements:
+// the 3D build wants side/three-quarter references and, if models are ever
+// commissioned, glTF rather than PNG. Beryl and the course furniture are drawn
+// procedurally in src/render3d/ in the meantime.
+//
+// Use this to generate a top-down sprite of Beryl for the 2D build. Feed
+// BERYL_TOPDOWN_SPRITE_PROMPT to the image agent,
 // using public/assets/beryl-photo.png as the visual reference for colour and
 // character. Save the result as public/assets/beryl.png and follow the swap-in
 // steps in public/assets/README.md.
