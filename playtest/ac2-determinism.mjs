@@ -57,7 +57,12 @@ const BASELINES = {
   manfield: {
     finishTimeMs: 34883.333333,
     pos: { x: 8271.057258642, y: 6535.478402139 },
-    obstacles: 'a2a22af9dcb051fd',
+    // Empty: the SHA-256 of `[]`. Manfeild's art pass removed its trees, and
+    // with them every collision circle on the circuit — deliberately, so a track
+    // you are meant to drive flat out has nothing invisible to hit. Its finish
+    // time and position did not move, which is the check that the trees the bot
+    // was passing were never ones it touched.
+    obstacles: '4f53cda18c2baa0c',
   },
   remutaka: {
     finishTimeMs: 91966.666667,

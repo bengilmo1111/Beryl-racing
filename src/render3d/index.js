@@ -8,12 +8,13 @@ import { Scene, HemisphereLight, DirectionalLight } from 'three';
 import { C, makeFog } from './palette.js';
 import { getRenderer, showCanvas, syncSize, getCanvas } from './renderer.js';
 import { buildRoad, buildKerbs, buildApron, buildGround, buildCentreLine } from './road.js';
-import { buildStartLine, buildCheckpointGates, buildStartGantry } from './markers.js';
+import { buildStartLine, buildStartGantry } from './markers.js';
 import { buildBeryl, updateBeryl } from './beryl.js';
 import { buildTrees } from './trees.js';
 import { buildSigns } from './signs.js';
 import { buildEastbourne } from './themes/eastbourne.js';
 import { buildOtaki } from './themes/otaki.js';
+import { buildManfeild } from './themes/manfeild.js';
 import { SkidRibbon } from './fx/skid.js';
 import { PuffPool } from './fx/puffs.js';
 import { ChaseCamera } from './chaseCamera.js';
@@ -58,20 +59,20 @@ class RaceWorld {
     for (const strip of buildKerbs(scene.track, scene.def.theme)) this.scene3d.add(strip);
 
     // Course furniture, matching what each theme had in 2D: the purpose-built
-    // circuit gets a checkered line and gate markers, the public roads get a
-    // gantry over the start.
-    if (scene.def.theme === 'manfield') {
-      this.scene3d.add(buildStartLine(scene.track));
-      this.scene3d.add(buildCheckpointGates(scene.track));
-    } else {
-      this.scene3d.add(buildStartGantry(scene.track, 'START'));
-    }
+    // circuit gets a checkered start line, the public roads get a gantry over
+    // the start. The circuit's checkpoints are deliberately unmarked — the
+    // marshal huts give it trackside rhythm instead of a row of gate posts.
+    if (scene.def.theme === 'manfield') this.scene3d.add(buildStartLine(scene.track));
+    else this.scene3d.add(buildStartGantry(scene.track, 'START'));
 
     // Theme setpieces sit under the trees and signage.
     if (scene.def.theme === 'eastbourne') {
       this.scene3d.add(buildEastbourne(scene.track, scene.def, this.terrain));
     }
     if (scene.def.theme === 'otaki') this.scene3d.add(buildOtaki(scene.track, scene.def, this.terrain));
+    if (scene.def.theme === 'manfield') {
+      this.scene3d.add(buildManfeild(scene.track, scene.def, this.terrain));
+    }
 
     this.scene3d.add(buildTrees(scene.scenery.trees, this.terrain));
     this.scene3d.add(buildSigns(scene.track, scene.def, this.terrain));

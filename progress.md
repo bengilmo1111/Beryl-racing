@@ -743,3 +743,67 @@ softlock, which had failed since the playtest harness was built and reproduced
 identically on `main`, is gone: it lived in a wedge in the invented oval that the
 real layout does not have. The `remutaka/waypoint` softlock went earlier, with
 the wider roads. There are now no known failing cases.
+
+## 2026-08-01 — Manfeild art pass (PR #23)
+
+A tree-free period club-racing venue for the circuit: six corrugated pit
+garages, pit wall, timing tower, paddock sheds and fuel drums; a timber
+grandstand; eight numbered marshal huts with flag racks that replace the
+freestanding `POST n` boards; post-and-wire fencing along the main straight;
+straw-bale stacks at eight corners; painted period advertising boards; and
+subtle mown infield bands. All code-built geometry — no sprites, textures or
+imported models, with sign lettering rendered at runtime.
+
+Manfeild opened in 1973, so there is no literal 1960s Manfeild. The pass keeps
+the real traced layout and borrows the visual language of late-1960s NZ club
+racing. `docs/tracks/MANFEILD-ART-PASS.md` carries the research and that caveat.
+
+### Three things fixed on merge
+
+**The venue was dispatched from `signs.js`.** `buildSigns()` returned the entire
+Manfeild kit — pit complex, grandstand, fencing, bales — on the grounds that it
+avoided "adding another render hook". That is the wrong trade: `index.js`
+already has theme hooks for Eastbourne and Ōtaki, and routing a venue through
+the signage module hides it from the one place a reader looks for scenery. Now
+dispatched from `index.js` beside the other two; `buildSigns()` returns an empty
+group for Manfeild, which is honest — it has no freestanding signs.
+
+**`buildCheckpointGates()` was left as a stub returning an empty Group**, still
+imported and called. Removed outright, along with its now-unused `acrossRoad`
+helper, with a comment recording why the posts went: they marked all eighteen
+invisible simulation gates and made the circuit read like a driving test.
+
+**Dead hull code.** With Manfeild returning early from `scatterScenery` and
+being the only `mode: 'circuit'` course, `centerlineHull`/`insideHull` became
+unreachable. Removed — but the reasoning behind them is preserved in a comment,
+because it is the non-obvious part and any future circuit will need it: on a
+layout that folds back on itself, the gap between two parallel straights is
+*outside* the closed centreline, so an enclosure test leaves woodland in exactly
+the gap that looks worst.
+
+Also restored the load-bearing comments the PR stripped from `scenery.js`,
+`signs.js` and `markers.js` — the RNG draw-order contract, the `TREE_TEXTURE_SIZE`
+rationale, the `facingTraffic` yaw derivation, the DoubleSide note and the
+per-theme placement filters.
+
+Added one comment that was missing: a course wanting no trees must return
+*before* the loop, as Manfeild does, rather than filter every candidate away
+inside it. Bailing out early consumes no draws; rejecting 1200 candidates would
+consume 2400 and move the stream for anything seeded after it.
+
+### Verification
+
+Manfeild's obstacle fingerprint is now `4f53cda18c2baa0c` — the SHA-256 of `[]`,
+since the circuit has no collision circles left at all. Its finish time and
+position did not move, which is the check that the trees being removed were ones
+the bot never touched. Eastbourne, Remutaka and Ōtaki are byte-identical.
+
+Matrix 16/16, no failures.
+
+### Noted, not fixed
+
+This reverses part of the previous entry: PR #22 deliberately kept trees *ringing*
+the circuit as shelter belts and only cleared the infield. The art pass removes
+them entirely, which leaves the far side of the lap — away from the pits and
+grandstand — very bare. The bales and advertising boards are spread around the
+lap, but between them there is now open grass and nothing else.

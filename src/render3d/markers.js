@@ -36,14 +36,13 @@ export function buildStartLine(track) {
   return mesh;
 }
 
-// Manfeild previously used bright yellow posts at every invisible simulation
-// checkpoint. They were useful greybox furniture but fought the period venue
-// pass and made the circuit read like a training course. The eight physical
-// marshal huts now provide trackside rhythm, while checkpoints remain fully
-// active in the simulation and invisible as they should be.
-export function buildCheckpointGates() {
-  return new Group();
-}
+// There were once bright yellow posts at every checkpoint on the circuit. They
+// were useful greybox furniture, but they marked all eighteen invisible
+// simulation gates and made Manfeild read like a driving test rather than a race
+// track. The marshal huts in themes/manfeild give it trackside rhythm instead.
+// Checkpoints remain fully active in the simulation and unmarked, as they are on
+// a real circuit. Removed in the Manfeild art pass; see git history for the
+// posts if another course ever wants them.
 
 // A friendly arch over the start, replacing the top-down start-gantry.png (which
 // could only ever read from directly above).
