@@ -6,6 +6,7 @@
 import { Group, Mesh, PlaneGeometry, BoxGeometry } from 'three';
 import { WORLD } from '../../config.js';
 import { C, basic, lambert } from './../palette.js';
+import { buildEastbourneParallax } from './eastbourneParallax.js';
 
 const WATER_COLOR = 0x4fadd0;
 const FOAM_COLOR = 0xffe2a6;
@@ -47,6 +48,12 @@ export function buildEastbourne(terrain) {
   const seawall = new Mesh(new BoxGeometry(46, 78, wallLength), lambert(C.cream));
   seawall.position.set(wall, sea + 39, wallStart + wallLength / 2);
   group.add(seawall);
+
+  // Four depth bands beyond the playable route provide the Eastbourne view:
+  // harbour hills, nearer headlands, village roofs, and inland bush. Because
+  // they are real 3D silhouettes the chase camera produces gentle parallax
+  // without per-frame background code or large textures.
+  group.add(buildEastbourneParallax(sea));
 
   return group;
 }
