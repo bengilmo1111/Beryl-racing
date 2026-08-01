@@ -1,128 +1,362 @@
-// Wellington Harbour, the Days Bay shoreline, the seawall, and Eastbourne's
-// roadside weatherboard houses.
+// Eastbourne Dash environment: Wellington Harbour, the narrow beach strip,
+// steep bush hills and a recognisable run of mostly white seaside buildings.
 //
-// The harbour is ported from the 2D drawEastbourneSetting(). Its geometry is
-// still expressed relative to the (scaled) world, so it stays aligned with the
-// route at any LENGTH_SCALE. Original at 491875f:src/scenes/RaceScene.js.
-//
-// The houses have no 2D ancestor. They are deliberately low-poly architectural
-// caricatures: compact villas, seaside bungalows and cottages whose identity
-// comes from form and colour rather than texture detail.
-import { Group, Mesh, PlaneGeometry, BoxGeometry } from 'three';
+// There are deliberately no floating labels or road signs in this theme. The
+// place is communicated through geography and architecture: Ferry Road drops
+// hard to the coast, Marine Drive follows the beach, the village thickens around
+// the shops and school, and several streets converge on the RSA.
+import {
+  BoxGeometry,
+  ConeGeometry,
+  CylinderGeometry,
+  Group,
+  Mesh,
+  PlaneGeometry,
+} from 'three';
 import { WORLD } from '../../config.js';
-import { C, basic, lambert } from './../palette.js';
-import { buildEastbourneParallax } from './eastbourneParallax.js';
+import { EASTBOURNE_LAYOUT } from '../../eastbourneRoute.js';
+import { basic, lambert } from '../palette.js';
 import { buildEastbourneVilla } from '../houses.js';
-import { buildEastbourneLandmarks } from '../landmarks/eastbourneLandmarks.js';
+import { buildEastbourneParallax } from './eastbourneParallax.js';
 
-const WATER_COLOR = 0x4fadd0;
-const FOAM_COLOR = 0xffe2a6;
+const COLOUR = {
+  water: 0x55b3d2,
+  shallow: 0x78c7dc,
+  sand: 0xe8d5a5,
+  foam: 0xfff1d1,
+  concrete: 0xb9b6ad,
+  white: 0xf6f2e8,
+  warmWhite: 0xeee6d5,
+  paleBlue: 0xdce8ea,
+  roofDark: 0x4d585d,
+  roofGreen: 0x536f60,
+  roofRed: 0x8f554a,
+  glass: 0x496b78,
+  timber: 0x92704f,
+  lawn: 0x72ad5e,
+  hill: 0x4c8b52,
+  hillDark: 0x326b43,
+  bush: 0x275d3b,
+  trunk: 0x73583f,
+};
 
-// Houses are scenery only — no collision. They sit off the road shoulder, so
-// what keeps you on the tarmac is still the grass penalty and the seawall.
-function placeHouse(group, terrain, spec, sx, sz) {
-  const house = buildEastbourneVilla(spec);
-  const x = spec.x * sx;
-  const z = spec.z * sz;
-  house.position.set(x, terrain.heightAt(x, z) + 1, z);
-  house.rotation.y = spec.yaw;
-  group.add(house);
+function box(w, h, d, material) {
+  return new Mesh(new BoxGeometry(w, h, d), material);
+}
+
+function addSegment(group, a, b, width, height, y, material) {
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  const length = Math.hypot(dx, dz);
+  const mesh = box(width, height, length, material);
+  mesh.position.set((a.x + b.x) / 2, y, (a.z + b.z) / 2);
+  mesh.rotation.y = Math.atan2(dx, dz);
+  group.add(mesh);
+  return mesh;
+}
+
+function placeAtGround(object, terrain, x, z, yOffset = 1) {
+  object.position.set(x, terrain.heightAt(x, z) + yOffset, z);
+  return object;
+}
+
+function addCoast(group, terrain) {
+  const W = WORLD.width;
+  const H = WORLD.height;
+  const sea = terrain.seaLevel || 0;
+
+  // Open water extends far outside the course. A paler inshore strip and the
+  // sandy ribbon make the coast legible from the chase camera without turning
+  // it into a heavy promenade or retaining wall.
+  const water = new Mesh(
+    new PlaneGeometry(W * 1.15, H * 1.35),
+    basic(COLOUR.water, { fog: true })
+  );
+  water.geometry.rotateX(-Math.PI / 2);
+  water.position.set(-W * 0.32, sea + 2, H * 0.54);
+  group.add(water);
+
+  const shallow = new Mesh(
+    new PlaneGeometry(W * 0.22, H * 1.16),
+    basic(COLOUR.shallow, { fog: true })
+  );
+  shallow.geometry.rotateX(-Math.PI / 2);
+  shallow.position.set(W * 0.02, sea + 2.5, H * 0.55);
+  group.add(shallow);
+
+  const sand = lambert(COLOUR.sand);
+  const foam = basic(COLOUR.foam, { fog: true });
+  const edge = lambert(COLOUR.concrete);
+  const shoreline = EASTBOURNE_LAYOUT.shoreline;
+  for (let i = 0; i < shoreline.length - 1; i += 1) {
+    const a = shoreline[i];
+    const b = shoreline[i + 1];
+    // A thin but continuous beach, matching the long narrow coastal strip in
+    // the reference route rather than the previous hard seawall-only edge.
+    addSegment(group, a, b, 230, 7, sea + 4, sand);
+    addSegment(
+      group,
+      { x: a.x - 112, z: a.z },
+      { x: b.x - 112, z: b.z },
+      14,
+      3,
+      sea + 5.5,
+      foam
+    );
+    // Low landward edging aligns closely with the collision barrier used by the
+    // simulation, but stays low enough that the beach and harbour remain open.
+    addSegment(
+      group,
+      { x: a.x + 115, z: a.z },
+      { x: b.x + 115, z: b.z },
+      20,
+      20,
+      sea + 10,
+      edge
+    );
+  }
+}
+
+function addWharf(group, terrain) {
+  const z = EASTBOURNE_LAYOUT.places.wharfZ;
+  const shoreX = EASTBOURNE_LAYOUT.shoreX;
+  const sea = terrain.seaLevel || 0;
+  const deck = lambert(0x72797c);
+  const white = lambert(COLOUR.white);
+  const piles = lambert(0x4d443b);
+
+  // Days Bay Wharf: the stem projects at right angles from the beach and ends
+  // in a clear T. White railings are its strongest recognisable colour cue.
+  const stem = box(600, 16, 78, deck);
+  stem.position.set(shoreX - 300, sea + 22, z);
+  group.add(stem);
+  const head = box(165, 16, 250, deck);
+  head.position.set(shoreX - 600, sea + 22, z);
+  group.add(head);
+
+  for (let x = shoreX - 55; x >= shoreX - 610; x -= 76) {
+    for (const dz of [-28, 28]) {
+      const pile = new Mesh(new CylinderGeometry(7, 8, 55, 8), piles);
+      pile.position.set(x, sea - 2, z + dz);
+      group.add(pile);
+    }
+  }
+  for (const dz of [-34, 34]) {
+    const rail = box(570, 5, 5, white);
+    rail.position.set(shoreX - 300, sea + 57, z + dz);
+    group.add(rail);
+    for (let x = shoreX - 30; x >= shoreX - 575; x -= 48) {
+      const post = box(5, 44, 5, white);
+      post.position.set(x, sea + 40, z + dz);
+      group.add(post);
+    }
+  }
+  for (const dz of [-116, 116]) {
+    const rail = box(150, 5, 5, white);
+    rail.position.set(shoreX - 600, sea + 57, z + dz);
+    group.add(rail);
+  }
+}
+
+function addNorfolkPine(group, terrain, x, z, scale = 1) {
+  const root = new Group();
+  const trunk = new Mesh(new CylinderGeometry(10 * scale, 15 * scale, 180 * scale, 8), lambert(COLOUR.trunk));
+  trunk.position.y = 90 * scale;
+  root.add(trunk);
+  for (let i = 0; i < 5; i += 1) {
+    const canopy = new Mesh(
+      new ConeGeometry((72 - i * 10) * scale, 72 * scale, 9),
+      lambert(i % 2 ? COLOUR.bush : COLOUR.hillDark)
+    );
+    canopy.position.y = (165 + i * 45) * scale;
+    root.add(canopy);
+  }
+  placeAtGround(root, terrain, x, z, 1);
+  group.add(root);
+}
+
+function addCoastalPines(group, terrain) {
+  // Norfolk pines punctuate the shore without becoming a continuous forest.
+  const positions = [3900, 4700, 5550, 6500, 7420, 8350, 9300, 10300];
+  positions.forEach((z, i) => addNorfolkPine(group, terrain, 1380 + (i % 2) * 35, z, 0.86 + (i % 3) * 0.08));
+}
+
+function addHills(group, terrain) {
+  const W = WORLD.width;
+  const H = WORLD.height;
+  const colours = [COLOUR.hill, COLOUR.hillDark, COLOUR.bush];
+
+  // The eastern side of the settlement rises abruptly. Broad overlapping cones
+  // are deliberately exaggerated in height: from the road they read as the
+  // steep, bush-covered East Harbour hills rather than distant gentle farmland.
+  for (let i = 0; i < 15; i += 1) {
+    const z = H * (0.06 + i * 0.067);
+    const x = W * (0.72 + (i % 3) * 0.055);
+    const radius = 620 + (i % 4) * 130;
+    const height = 820 + (i % 5) * 170;
+    const hill = new Mesh(new ConeGeometry(radius, height, 8), lambert(colours[i % colours.length]));
+    hill.position.set(x, terrain.heightAt(x, z) + height / 2 - 80, z);
+    hill.rotation.y = (i % 2) * 0.25;
+    group.add(hill);
+  }
+}
+
+function villaSpec(x, z, yaw, variant, wall, roof, door) {
+  return {
+    x,
+    z,
+    yaw,
+    variant,
+    palette: {
+      wall,
+      trim: COLOUR.white,
+      roof,
+      door,
+    },
+  };
+}
+
+function addHouses(group, terrain) {
+  // Houses run for most of the coast, becoming denser near Eastbourne. Most are
+  // white or warm-white weatherboard forms, with colour carried by roofs and
+  // doors rather than by a rainbow of walls.
+  const houses = [
+    villaSpec(2340, 3600, Math.PI / 2, 'cottage', COLOUR.white, COLOUR.roofGreen, 0x58736a),
+    villaSpec(2260, 4300, Math.PI / 2 + 0.08, 'bungalow', COLOUR.warmWhite, COLOUR.roofDark, 0x4f7180),
+    villaSpec(2420, 5000, Math.PI / 2 - 0.06, 'villa', COLOUR.white, COLOUR.roofRed, 0x86514b),
+    villaSpec(2380, 5850, Math.PI / 2 + 0.05, 'cottage', COLOUR.paleBlue, COLOUR.roofDark, 0x446c76),
+    villaSpec(2470, 6700, Math.PI / 2 - 0.08, 'bungalow', COLOUR.white, COLOUR.roofGreen, 0x6c5b48),
+    villaSpec(2380, 7600, Math.PI / 2 + 0.03, 'villa', COLOUR.warmWhite, COLOUR.roofRed, 0x77524c),
+    villaSpec(2600, 8450, Math.PI / 2 - 0.04, 'cottage', COLOUR.white, COLOUR.roofDark, 0x506b5c),
+    villaSpec(2550, 9300, Math.PI / 2 + 0.06, 'bungalow', COLOUR.white, COLOUR.roofGreen, 0x4b6e79),
+    villaSpec(2820, 10050, Math.PI / 2 - 0.05, 'two-storey', COLOUR.warmWhite, COLOUR.roofDark, 0x7d5149),
+    villaSpec(3020, 10800, Math.PI / 2 + 0.04, 'villa', COLOUR.white, COLOUR.roofRed, 0x557468),
+    villaSpec(3850, 11250, -Math.PI / 2, 'cottage', COLOUR.white, COLOUR.roofGreen, 0x4e7180),
+    villaSpec(4050, 11850, -Math.PI / 2 + 0.06, 'bungalow', COLOUR.warmWhite, COLOUR.roofDark, 0x76544b),
+    villaSpec(4010, 13000, -Math.PI / 2 - 0.04, 'villa', COLOUR.white, COLOUR.roofRed, 0x496d62),
+    villaSpec(3600, 13700, Math.PI, 'cottage', COLOUR.white, COLOUR.roofGreen, 0x5a7080),
+    villaSpec(2450, 13450, 0, 'bungalow', COLOUR.warmWhite, COLOUR.roofDark, 0x77514d),
+    villaSpec(2050, 12600, Math.PI / 2, 'cottage', COLOUR.white, COLOUR.roofGreen, 0x466d79),
+    villaSpec(2050, 11800, Math.PI / 2, 'villa', COLOUR.white, COLOUR.roofRed, 0x765048),
+  ];
+
+  for (const spec of houses) {
+    const house = buildEastbourneVilla(spec);
+    placeAtGround(house, terrain, spec.x, spec.z, 1);
+    house.rotation.y = spec.yaw;
+    group.add(house);
+  }
+}
+
+function simpleGableBuilding(width, depth, wallHeight, wallColour, roofColour) {
+  const root = new Group();
+  const wall = box(width, wallHeight, depth, lambert(wallColour));
+  wall.position.y = wallHeight / 2;
+  root.add(wall);
+  const roof = new Mesh(new ConeGeometry(Math.hypot(width / 2, 65), 92, 4), lambert(roofColour));
+  roof.position.y = wallHeight + 34;
+  roof.rotation.y = Math.PI / 4;
+  roof.scale.z = depth / width;
+  root.add(roof);
+  return root;
+}
+
+function addWindowBand(group, width, y, z) {
+  const trim = lambert(COLOUR.white);
+  const glass = lambert(COLOUR.glass);
+  for (let x = -width * 0.36; x <= width * 0.36; x += width * 0.24) {
+    const frame = box(58, 54, 6, trim);
+    frame.position.set(x, y, z);
+    group.add(frame);
+    const pane = box(48, 44, 4, glass);
+    pane.position.set(x, y, z - 4);
+    group.add(pane);
+  }
+}
+
+function addVillage(group, terrain) {
+  const places = EASTBOURNE_LAYOUT.places;
+
+  // Open green at Williams Park, a major break in the otherwise built-up edge.
+  const lawn = box(760, 5, 540, lambert(COLOUR.lawn));
+  placeAtGround(lawn, terrain, places.williamsPark.x, places.williamsPark.z, 2);
+  group.add(lawn);
+  const shelter = simpleGableBuilding(190, 135, 95, COLOUR.white, COLOUR.roofGreen);
+  placeAtGround(shelter, terrain, places.williamsPark.x + 170, places.williamsPark.z + 40, 4);
+  group.add(shelter);
+
+  // Doctors / clinic: a low white civic-looking building immediately north of
+  // the shops, matching the H marker relationship in the supplied map.
+  const clinic = simpleGableBuilding(430, 210, 130, COLOUR.white, COLOUR.roofDark);
+  placeAtGround(clinic, terrain, places.doctors.x, places.doctors.z, 2);
+  clinic.rotation.y = Math.PI / 2;
+  addWindowBand(clinic, 330, 72, -110);
+  group.add(clinic);
+
+  // Eastbourne's shops are grouped in one continuous strip between the clinic
+  // and Muritai School. No shop names are drawn; awnings, glazed fronts and the
+  // denser building rhythm do the work.
+  const shopRoot = new Group();
+  const shopWidths = [150, 175, 160, 185, 155];
+  let cursor = -shopWidths.reduce((a, b) => a + b, 0) / 2 - 16;
+  shopWidths.forEach((width, i) => {
+    const module = box(width, 135 + (i % 2) * 18, 150, lambert(i === 2 ? COLOUR.paleBlue : COLOUR.white));
+    module.position.set(cursor + width / 2, module.geometry.parameters.height / 2, 0);
+    shopRoot.add(module);
+    const roof = box(width + 12, 10, 164, lambert(i % 2 ? COLOUR.roofRed : COLOUR.roofDark));
+    roof.position.set(cursor + width / 2, module.geometry.parameters.height + 5, 0);
+    shopRoot.add(roof);
+    const window = box(width * 0.58, 63, 7, lambert(COLOUR.glass));
+    window.position.set(cursor + width * 0.42, 52, -79);
+    shopRoot.add(window);
+    const awning = box(width + 8, 8, 54, lambert(i % 2 ? COLOUR.roofGreen : COLOUR.roofRed));
+    awning.position.set(cursor + width / 2, 92, -102);
+    shopRoot.add(awning);
+    cursor += width + 8;
+  });
+  const footpath = box(900, 7, 105, lambert(COLOUR.concrete));
+  footpath.position.set(0, 3.5, -128);
+  shopRoot.add(footpath);
+  placeAtGround(shopRoot, terrain, places.shops.x, places.shops.z, 2);
+  shopRoot.rotation.y = Math.PI / 2;
+  group.add(shopRoot);
+
+  // Muritai School: a spread-out white classroom block and open field directly
+  // south of the shops.
+  const schoolField = box(760, 4, 520, lambert(COLOUR.lawn));
+  placeAtGround(schoolField, terrain, places.school.x, places.school.z, 2);
+  group.add(schoolField);
+  const school = simpleGableBuilding(620, 190, 122, COLOUR.white, COLOUR.roofGreen);
+  placeAtGround(school, terrain, places.school.x + 80, places.school.z - 55, 5);
+  school.rotation.y = Math.PI / 2;
+  addWindowBand(school, 500, 66, -100);
+  group.add(school);
+
+  // RSA destination: a broad white community hall with green roof and a paved
+  // forecourt. It remains recognisable as a finish building without a text sign.
+  const rsa = simpleGableBuilding(520, 280, 165, COLOUR.warmWhite, COLOUR.roofGreen);
+  placeAtGround(rsa, terrain, places.rsa.x, places.rsa.z, 2);
+  rsa.rotation.y = Math.PI;
+  addWindowBand(rsa, 390, 82, -145);
+  group.add(rsa);
+  const forecourt = box(540, 6, 260, lambert(COLOUR.concrete));
+  placeAtGround(forecourt, terrain, places.rsa.x, places.rsa.z - 260, 2);
+  group.add(forecourt);
 }
 
 export function buildEastbourne(track, def, terrain) {
   const group = new Group();
-  const W = WORLD.width;
-  const H = WORLD.height;
-  const hw = W * 0.167; // harbour width (was 400 in a 2400-wide world)
-  const hEnd = H * 0.8; // harbour runs down to the inland turn
-  const wall = hw + W * 0.008;
-  const sea = terrain.seaLevel || 0;
+  group.name = 'eastbourne-layout-environment';
 
-  // Water. Extends well past the world edge so the harbour reads as open sea
-  // rather than a rectangular pond sitting next to the road.
-  const water = new Mesh(
-    new PlaneGeometry(hw + W * 0.6, hEnd + H * 0.5),
-    basic(WATER_COLOR, { fog: true })
-  );
-  water.geometry.rotateX(-Math.PI / 2);
-  water.position.set(hw / 2 - W * 0.3, sea + 2, hEnd / 2 - H * 0.05);
-  group.add(water);
+  addCoast(group, terrain);
+  addWharf(group, terrain);
+  addCoastalPines(group, terrain);
+  addHills(group, terrain);
+  addHouses(group, terrain);
+  addVillage(group, terrain);
 
-  // Foam line along the shore, where the 2D version drew a thick cream stroke.
-  const foam = new Mesh(new PlaneGeometry(18, hEnd), basic(FOAM_COLOR, { fog: true }));
-  foam.geometry.rotateX(-Math.PI / 2);
-  foam.position.set(hw, sea + 3, hEnd / 2);
-  group.add(foam);
-
-  // The seawall. In 2D this was invisible — a row of collision circles you
-  // bumped into for no apparent reason. In 3D it finally reads as the thing that
-  // makes the harbour visible but unreachable.
-  //
-  // Deliberately built from the same numbers RaceScene.placeSeawall() uses for
-  // its obstacles, so what you see and what you hit are the same wall. That
-  // obstacle loop is simulation and is not touched here.
-  const wallStart = H * 0.09;
-  const wallLength = hEnd - wallStart;
-  const seawall = new Mesh(new BoxGeometry(46, 78, wallLength), lambert(C.cream));
-  seawall.position.set(wall, sea + 39, wallStart + wallLength / 2);
-  group.add(seawall);
-
-  // Route-defining Eastbourne landmarks as real low-poly geometry: Days Bay
-  // Wharf, Williams Park, Rona Bay, the village shop strip and the RSA finish.
-  // Seated on the authored `def.landmarks` points — the same list the roadside
-  // signs come from — and on terrain height, so they stay put through any
-  // re-authoring of the route or change of scale.
-  group.add(buildEastbourneLandmarks(track, def, terrain, { shoreX: hw, seaLevel: sea }));
-
-  // Four depth bands beyond the playable route provide the Eastbourne view:
-  // harbour hills, nearer headlands, village roofs, and inland bush. Because
-  // they are real 3D silhouettes the chase camera produces gentle parallax
-  // without per-frame background code or large textures.
-  group.add(buildEastbourneParallax(sea));
-
-  // Eastbourne's real housing stock is varied, but at road speed it resolves to
-  // a few strong recurring cues: painted weatherboards, dark or red corrugated
-  // roofs, sash windows, small verandahs, front gables and the occasional taller
-  // villa tucked against the bush. Positions are authored in the unscaled
-  // 2400×5000 course space and mapped into the live scaled world, the same way
-  // the harbour numbers above are.
-  const sx = W / 2400;
-  const sz = H / 5000;
-  const houses = [
-    {
-      x: 1110, z: 870, yaw: Math.PI / 2 - 0.12, variant: 'cottage',
-      palette: { wall: 0xf0eee5, trim: 0xfaf7ea, roof: 0x6f7b73, door: 0x668168 },
-    },
-    {
-      x: 1090, z: 1320, yaw: Math.PI / 2 + 0.08, variant: 'bungalow',
-      palette: { wall: 0xe5edf0, trim: 0xffffff, roof: 0x394951, door: 0x3d6f84 },
-    },
-    {
-      x: 1060, z: 1900, yaw: Math.PI / 2 - 0.04, variant: 'villa',
-      palette: { wall: 0xf3dfaa, trim: 0xfff8e5, roof: 0x9a4a3d, door: 0x7a3534 },
-    },
-    {
-      x: 1110, z: 2500, yaw: Math.PI / 2 + 0.1, variant: 'cottage',
-      palette: { wall: 0xd7dfc6, trim: 0xf6f0df, roof: 0x5f6d69, door: 0x8d5a48 },
-    },
-    {
-      x: 1070, z: 3160, yaw: Math.PI / 2 - 0.08, variant: 'bungalow',
-      palette: { wall: 0xe9c8c0, trim: 0xfff3e8, roof: 0x59646d, door: 0x7c5053 },
-    },
-    {
-      x: 1110, z: 3660, yaw: Math.PI / 2 + 0.04, variant: 'villa',
-      palette: { wall: 0xc8dbe2, trim: 0xf7f1df, roof: 0x6f3f38, door: 0x345d68 },
-    },
-    {
-      x: 1390, z: 3910, yaw: Math.PI / 2 - 0.35, variant: 'two-storey',
-      palette: { wall: 0xeadfca, trim: 0xfff7e8, roof: 0x41484d, door: 0x7c3432 },
-    },
-    {
-      x: 1730, z: 4320, yaw: Math.PI / 2 - 0.55, variant: 'cottage',
-      palette: { wall: 0xe9eee8, trim: 0xffffff, roof: 0x788274, door: 0x52756c },
-    },
-  ];
-  for (const house of houses) placeHouse(group, terrain, house, sx, sz);
-
+  // Distant real geometry supplies harbour and bush parallax beyond the detailed
+  // foreground. It is decorative and carries no gameplay collision.
+  group.add(buildEastbourneParallax(terrain.seaLevel || 0));
   return group;
 }
