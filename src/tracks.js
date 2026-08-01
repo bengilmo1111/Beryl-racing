@@ -13,6 +13,7 @@
 // Because they were authored at different scales, each carries its own physics.
 
 import { applyTrack } from './config.js';
+import { EASTBOURNE_GEOMETRY, EASTBOURNE_LAYOUT } from './eastbourneRoute.js';
 
 export const TRACKS = [
   {
@@ -21,57 +22,16 @@ export const TRACKS = [
     tagline: 'Coastal point-to-point',
     mode: 'sprint', // one run, start to finish
     theme: 'eastbourne',
-    world: { width: 2400, height: 5000 },
-    // Compressed north-to-south coastal route. Harbour stays on the player's
-    // left until the village, then the road turns inland to the RSA.
-    geometry: {
-      anchors: [
-        { x: 800, y: 400 },
-        { x: 650, y: 700 },
-        { x: 740, y: 1100 },
-        { x: 610, y: 1580 },
-        { x: 740, y: 2100 },
-        { x: 580, y: 2660 },
-        { x: 720, y: 3200 },
-        { x: 640, y: 3700 },
-        { x: 850, y: 4050 },
-        { x: 1250, y: 4200 },
-        { x: 1450, y: 4470 },
-        { x: 1280, y: 4740 },
-      ],
-      // Two lanes wide. At ~59 units/metre (Beryl is 217.6 units for a 3.7m car)
-      // this is about 6m of sealed road, which is what a marked centre line
-      // needs — the old 180 was a single 3m lane with room for one car.
-      //
-      // There is a hard ceiling on this, per course. track.js offsets the
-      // centreline by ±half along its own normal, so once half exceeds the
-      // tightest corner's radius the two edges cross and the road folds through
-      // itself — visible as the kerb line cutting diagonally over the tarmac.
-      // Eastbourne's tightest bend has a 301-unit radius, so its ceiling is 602
-      // and 360 is comfortable. The other three courses are much tighter and are
-      // capped accordingly; see each one below.
-      roadWidth: 360,
-      samplesPerSegment: 20,
-      numCheckpoints: 10,
-      closed: false,
-      // Ferry Road is genuinely steep, and the route starts at the top of it
-      // (28 Ferry Road is anchor 0). Beryl drops off the hill onto the flat
-      // harbour road, runs the coast at sea level, then climbs gently inland to
-      // the RSA. Heights are world units; see track.js sampleProfile.
-      elevation: {
-        // Wellington Harbour: the western strip, flat at sea level, so the
-        // Ferry Road hill falls to the water instead of the water climbing the
-        // hill. Matches the 2D harbour (width * 0.167, down to height * 0.8).
-        // Pre-scale coordinates, like the anchors.
-        sea: [{ x: -400, y: -400, w: 801, h: 4400, level: 0 }],
-        profile: [
-          { at: 0, h: 105 }, // top of Ferry Road
-          { at: 0.1, h: 10 }, // down on the coast road — roughly a 20% drop
-          { at: 0.8, h: 6 }, // flat along the harbour
-          { at: 1, h: 30 }, // up a little into the village and the RSA
-        ],
-      },
-    },
+    world: { ...EASTBOURNE_LAYOUT.world },
+    // Authored at final world scale, unlike every other course, so scaleCourse
+    // must not touch its lengths — see `preScaled` below. The route itself is in
+    // eastbourneRoute.js purely because there is a lot of it: a primary run from
+    // 28 Ferry Road down to the RSA, plus Marine Parade, an inland village route
+    // and two cross streets, so Eastbourne village is a network you can choose a
+    // way through rather than a single ribbon.
+    preScaled: true,
+    geometry: EASTBOURNE_GEOMETRY,
+    layout: EASTBOURNE_LAYOUT,
     // Morris Minor character: a decent top speed you have to work up to (long,
     // lazy acceleration), weak brakes that are slow to wash off speed, and loose,
     // low-grip cornering that gently oversteers — the tail drifts wide rather
@@ -97,7 +57,8 @@ export const TRACKS = [
       maxClimbPenalty: 0.78, // cap vs accel — full throttle always climbs
       downhillOverspeed: 0.18, // Ferry Road is a proper run down
     },
-    storageKey: 'beryl-racing-3d.eastbourne-dash.bestTimeMs.v1',
+    // v2: the rebuilt route is not comparable with the prototype's records.
+    storageKey: 'beryl-racing-3d.eastbourne-dash.bestTimeMs.v2',
     hud: { current: 'DASH TIME', progress: 'TO EASTBOURNE' },
     bestLabel: 'Eastbourne best',
     results: {
@@ -105,17 +66,10 @@ export const TRACKS = [
       message: 'Phew! Just in time for a beer.',
       retryLabel: '↻  DASH AGAIN',
     },
-    // Roadside landmark labels, advance arrows and the finish marker text.
-    landmarks: [
-      [830, 300, '28 FERRY ROAD'],
-      [470, 1100, 'DAYS BAY WHARF'],
-      [900, 1580, 'WILLIAMS PARK'],
-      [470, 2660, 'RONA BAY'],
-      [920, 3700, 'EASTBOURNE VILLAGE'],
-      [1420, 4740, 'EASTBOURNE RSA'],
-    ],
-    arrows: [{ x: 980, y: 4010, text: 'TURN INLAND  ➜', rot: 0.15 }],
-    finishLabel: 'FINISH • RSA',
+    // No landmarks, arrows or finish label: Eastbourne is meant to be read from
+    // its geography and architecture, so themes/eastbourne places the wharf,
+    // clinic, shops, school and RSA as buildings instead of naming them on
+    // boards. index.js skips buildSigns and the start gantry for this theme.
   },
   {
     id: 'manfield',
@@ -194,11 +148,11 @@ export const TRACKS = [
         { x: 2531, y: 1574 }, // back onto the main straight
         { x: 2249, y: 1611 },
       ],
-      // Broad racing tarmac, and the reason `lengthScale` above exists. See the
-      // roadWidth note on the Eastbourne course: half the width cannot exceed a
-      // corner's radius or the road folds through itself, and at the map's own
-      // proportions Manfeild's tightest corner caps the road at 244. Enlarging
-      // the site scales the radii with it, so 450 fits.
+      // Broad racing tarmac, and the reason `lengthScale` above exists. See
+      // buildEdges in track.js: half the width cannot exceed a corner's radius
+      // or the road folds through itself, and at the map's own proportions
+      // Manfeild's tightest corner caps the road at 244. Enlarging the site
+      // scales the radii with it, so 450 fits.
       roadWidth: 450,
       samplesPerSegment: 20,
       // Was 6, which was plenty for the old oval. The real layout doubles back
@@ -510,6 +464,12 @@ const SPEED_FIELDS = [
 const GRIP_FIELDS = ['gripNormal', 'gripGravel', 'gripDrift', 'gripGrass'];
 
 function scaleCourse(def) {
+  // Physics scaling applies to every course; length scaling does not. A course
+  // marked `preScaled` is authored directly at final world scale, so scaling it
+  // again would double every distance — Eastbourne's rebuilt road network is
+  // authored that way because it was traced against the real coastline.
+  if (def.preScaled) return scalePhysics(def);
+
   // A course may ask for extra room on top of the global scale. Manfeild does,
   // so that a road wide enough to drift on still fits inside the real layout's
   // corners; see the note on its `lengthScale`.
@@ -549,6 +509,10 @@ function scaleCourse(def) {
     const b = def.scenery.beach;
     def.scenery.beach = { x: b.x * L, y: b.y * L, w: b.w * L, h: b.h * L };
   }
+  return scalePhysics(def);
+}
+
+function scalePhysics(def) {
   for (const f of SPEED_FIELDS) {
     if (def.physics[f] != null) def.physics[f] *= SPEED_SCALE;
   }

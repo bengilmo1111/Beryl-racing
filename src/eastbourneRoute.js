@@ -1,8 +1,15 @@
-// Eastbourne Dash route override.
+// Eastbourne Dash road network.
 //
-// This is authored at the live 3D world scale rather than the older compressed
-// prototype scale. config.applyTrack() installs it after tracks.js has applied
-// its legacy global scale pass, so these coordinates are never scaled twice.
+// The data lives here rather than inline in tracks.js only because there is a
+// lot of it — the course entry in tracks.js imports it and is still the single
+// description of the course. It is *not* patched in at apply time: an earlier
+// version of this file mutated the definition inside config.applyTrack(), which
+// left tracks.js holding a stale prototype route that looked authoritative and
+// silently did nothing.
+//
+// Authored at final world scale, unlike every other course. tracks.js marks the
+// entry `preScaled` so scaleCourse leaves the geometry alone; see the note
+// there.
 //
 // Shape references:
 // - the supplied Google Maps screenshots from 28 Ferry Road to Eastbourne RSA;
@@ -137,46 +144,28 @@ const BRANCHES = [
   },
 ];
 
-function cloneRoad(road) {
-  return {
-    ...road,
-    anchors: road.anchors.map((point) => ({ ...point })),
-  };
-}
-
-export function applyEastbourneRoute(def) {
-  def.world = { ...EASTBOURNE_LAYOUT.world };
-  def.geometry = {
-    anchors: PRIMARY_ANCHORS.map((point) => ({ ...point })),
-    branches: BRANCHES.map(cloneRoad),
-    roadWidth: 360,
-    samplesPerSegment: 20,
-    numCheckpoints: 7,
-    // All required gates except the finish sit before the road network splits.
-    // Players may therefore choose any village route without being pulled back
-    // to an arbitrary "correct" street.
-    checkpointFractions: [0, 0.12, 0.26, 0.42, 0.58, 0.73, 1],
-    closed: false,
-    elevation: {
-      sea: [{ x: -1800, y: -1000, w: 3100, h: 17000, level: 0 }],
-      profile: [
-        { at: 0, h: 320 },
-        { at: 0.07, h: 235 },
-        { at: 0.16, h: 22 },
-        { at: 0.76, h: 12 },
-        { at: 1, h: 22 },
-      ],
-    },
-  };
-
-  // Route v2 is not comparable with the short prototype's records.
-  def.storageKey = 'beryl-racing-3d.eastbourne-dash.bestTimeMs.v2';
-
-  // Keep the old landmark array from generating floating labels or signboards.
-  // The 3D Eastbourne theme now places its landmarks directly as architecture.
-  def.landmarks = [];
-  def.arrows = [];
-  def.finishLabel = null;
-  def.eastbourneLayout = EASTBOURNE_LAYOUT;
-  return def;
-}
+export const EASTBOURNE_GEOMETRY = {
+  anchors: PRIMARY_ANCHORS,
+  branches: BRANCHES,
+  // Two lanes, about 6m at ~59 units/metre. Comfortably under the ceiling
+  // buildEdges in track.js describes — this route's tightest bend is the Ferry
+  // Road hairpin onto the coast, which still clears 360 with room.
+  roadWidth: 360,
+  samplesPerSegment: 20,
+  numCheckpoints: 7,
+  // All required gates except the finish sit before the road network splits.
+  // Players may therefore choose any village route without being pulled back
+  // to an arbitrary "correct" street.
+  checkpointFractions: [0, 0.12, 0.26, 0.42, 0.58, 0.73, 1],
+  closed: false,
+  elevation: {
+    sea: [{ x: -1800, y: -1000, w: 3100, h: 17000, level: 0 }],
+    profile: [
+      { at: 0, h: 320 },
+      { at: 0.07, h: 235 },
+      { at: 0.16, h: 22 },
+      { at: 0.76, h: 12 },
+      { at: 1, h: 22 },
+    ],
+  },
+};

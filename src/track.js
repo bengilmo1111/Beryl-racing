@@ -22,6 +22,8 @@ function catmullRom(p0, p1, p2, p3, t) {
   };
 }
 
+// Smooth Catmull-Rom through the anchors. A closed loop uses a periodic spline
+// (wrapping neighbours); an open route duplicates the endpoints instead.
 function buildCenterline(anchors, steps, closed) {
   const n = anchors.length;
   const centerline = [];
@@ -52,6 +54,14 @@ function buildCenterline(anchors, steps, closed) {
   return centerline;
 }
 
+// The tarmac edges: the centreline offset by ±half along its own normal.
+//
+// This is where roadWidth has a hard per-course ceiling. Offsetting by a fixed
+// amount is only valid while half is smaller than the local corner radius; past
+// that the two edges cross and the road folds through itself, which shows up as
+// the kerb line cutting diagonally across the tarmac. The ceiling is therefore
+// twice the tightest corner's radius, and each course's roadWidth is set under
+// its own — see the notes in tracks.js.
 function buildEdges(centerline, roadWidth, closed) {
   const count = centerline.length;
   const half = roadWidth / 2;
@@ -67,6 +77,7 @@ function buildEdges(centerline, roadWidth, closed) {
     const len = Math.hypot(tx, ty) || 1;
     tx /= len;
     ty /= len;
+    // Left normal is (-ty, tx).
     left.push({ x: centerline[i].x - ty * half, y: centerline[i].y + tx * half });
     right.push({ x: centerline[i].x + ty * half, y: centerline[i].y - tx * half });
   }
@@ -74,6 +85,10 @@ function buildEdges(centerline, roadWidth, closed) {
   return { left, right, half };
 }
 
+// Optional per-sample road surface. `surfaceBands` is an ordered list of
+// { type, until } where `until` is a fraction (0..1] of the route; each sample
+// takes the first band whose `until` covers its position. Absent → null, and
+// everything downstream falls back to a single (sealed) surface.
 function buildSurfaces(surfaceBands, count) {
   if (!Array.isArray(surfaceBands) || !surfaceBands.length) return null;
   const surfaces = new Array(count);
@@ -91,6 +106,11 @@ function buildSurfaces(surfaceBands, count) {
   return surfaces;
 }
 
+// Optional per-sample road height, from an ordered { at, h } profile keyed to a
+// fraction of the route. Interpolated with a smoothstep so grade changes ease in
+// and out rather than breaking sharply — a linear profile puts a visible crease
+// across the road at every control point. Absent → null, and the course is flat
+// with gravity disabled entirely.
 function buildHeights(profile, count) {
   if (!Array.isArray(profile) || profile.length < 2) return null;
   const heights = new Array(count);
@@ -119,6 +139,10 @@ function buildRoad(spec, fallback = {}) {
   };
 }
 
+// Branch roads take their height from the nearest point on the primary route
+// rather than carrying a profile of their own. Eastbourne's side streets join
+// the coast road at both ends, so anything else would leave a step at the
+// junction where the two surfaces meet at different heights.
 function copyNearestPrimaryHeights(primary, road) {
   if (!primary.heights) return null;
   return road.centerline.map((point) => {
@@ -137,6 +161,12 @@ function copyNearestPrimaryHeights(primary, road) {
   });
 }
 
+// Ordered gates on the primary route. On a loop, index 0 is the start/finish
+// gate and the gates are spread over the whole lap; on an open route, index 0 is
+// the start and the last gate is the finish. `checkpointFractions` overrides the
+// even spacing, which is how Eastbourne keeps every required gate before the
+// village splits into alternative streets — otherwise one arbitrary route would
+// become the "correct" one.
 function buildCheckpoints(primary) {
   const centerline = primary.centerline;
   const count = centerline.length;
@@ -200,21 +230,33 @@ export function buildTrack() {
   }
 
   const checkpoints = buildCheckpoints(primary);
+  // Start pose: on the line, facing along the route from the first sample.
   const start = primary.centerline[0];
   const startNext = primary.centerline[1];
   const tx = startNext.x - start.x;
   const ty = startNext.y - start.y;
+  // Sprite is drawn nose-up; forward = (sin r, -cos r) => r = atan2(tx, -ty).
   const startRotation = Math.atan2(tx, -ty);
 
   return {
     ...primary,
     roads,
     checkpoints,
+    // Standing water the terrain builder holds flat, instead of letting it
+    // follow the nearest road height uphill. Coastlines are authored as rects;
+    // the river is generated here because it has to line up with the checkpoint
+    // the bridge crossing is already keyed to.
     sea: buildWaterRegions(checkpoints, primary.heights),
     start: { x: start.x, y: start.y, rotation: startRotation },
   };
 }
 
+// Coastline rects plus, if the course has one, an oriented carve for the river.
+//
+// The river has to be generated rather than authored: it runs across the road at
+// whatever angle the route happens to take through its checkpoint, and the
+// terrain either side has to drop to the water while the road stays up on the
+// bridge. Road cells are pinned before carving, so the bridge survives.
 function buildWaterRegions(checkpoints, heights) {
   const elevation = TRACK.elevation;
   if (!elevation) return null;
@@ -222,6 +264,8 @@ function buildWaterRegions(checkpoints, heights) {
   const river = elevation.river;
   if (river && checkpoints[river.cp]) {
     const cp = checkpoints[river.cp];
+    // `angle` is the along-road direction, so halfW measures the water the car
+    // crosses and halfL runs up and downstream.
     regions.push({
       cx: cp.x,
       cy: cp.y,
@@ -234,6 +278,8 @@ function buildWaterRegions(checkpoints, heights) {
   return regions.length ? regions : null;
 }
 
+// Height at a fraction along an ordered [{ at, h }] profile. Smoothstep between
+// control points, flat beyond the ends.
 function sampleProfile(profile, frac) {
   if (frac <= profile[0].at) return profile[0].h;
   const last = profile[profile.length - 1];
@@ -250,6 +296,9 @@ function sampleProfile(profile, frac) {
   return last.h;
 }
 
+// Shortest distance from (px,py) to one polyline. On a closed loop the final
+// wrap-around segment is included; on an open route it is not, so the straight
+// line from finish back to start never reads as "on-road".
 function distanceToPolyline(px, py, centerline, closed) {
   let best = Infinity;
   const n = centerline.length;
@@ -270,8 +319,18 @@ function distanceToPolyline(px, py, centerline, closed) {
   return Math.sqrt(best);
 }
 
-// Shortest distance from (px,py) to the supplied centreline. When the line came
-// from buildTrack(), this transparently checks the complete road network.
+// Shortest distance from (px,py) to the road, used by the on-track test, by
+// scenery placement and by the harness.
+//
+// `centerline` arrays produced by buildTrack() carry a non-enumerable `network`
+// back-reference to every road on the course, so a caller that only has the
+// primary centreline still gets the whole network. That is what lets Eastbourne
+// gain Marine Parade, the inland route and the cross streets without touching a
+// single simulation call site — every branch counts as on-road automatically.
+//
+// The returned value is a distance only for the primary road. For a branch it is
+// biased by the width difference so that the caller's existing `<= track.half`
+// test stays correct on a narrower street; see the adjustment below.
 export function distanceToCenterline(px, py, centerline) {
   const roads = centerline && centerline.network;
   if (roads) {

@@ -47,6 +47,12 @@ const BASELINES = {
   // longer Ferry Road, a new coastal alignment, seven checkpoints, a branching
   // village road network and a different inland-only obstacle field. The other
   // three courses stayed identical, confirming the change remained isolated.
+  // Re-recorded when Eastbourne was rebuilt around the real coastal road
+  // network: a much longer route from 28 Ferry Road, a branch road network
+  // through the village, seven gates placed by `checkpointFractions` instead of
+  // even spacing, and a larger world. Manfeild, Remutaka and Otaki did not move,
+  // which is the check that adding branch roads left the scenery RNG draw order
+  // alone.
   'eastbourne-dash': {
     finishTimeMs: 108133.333333,
     pos: { x: 2670.485515835, y: 13879.714365457 },

@@ -872,3 +872,74 @@ dominated by the near plane, which has not moved.
 
 Render-only: all four AC2 baselines and obstacle fingerprints byte-identical,
 matrix 16/16.
+
+## 2026-08-01 — Eastbourne rebuilt around the real road network (PR #25)
+
+A much longer route: 28 Ferry Road, a long steep descent and the hard left onto
+the coast, Marine Drive hugging a continuous narrow beach, then Eastbourne
+village as a **network** — Marine Parade, an inland route and two cross streets —
+so the run to the RSA is a choice of streets rather than one ribbon. The clinic,
+shop strip and Muritai School sit in map order. No signs, gantry or finish label:
+the place is communicated by geography and architecture.
+
+Waypoint bot 63.2 s → **108.1 s**. Baselines deliberately re-recorded; Manfeild,
+Remutaka and Ōtaki byte-identical.
+
+### Branch roads
+
+`buildTrack()` now returns `roads[]`, and each `centerline` array carries a
+**non-enumerable `network` back-reference** to the whole set. That is the neat
+part: `distanceToCenterline()` follows it, so every existing simulation call site
+— the on-track test, scenery placement, the harness — treats all five streets as
+driveable without a single change. Branch heights are copied from the nearest
+primary sample so junctions do not step.
+
+### Fixed on merge
+
+**The route was patched in at apply time.** `applyTrack()` called
+`applyEastbourneRoute(def)`, overwriting world, geometry, storage key and
+landmarks — while `tracks.js` still held the old prototype route, looking
+authoritative and doing nothing. Editing it would have had no effect. Exactly the
+two-sources-of-truth failure fixed in PR #21 and PR #22. The route now *is* the
+`tracks.js` entry (importing its data from `eastbourneRoute.js`, which is just a
+big data file), with a new `preScaled` flag so `scaleCourse` leaves already-final
+coordinates alone while still applying the physics scaling every course gets.
+
+**`render3d/landmarks/` was orphaned.** The new theme builds the wharf, clinic,
+shops, school and RSA itself from `EASTBOURNE_LAYOUT.places`, so nothing imported
+the landmark module any more. Deleted.
+
+**Restored the stripped comments**, in `index.js`, `scenery.js` and `track.js`.
+One of them matters more than the rest: the note on `POST_RENDER` explaining that
+Phaser emits it from *both* `step()` and `headlessStep()` and that the
+`renderer = null` argument is the discriminator. That guard is the only reason
+deterministic harness runs stay draw-free, and without the comment it looks like
+a redundant null check. Also restored the RNG draw-order contract in
+`scenery.js`, and moved the roadWidth-ceiling explanation into `buildEdges` in
+`track.js`, which is where the failure actually happens.
+
+**Two render defects the new course exposed.**
+
+*Floating fragments on the skyline.* Eastbourne's parallax carried two inland
+bush bands and a village roofline, all pinned to a fixed height above sea level.
+The rebuilt course climbs to 320 units at the top of Ferry Road and now builds
+real hills and a real village in that same band, so the parallax was buried in
+the hillside with only its peaks showing — reading as debris in the sky. All
+three inland elements removed; the theme supersedes them. The seaward harbour
+bands stay.
+
+*The village read as a paved yard.* Five roads converge there, and each was
+drawing its own apron, kerbs and centre line, so ten painted edge lines, ten
+run-off bands and five lines of dashes all crossed at the junctions. Branch roads
+are now bare tarmac — which is both what a village side street looks like and
+what makes the junctions read as junctions.
+
+### Noted, not fixed
+
+Some buildings clip the road edge. Measured against the world AABB (conservative,
+so true overlap is smaller), the worst are about 29 units into a 360-wide road,
+and the shops and RSA anchor points are inside their nearest carriageway. The
+fix is the one used for the landmark models in PR #21 — push each building out
+along the road normal until its footprint clears the kerb — but the theme places
+~127 objects at hand-authored positions, so it is a bigger change than it looks.
+Nothing reads as broken in play.
