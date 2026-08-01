@@ -73,8 +73,10 @@ const PRIMARY_ANCHORS = [
   { x: 2730, y: 12780 },
   { x: 2790, y: 13320 },
   { x: 2570, y: 13720 },
-  // Tuatoru Street approach to the RSA. Every route converges here.
+  // Tuatoru Street approach. Every route converges before the final turn into
+  // the RSA forecourt rather than finishing at an arbitrary road junction.
   { x: 2160, y: 14120 },
+  { x: 2760, y: 14320 },
 ];
 
 const BRANCHES = [
