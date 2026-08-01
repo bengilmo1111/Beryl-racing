@@ -42,6 +42,14 @@ export const TRACKS = [
       // Two lanes wide. At ~59 units/metre (Beryl is 217.6 units for a 3.7m car)
       // this is about 6m of sealed road, which is what a marked centre line
       // needs — the old 180 was a single 3m lane with room for one car.
+      //
+      // There is a hard ceiling on this, per course. track.js offsets the
+      // centreline by ±half along its own normal, so once half exceeds the
+      // tightest corner's radius the two edges cross and the road folds through
+      // itself — visible as the kerb line cutting diagonally over the tarmac.
+      // Eastbourne's tightest bend has a 301-unit radius, so its ceiling is 602
+      // and 360 is comfortable. The other three courses are much tighter and are
+      // capped accordingly; see each one below.
       roadWidth: 360,
       samplesPerSegment: 20,
       numCheckpoints: 10,
@@ -134,7 +142,10 @@ export const TRACKS = [
         { x: 470, y: 1240 },
         { x: 560, y: 1480 },
       ],
-      roadWidth: 600, // wide, for drifting room
+      // Widened for drifting room, but capped by the corners: see the note on
+      // roadWidth in the Eastbourne course above. This oval's tightest bend has
+      // a 170-unit radius, so anything past 339 folds the road through itself.
+      roadWidth: 320,
       samplesPerSegment: 20,
       numCheckpoints: 6, // includes the start/finish gate (index 0)
       closed: true,
@@ -193,7 +204,10 @@ export const TRACKS = [
         { x: 4380, y: 780 }, // final charge
         { x: 4820, y: 680 }, // Remutaka Summit finish
       ],
-      roadWidth: 300, // narrower and more technical than the coastal road
+      // Narrower and more technical than the coastal road, and it has to be:
+      // the tightest switchback has a 130-unit radius, so 260 is the hard
+      // ceiling before the offset edges cross. 240 leaves a margin.
+      roadWidth: 240,
       samplesPerSegment: 20,
       numCheckpoints: 11,
       closed: false,
@@ -291,7 +305,8 @@ export const TRACKS = [
         { x: 780, y: 700 }, // out toward the coast
         { x: 470, y: 540 }, // Ōtaki Beach finish (NW)
       ],
-      roadWidth: 320,
+      // Capped by the tightest river-flat bend (150-unit radius, 299 ceiling).
+      roadWidth: 280,
       samplesPerSegment: 20,
       numCheckpoints: 13,
       closed: false,

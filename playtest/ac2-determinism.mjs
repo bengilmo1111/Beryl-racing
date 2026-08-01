@@ -35,8 +35,13 @@ import { TRACKS } from '../src/tracks.js';
 // tree placement rejects anything within `roadWidth / 2 + 90`, moving the whole
 // obstacle field outward and changing every fingerprint; and the terrain road-
 // pinning radius grows with it. The bots therefore drive visibly better rather
-// than merely differently — Remutaka halved, from 168.7s to 82.3s, because the
-// waypoint bot stops falling off the switchbacks.
+// than merely differently — Remutaka nearly halved, from 168.7s to 92.0s,
+// because the waypoint bot stops falling off the switchbacks.
+//
+// The widths are capped per course, not simply doubled. track.js offsets the
+// centreline by ±half along its own normal, so once half exceeds a corner's
+// radius the road folds through itself. Ceilings: Eastbourne 602, Manfield 339,
+// Remutaka 260, Otaki 299.
 const BASELINES = {
   'eastbourne-dash': {
     finishTimeMs: 63166.666667,
@@ -44,14 +49,14 @@ const BASELINES = {
     obstacles: '03391c49f50abb65',
   },
   manfield: {
-    finishTimeMs: 8383.333333,
-    pos: { x: 1220.017018722, y: 2438.055489707 },
-    obstacles: '709bb1c9d2fc8774',
+    finishTimeMs: 10450,
+    pos: { x: 1242.174832544, y: 2849.837219896 },
+    obstacles: 'e9472f88b60d3f2a',
   },
   remutaka: {
-    finishTimeMs: 82316.666667,
-    pos: { x: 9333.184911596, y: 1575.236578998 },
-    obstacles: '3b593a468267faa2',
+    finishTimeMs: 91966.666667,
+    pos: { x: 9392.104197495, y: 1526.952446061 },
+    obstacles: '1bb1e8cc66ce86a7',
   },
   // Ōtaki alone moved when the 2D renderer came out, and the reason is worth
   // knowing. Phaser's Text constructor keys its canvas texture with a UUID built
@@ -64,9 +69,9 @@ const BASELINES = {
   // runs at the top of RaceScene.create(), before any text or HUD exists, so UI
   // churn can no longer perturb gameplay placement.
   otaki: {
-    finishTimeMs: 79050,
-    pos: { x: 1289.93976714, y: 1270.228007763 },
-    obstacles: '8d8d49d4f5e674c1',
+    finishTimeMs: 81833.333333,
+    pos: { x: 1248.88744466, y: 1243.523102511 },
+    obstacles: '84952307dd7e9846',
   },
 };
 
