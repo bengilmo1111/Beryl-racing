@@ -549,9 +549,26 @@ The full suite has one failure, `remutaka/waypoint` softlock, and it is not
 this change: stashing the change and re-running gives the identical failure,
 and remutaka's recorded finish time and obstacle fingerprint never moved.
 
-### Noted, not fixed
+### And then the trees
 
-The tree scatter fills the infield, and on a folded layout that means woodland
-in the gaps between straights. Real Manfeild is open farmland with a venue in
-the middle. That is an art pass, not a layout one — `scatterScenery` is
-theme-aware already and could take a circuit-infield rule.
+The first cut left the tree scatter alone, and on a folded layout that meant
+woodland in every gap between the straights. `scatterScenery` now keeps trees
+out of a circuit's footprint entirely (`def.mode === 'circuit'`), so the site is
+open grass and the trees ring it, the way the shelter belts around the real
+place do.
+
+The filter is the convex hull of the centreline, and the first attempt — testing
+whether a point is *enclosed by* the centreline — was wrong in an interesting
+way. On a layout that folds back on itself, the gap between two parallel
+straights is **outside** the closed centreline: you cross the track once going
+in and once coming out, so parity puts you back where you started. It cleared
+the three genuinely enclosed pockets and left the big middle gap, which is the
+one you actually look at. The hull treats the whole site as one venue and does
+not care how the loop is folded.
+
+Placement stayed inside its try budget: the hull covers 45% of the world, so
+about a third of candidate positions are still accepted and all 90 trees place.
+
+The obstacle fingerprint moved, so `manfield`'s baseline is re-recorded again.
+Its finish time and position did not move between the two tree attempts — the
+trees that shifted were ones the bot never touched.

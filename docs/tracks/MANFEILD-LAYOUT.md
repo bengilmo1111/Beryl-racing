@@ -55,7 +55,10 @@ line — about **1.5 m** at true scale, on a road 12 m wide.
   would need.
 - **Everything above the tarmac.** Grandstands, pit buildings, the Higgins
   bridge and the rest of the venue are not modelled. The CRO map does not show
-  them either.
+  them either. The site is at least kept *open*: `scatterScenery` keeps trees
+  outside the convex hull of any `mode: 'circuit'` centreline, so the infield is
+  grass and the trees sit around the boundary rather than in the gaps between
+  the straights.
 
 ## 4. If the layout is re-traced
 

@@ -36,14 +36,15 @@ const BASELINES = {
     obstacles: '94932d480a8bac9b',
   },
   // Re-recorded when the circuit stopped being an invented oval and became the
-  // real Manfeild layout (see docs/tracks/MANFEILD-LAYOUT.md). A different
-  // centreline, road width and checkpoint count necessarily move all three
-  // values; the other courses did not shift, which is the check that the
-  // scenery RNG draw order was left alone.
+  // real Manfeild layout (see docs/tracks/MANFEILD-LAYOUT.md), then again when
+  // trees were cleared out of a closed circuit's infield. A different
+  // centreline, road width, checkpoint count and tree scatter necessarily move
+  // all three values; the other courses did not shift either time, which is the
+  // check that the scenery RNG draw order was left alone.
   manfield: {
-    finishTimeMs: 19866.666667,
-    pos: { x: 3970.725217241, y: 3192.99336559 },
-    obstacles: '60dff7c0d2258be3',
+    finishTimeMs: 20016.666667,
+    pos: { x: 3976.606942199, y: 3192.878368053 },
+    obstacles: '1f1494590622e15c',
   },
   remutaka: {
     finishTimeMs: 168733.333333,
