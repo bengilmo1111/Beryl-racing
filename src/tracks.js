@@ -5,8 +5,8 @@
 //
 // Two very different courses ship today:
 //
-//   * Manfield Racetrack  — the original closed drift circuit (lap racing,
-//     large fast world, red/white rumble kerbs).
+//   * Manfeild Circuit    — the real Manfeild Chris Amon layout, traced from
+//     MotorSport NZ's circuit map (lap racing, red/white rumble kerbs).
 //   * Eastbourne Dash   — a gentle coastal point-to-point sprint (single run
 //     to the RSA, harbour on your left, warm late afternoon).
 //
@@ -119,35 +119,92 @@ export const TRACKS = [
   },
   {
     id: 'manfield',
-    name: 'Manfield Racetrack',
-    tagline: 'Classic drift circuit',
+    name: 'Manfeild Circuit',
+    tagline: 'Chris Amon • 3.03 km',
     mode: 'circuit', // continuous lap racing
     theme: 'manfield',
-    world: { width: 3000, height: 2000 },
-    // Hand-authored closed loop: a long bottom straight, sweeping right-handers,
-    // a top ess, and a left sweeper back to the line.
+    world: { width: 3540, height: 1920 },
+    // Manfeild is built bigger than the map, on purpose. The traced layout keeps
+    // the real circuit's *shape* and proportions, but at true scale its tightest
+    // corner has a 122-unit radius, which caps the road at 244 — narrow enough
+    // that a drifting game loses the room it needs. Scaling the whole site
+    // scales every corner radius with it, so the road can be 450 and the layout
+    // still reads as Manfeild. A real racetrack is a place with a size, so
+    // making that size bigger is a fair trade; the corner *sequence* is what you
+    // recognise. Applied on top of LENGTH_SCALE — see scaleCourse.
+    lengthScale: 2.05,
+    // The real thing. Traced from MotorSport New Zealand's official circuit map
+    // for Manfeild Circuit Chris Amon (CRO004d), so the shape you drive is the
+    // shape on the map: main straight, the left onto the infield loop, the ess
+    // back down and out to the far loop, the back straight, the top loop, the
+    // long top straight and the right-hand return to the line.
+    //
+    // Scale: this 12,352-unit lap is the circuit's real 3.03 km — ≈0.25 m per
+    // unit here, ≈0.12 m once LENGTH_SCALE has been applied — so the corner
+    // radii keep their true proportions. Anchor 0 is the actual start/finish
+    // line (the green line on the map) and the lap runs clockwise, as the map's
+    // arrow does. Marshal posts 1–8 are signed where the map puts them (see
+    // `landmarks`). See docs/tracks/MANFEILD-LAYOUT.md for how it was traced.
     geometry: {
       anchors: [
-        { x: 760, y: 1560 },
-        { x: 1700, y: 1660 },
-        { x: 2400, y: 1520 },
-        { x: 2720, y: 1170 },
-        { x: 2520, y: 820 },
-        { x: 2660, y: 470 },
-        { x: 2080, y: 400 },
-        { x: 1680, y: 560 },
-        { x: 1250, y: 380 },
-        { x: 760, y: 440 },
-        { x: 400, y: 820 },
-        { x: 470, y: 1240 },
-        { x: 560, y: 1480 },
+        { x: 1883, y: 1609 }, // start/finish, main straight heading west
+        { x: 1510, y: 1607 },
+        { x: 1144, y: 1605 },
+        { x: 777, y: 1605 },
+        { x: 480, y: 1595 },
+        { x: 315, y: 1515 }, // turn 1, the left-hander off the straight
+        { x: 300, y: 1400 },
+        { x: 449, y: 1249 },
+        { x: 710, y: 1117 },
+        { x: 987, y: 1024 }, // onto the infield loop
+        { x: 1251, y: 1031 },
+        { x: 1494, y: 1143 },
+        { x: 1696, y: 1364 }, // the ess drops back down
+        { x: 1836, y: 1443 },
+        { x: 2000, y: 1372 },
+        { x: 2205, y: 1177 },
+        { x: 2410, y: 1130 },
+        { x: 2683, y: 1148 },
+        { x: 2872, y: 1074 }, // the loop at the far end of the infield
+        { x: 2893, y: 980 },
+        { x: 2757, y: 876 },
+        { x: 2470, y: 808 },
+        { x: 2139, y: 799 },
+        { x: 1766, y: 799 }, // back straight, running west
+        { x: 1406, y: 800 },
+        { x: 1026, y: 800 },
+        { x: 660, y: 800 },
+        { x: 412, y: 761 },
+        { x: 322, y: 654 }, // the top loop
+        { x: 367, y: 508 },
+        { x: 577, y: 365 },
+        { x: 846, y: 300 },
+        { x: 1149, y: 306 },
+        { x: 1446, y: 367 }, // the long top straight, running east
+        { x: 1713, y: 438 },
+        { x: 1998, y: 512 },
+        { x: 2271, y: 584 },
+        { x: 2533, y: 652 },
+        { x: 2783, y: 717 },
+        { x: 3036, y: 823 },
+        { x: 3201, y: 1019 }, // the far right-hand loop
+        { x: 3234, y: 1227 },
+        { x: 3134, y: 1367 },
+        { x: 2839, y: 1479 },
+        { x: 2531, y: 1574 }, // back onto the main straight
+        { x: 2249, y: 1611 },
       ],
-      // Widened for drifting room, but capped by the corners: see the note on
-      // roadWidth in the Eastbourne course above. This oval's tightest bend has
-      // a 170-unit radius, so anything past 339 folds the road through itself.
-      roadWidth: 320,
+      // Broad racing tarmac, and the reason `lengthScale` above exists. See the
+      // roadWidth note on the Eastbourne course: half the width cannot exceed a
+      // corner's radius or the road folds through itself, and at the map's own
+      // proportions Manfeild's tightest corner caps the road at 244. Enlarging
+      // the site scales the radii with it, so 450 fits.
+      roadWidth: 450,
       samplesPerSegment: 20,
-      numCheckpoints: 6, // includes the start/finish gate (index 0)
+      // Was 6, which was plenty for the old oval. The real layout doubles back
+      // on itself twice, and gates that far apart leave a straight line between
+      // them that crosses the infield rather than the road.
+      numCheckpoints: 18, // includes the start/finish gate (index 0)
       closed: true,
     },
     physics: {
@@ -171,6 +228,17 @@ export const TRACKS = [
     storageKey: 'beryl-racing-3d.manfield.bestLapMs.v1',
     hud: { current: 'LAP TIME', progress: 'LAP 1', lapWord: 'LAP' },
     bestLabel: 'Best lap',
+    // The eight marshal posts, at the positions the CRO map puts them.
+    landmarks: [
+      [436, 1446, 'POST 1'],
+      [1110, 1143, 'POST 2'],
+      [1858, 1305, 'POST 3'],
+      [2366, 1275, 'POST 4'],
+      [2727, 1003, 'POST 5'],
+      [507, 572, 'POST 6'],
+      [3116, 1165, 'POST 7'],
+      [2534, 1680, 'POST 8'],
+    ],
   },
   {
     id: 'remutaka',
@@ -435,7 +503,10 @@ const SPEED_FIELDS = [
 const GRIP_FIELDS = ['gripNormal', 'gripGravel', 'gripDrift', 'gripGrass'];
 
 function scaleCourse(def) {
-  const L = LENGTH_SCALE;
+  // A course may ask for extra room on top of the global scale. Manfeild does,
+  // so that a road wide enough to drift on still fits inside the real layout's
+  // corners; see the note on its `lengthScale`.
+  const L = LENGTH_SCALE * (def.lengthScale ?? 1);
   def.world = { width: Math.round(def.world.width * L), height: Math.round(def.world.height * L) };
   const g = def.geometry;
   g.anchors = g.anchors.map((a) => ({ x: a.x * L, y: a.y * L }));

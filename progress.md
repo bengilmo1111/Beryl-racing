@@ -635,3 +635,111 @@ The name, which is what the landmark is for, is unchanged.
 
 Render-only throughout: all four AC2 baselines and obstacle fingerprints are
 byte-identical, and the matrix is 15/16 with no console errors.
+
+## 2026-08-01 — Manfeild: the real layout
+
+The circuit course is no longer an invented oval. Its centreline is now the
+actual Manfeild Circuit Chris Amon layout, traced from MotorSport New Zealand's
+official CRO map (`CRO004d`). Method, source and the deliberate departures from
+reality are in `docs/tracks/MANFEILD-LAYOUT.md`; the short version is that the
+map's track outline is a bitmap, so the line was recovered by separating the
+loop's inside from the page's outside and keeping the pixels equidistant from
+both. 46 anchors hold it to ~1.5 m at true scale.
+
+The lap is the real 3.03 km, clockwise, starting at the real start/finish line,
+with the eight marshal posts signed where the map puts them.
+
+### Three things had to move with it
+
+- **Road width 300 → 180.** The real layout's tightest corner has a ~14 m
+  radius. A 300-wide road pinches its inside edge to nothing; 180 (≈22 m, still
+  nearly twice the real 12 m) clears it with room to drift.
+- **Checkpoints 6 → 18.** Not a gameplay call. The waypoint bot steers straight
+  at the next checkpoint, and this layout doubles back on itself twice, so gates
+  6 apart put the bot's target line across the infield rather than along the
+  road. At 6 it wandered into the grass and never finished a lap; at 18 it drives
+  the circuit.
+- **Lap-time window 9–13 s → 16–25 s**, for a lap that is now roughly twice as
+  long. `playtest-spec.json` carries both this and the checkpoint count.
+
+Beryl's handling numbers are untouched.
+
+### Baselines
+
+The waypoint bot laps in **19867 ms**, 100% of checkpoints, no softlock, zero
+out-of-bounds. Off-road time went *down*, 62% → 25%: with gates this close
+together the bot follows the road instead of cutting across the middle of it.
+The AC2 determinism baseline for `manfield` is re-recorded — geometry this
+different necessarily moves the finish position and the scenery fingerprint.
+The other three courses are untouched and byte-identical.
+
+The full suite has one failure, `remutaka/waypoint` softlock, and it is not
+this change: stashing the change and re-running gives the identical failure,
+and remutaka's recorded finish time and obstacle fingerprint never moved.
+
+### And then the trees
+
+The first cut left the tree scatter alone, and on a folded layout that meant
+woodland in every gap between the straights. `scatterScenery` now keeps trees
+out of a circuit's footprint entirely (`def.mode === 'circuit'`), so the site is
+open grass and the trees ring it, the way the shelter belts around the real
+place do.
+
+The filter is the convex hull of the centreline, and the first attempt — testing
+whether a point is *enclosed by* the centreline — was wrong in an interesting
+way. On a layout that folds back on itself, the gap between two parallel
+straights is **outside** the closed centreline: you cross the track once going
+in and once coming out, so parity puts you back where you started. It cleared
+the three genuinely enclosed pockets and left the big middle gap, which is the
+one you actually look at. The hull treats the whole site as one venue and does
+not care how the loop is folded.
+
+Placement stayed inside its try budget: the hull covers 45% of the world, so
+about a third of candidate positions are still accepted and all 90 trees place.
+
+The obstacle fingerprint moved, so `manfield`'s baseline is re-recorded again.
+Its finish time and position did not move between the two tree attempts — the
+trees that shifted were ones the bot never touched.
+
+### Merge notes: road width, and building Manfeild bigger than the map
+
+Two things were reconciled when this landed on `3d-port`.
+
+**The road-width regression this exposed.** Doubling every `roadWidth` for the
+two-lane pass was geometrically wrong on three of four courses, and reviewing
+this PR is what surfaced it. `track.js` offsets the centreline by ±half along
+its own normal, so once half exceeds a corner's radius the two edges cross and
+the road folds through itself — visible at Remutaka's switchbacks as the kerb
+line cutting diagonally over the tarmac. Measured minimum corner radius, and so
+the ceiling on `roadWidth`:
+
+| course | min radius | ceiling | had been | now |
+|---|---:|---:|---:|---:|
+| eastbourne-dash | 301 | 602 | 360 | 360 |
+| remutaka | 130 | 260 | 300 | 240 |
+| otaki | 150 | 299 | 320 | 280 |
+| manfield (old oval) | 170 | 339 | 600 | — |
+
+**Manfeild is built bigger than the map.** At the traced layout's own
+proportions the tightest corner has a 122-unit radius, capping the road at 244 —
+too narrow for a drifting game, and well short of the 450 asked for. `roadWidth`
+is deliberately not scaled, but every corner radius is, so a new optional
+per-course `lengthScale` (2.05 here, applied on top of `LENGTH_SCALE` in
+`scaleCourse`) enlarges the site until 450 fits with margin: minimum radius 250,
+ceiling 501.
+
+The trade is lap length. The bot laps in 34.9 s rather than the 20.0 s it ran at
+map scale — sub-linear, because the gentler corners let it carry more speed, but
+still a longer lap. A racetrack is a place with a size, and its size is the part
+that was safe to change: what makes Manfeild recognisable is the *sequence* of
+corners, and that is untouched. 450 at ~30 s was not available; ~400 would have
+been.
+
+No centre line, per the circuit's existing treatment — rumble kerbs and a
+start/finish line are what mark a racing surface.
+
+**The matrix is 16/16 for the first time.** The `manfield/pedal-to-the-metal`
+softlock, which had failed since the playtest harness was built and reproduced
+identically on `main`, is gone: it lived in a wedge in the invented oval that the
+real layout does not have. The `remutaka/waypoint` softlock went earlier, with
+the wider roads. There are now no known failing cases.

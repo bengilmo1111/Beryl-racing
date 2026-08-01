@@ -13,7 +13,7 @@
   "status": "in-development",
   "courses": [
     { "id": "eastbourne-dash", "title": "Eastbourne Dash", "mode": "sprint" },
-    { "id": "manfield", "title": "Manfield Racetrack", "mode": "circuit" },
+    { "id": "manfield", "title": "Manfeild Circuit", "mode": "circuit" },
     { "id": "remutaka", "title": "Remutaka Hill Climb", "mode": "sprint" },
     { "id": "otaki", "title": "Ōtaki Rally", "mode": "sprint" }
   ]

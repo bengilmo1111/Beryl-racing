@@ -29,11 +29,11 @@
       "maxOutOfBoundsEvents": 0
     },
     "manfield": {
-      "checkpointsTotal": 6,
+      "checkpointsTotal": 18,
       "waypointMustFinish": true,
       "finishTimeMs": {
-        "min": 8900,
-        "max": 13000
+        "min": 29000,
+        "max": 42000
       },
       "minimumWaypointCheckpointRate": 1,
       "noSoftlock": true,
