@@ -31,41 +31,31 @@ class RaceWorld {
     this.scene3d.background = C.sky.clone();
     this.scene3d.fog = makeFog();
 
-    // Soft and restrained, per docs/ART-DIRECTION.md, and deliberately bright.
-    //
-    // The rig is tuned so a vertical surface still reads close to its authored
-    // colour. A hemisphere light gives a horizontal normal the midpoint of its
-    // sky and ground colours, so a dim rig with a deep-grass ground colour left
-    // Beryl's turquoise rear reading as a muddy teal — the one face the player
-    // looks at all race. Bright sky, pale warm ground bounce, and a gentle sun
-    // that models form without carving out dark sides.
-    //
-    // No shadow maps: they cost, SwiftShader in CI is happier without them, and
-    // flat contact-shadow discs read fine at this scale.
     this.scene3d.add(new HemisphereLight(0xdfefff, 0xa9c69a, 1.35));
     const sun = new DirectionalLight(0xfff3d0, 0.55);
     sun.position.set(-1, 2, -0.6);
     this.scene3d.add(sun);
 
-    // Ground first, then apron, road, markings, kerbs — painted outward-in and
-    // bottom-up.
+    // Ground first, then every driveable road. Most courses have one road; the
+    // rebuilt Eastbourne course has a primary route plus Marine Parade, an
+    // inland village route and cross streets. They use the same road primitives
+    // so intersections read naturally through overlapping ribbons.
     this.terrain = scene.terrain;
     this.scene3d.add(buildGround(this.terrain));
-    for (const strip of buildApron(scene.track)) this.scene3d.add(strip);
-    this.scene3d.add(buildRoad(scene.track));
-    // A race circuit has no centre line — Manfield gets rumble kerbs and a
-    // start/finish line instead, which is what actually marks a racing surface.
-    if (scene.def.theme !== 'manfield') this.scene3d.add(buildCentreLine(scene.track));
-    for (const strip of buildKerbs(scene.track, scene.def.theme)) this.scene3d.add(strip);
+    const roads = scene.track.roads || [scene.track];
+    for (const road of roads) {
+      for (const strip of buildApron(road)) this.scene3d.add(strip);
+      this.scene3d.add(buildRoad(road));
+      if (scene.def.theme !== 'manfield') this.scene3d.add(buildCentreLine(road));
+      for (const strip of buildKerbs(road, scene.def.theme)) this.scene3d.add(strip);
+    }
 
-    // Course furniture, matching what each theme had in 2D: the purpose-built
-    // circuit gets a checkered start line, the public roads get a gantry over
-    // the start. The circuit's checkpoints are deliberately unmarked — the
-    // marshal huts give it trackside rhythm instead of a row of gate posts.
+    // Eastbourne is meant to be recognised from its road geometry, shoreline,
+    // houses and hills rather than floating labels. It therefore has neither a
+    // START gantry nor generated roadside / finish signs.
     if (scene.def.theme === 'manfield') this.scene3d.add(buildStartLine(scene.track));
-    else this.scene3d.add(buildStartGantry(scene.track, 'START'));
+    else if (scene.def.theme !== 'eastbourne') this.scene3d.add(buildStartGantry(scene.track, 'START'));
 
-    // Theme setpieces sit under the trees and signage.
     if (scene.def.theme === 'eastbourne') {
       this.scene3d.add(buildEastbourne(scene.track, scene.def, this.terrain));
     }
@@ -75,7 +65,9 @@ class RaceWorld {
     }
 
     this.scene3d.add(buildTrees(scene.scenery.trees, this.terrain));
-    this.scene3d.add(buildSigns(scene.track, scene.def, this.terrain));
+    if (scene.def.theme !== 'eastbourne') {
+      this.scene3d.add(buildSigns(scene.track, scene.def, this.terrain));
+    }
 
     this.skid = new SkidRibbon(this.terrain);
     this.scene3d.add(this.skid.mesh);
@@ -87,14 +79,6 @@ class RaceWorld {
     this.chase = new ChaseCamera(isCompact(scene));
     showCanvas(true);
 
-    // The render hook.
-    //
-    // Phaser emits POST_RENDER from BOTH step() and headlessStep(); the
-    // difference is that headlessStep passes renderer = null (verified in
-    // phaser/src/core/Game.js). That argument is the clean discriminator, and
-    // the guard below is the whole reason deterministic harness runs stay
-    // draw-free. Without it every simulated frame would do a full 3D draw and
-    // the harness's frameTimesMs budget would blow up.
     this._onPostRender = (renderer3, time, delta) => {
       if (!renderer3) return;
       this.render(delta / 1000);
@@ -111,11 +95,6 @@ class RaceWorld {
     this.chase.shake(durationMs, amplitude);
   }
 
-  // --- FX hooks --------------------------------------------------------------
-  // RaceScene decides *when* an effect happens (inside update(), as pure data
-  // writes, so headless simulation stays draw-free) and this layer decides how
-  // it looks.
-
   addSkid(from, to) {
     this.skid.add(from, to);
   }
@@ -128,8 +107,6 @@ class RaceWorld {
     this.puffs.emit('dust', at, count);
   }
 
-  // Pull render-only state off the simulation and draw. Called once per real
-  // rendered frame, never from the simulation step.
   render(dt) {
     const car = this.scene.car;
     if (!car) return;
@@ -147,8 +124,6 @@ class RaceWorld {
   destroy() {
     this.scene.game.events.off(Phaser.Core.Events.POST_RENDER, this._onPostRender);
     showCanvas(false);
-    // Dispose the scene graph but NOT the renderer or its context — that is a
-    // module singleton shared across races (see renderer.js).
     this.scene3d.traverse((object) => {
       if (object.geometry) object.geometry.dispose();
       const material = object.material;
@@ -163,12 +138,6 @@ export function createRaceWorld(scene) {
   return new RaceWorld(scene);
 }
 
-// Flatten both canvases into one image for playtest screenshots.
-//
-// The Phaser canvas is transparent now, so reading it alone gives HUD-on-nothing
-// — which would keep CI green while quietly making every screenshot useless.
-// Both source canvases are read in the same task as the render, so the drawing
-// buffer is still intact.
 export function compositeCanvases(phaserCanvas) {
   const three = getCanvas();
   const out = document.createElement('canvas');
