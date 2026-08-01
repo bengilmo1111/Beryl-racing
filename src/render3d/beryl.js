@@ -28,7 +28,7 @@ import { toThree, yawFor, alphaFor } from './coords.js';
 // 0.85, so she is 108.8 wide and 217.6 long. The visible shell is lower than the
 // old code-built car: closer to the reference model's squat height/width ratio,
 // while still exaggerated enough to feel friendly at gameplay scale.
-export const BERYL = { width: 108.8, length: 217.6, height: 96 };
+export const BERYL = { width: 108.8, length: 217.6, height: 99 };
 
 const W = BERYL.width;
 const L = BERYL.length;
@@ -207,20 +207,33 @@ export function buildBeryl() {
   // The reference cabin spans almost half the car and sits slightly rearward.
   // The older version's short rectangular cabin was the main reason Beryl read
   // as a generic boxy car rather than a Minor.
+  // The rear stations are held high deliberately. The first pass dropped the
+  // back of the cabin to 76, which looks right in profile but is wrong from the
+  // only angle that matters: the chase camera sits behind her, so a cabin that
+  // tapers away rearward reads as a chopped roof and the car looks low-slung
+  // rather than like an upright little Minor.
   const cabinStations = [
-    { z: -L * 0.18, halfWidth: W * 0.32, bottom: 59, top: 73 },
-    { z: -L * 0.115, halfWidth: W * 0.375, bottom: 59, top: 87 },
-    { z: L * 0.015, halfWidth: W * 0.39, bottom: 59, top: 94 },
-    { z: L * 0.17, halfWidth: W * 0.37, bottom: 59, top: 92 },
-    { z: L * 0.285, halfWidth: W * 0.32, bottom: 58, top: 76 },
+    { z: -L * 0.18, halfWidth: W * 0.32, bottom: 59, top: 74 },
+    { z: -L * 0.115, halfWidth: W * 0.375, bottom: 59, top: 90 },
+    { z: L * 0.015, halfWidth: W * 0.39, bottom: 59, top: 97 },
+    { z: L * 0.17, halfWidth: W * 0.375, bottom: 59, top: 96 },
+    { z: L * 0.30, halfWidth: W * 0.335, bottom: 58, top: 87 },
   ];
   chassis.add(loft(cabinStations, materials.glass));
 
-  // A thin pale roof cap lets the dark glass remain a continuous readable band.
+  // A proper solid roof, not a rim.
+  //
+  // The first pass capped the glass loft with a 9-unit lip, which left the whole
+  // greenhouse reading as one dark wraparound band — from the chase camera she
+  // looked chopped, or open-topped. A Morris Minor's tall body-coloured roof is
+  // one of its most recognisable features, so it gets real depth here and the
+  // glass is left as a band beneath it.
   chassis.add(loft(cabinStations.map((s) => ({
     z: s.z,
     halfWidth: s.halfWidth + W * 0.018,
-    bottom: s.top - 7,
+    // Only the tall middle stations carry roof; the sloped ends stay glass so
+    // the windscreen and rear screen still read as screens.
+    bottom: s.top - Math.max(8, (s.top - 59) * 0.42),
     top: s.top + 2,
   })), materials.roof));
 
