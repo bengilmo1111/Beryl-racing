@@ -12,32 +12,22 @@
 import { Group, Mesh, PlaneGeometry, BoxGeometry, DoubleSide } from 'three';
 import { C, basic, lambert } from './palette.js';
 import { labelTexture } from './textures.js';
+import { buildManfeild } from './themes/manfeild.js';
 
 const BOARD_BOTTOM = 120;
 const POST_WIDTH = 9;
 
-// These Eastbourne names now live on the physical landmark models themselves.
-// Keeping the old freestanding boards as well produced doubled signs in front of
-// Williams Park, Rona Bay and the RSA.
 const EASTBOURNE_INTEGRATED_SIGNS = new Set([
   'WILLIAMS PARK',
   'RONA BAY',
   'EASTBOURNE RSA',
 ]);
 
-// Days Bay Wharf and the village still use roadside labels, but the landmark
-// models supply most of the recognition now. Their boards can be smaller and
-// less intrusive than the original greybox labels.
 const EASTBOURNE_COMPACT_SIGNS = new Set([
   'DAYS BAY WHARF',
   'EASTBOURNE VILLAGE',
 ]);
 
-// Yaw so the board faces back down the road toward an approaching car.
-//
-// A plane faces its local +Z. The nearest centreline tangent points the way
-// traffic travels, so facing +Z along that tangent would show the sign's back;
-// turning it 180° puts it in front of the driver.
 function facingTraffic(x, y, track) {
   const cl = track.centerline;
   let bestIdx = 0;
@@ -59,7 +49,6 @@ function buildSign(text, style, boardHeight) {
   const { texture, aspect } = labelTexture(text, style);
   const board = new Mesh(
     new PlaneGeometry(boardHeight * aspect, boardHeight),
-    // DoubleSide so the back of a sign is a solid board rather than a hole.
     basic(0xffffff, { map: texture, fog: true, transparent: true, side: DoubleSide })
   );
   board.position.y = BOARD_BOTTOM + boardHeight / 2;
@@ -75,9 +64,13 @@ function buildSign(text, style, boardHeight) {
 }
 
 export function buildSigns(track, def, terrain) {
+  // Manfeild's marshal labels are integrated into physical huts, and its pit,
+  // grandstand and period boards are one coherent venue kit. Returning it here
+  // replaces the old freestanding POST signs without adding another render hook.
+  if (def.theme === 'manfield') return buildManfeild(track, def, terrain);
+
   const group = new Group();
 
-  // Landmark names: cream on the house ink blue.
   for (const [x, y, text] of def.landmarks || []) {
     if (def.theme === 'eastbourne' && EASTBOURNE_INTEGRATED_SIGNS.has(text)) continue;
     const compact = def.theme === 'eastbourne' && EASTBOURNE_COMPACT_SIGNS.has(text);
@@ -92,7 +85,6 @@ export function buildSigns(track, def, terrain) {
     group.add(sign);
   }
 
-  // Advance arrows: cream with the chunky dark outline, no panel.
   for (const a of def.arrows || []) {
     const sign = buildSign(
       a.text,
@@ -105,8 +97,6 @@ export function buildSigns(track, def, terrain) {
     group.add(sign);
   }
 
-  // Finish marker, beside the last gate — sunshine yellow, the loudest sign on
-  // the course, because it is the one that matters.
   const finish = track.checkpoints[track.checkpoints.length - 1];
   if (finish) {
     const sign = buildSign(
@@ -122,7 +112,6 @@ export function buildSigns(track, def, terrain) {
     group.add(sign);
   }
 
-  // Ōtaki's level-crossing crossbuck, beside the railway.
   const sc = def.scenery || {};
   if (def.theme === 'otaki' && sc.railwayCp != null) {
     const cp = track.checkpoints[sc.railwayCp];
