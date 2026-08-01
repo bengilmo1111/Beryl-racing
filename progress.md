@@ -39,3 +39,75 @@ Original prompt: Read docs/factory/PLAN.md then docs/factory/phase-1-brief.md. T
 - The first live PR run exposed shell escaping in the catalog step: Node failed, but the surrounding `echo` returned success, so no course matrix was created. Replaced it with `playtest/catalog.mjs` and made report merging fail closed when any course/bot run, mobile inspection, or journey artifact is absent.
 - D7 follow-up: focused `--course`/`--bot` runs now skip unrelated shell checks by default, so the documented `npm run playtest -- --course=otaki-rally --bot=waypoint --headed` command runs exactly one visible simulation. The full unfiltered command retains the complete CI-equivalent matrix, mobile inspection, and journey.
 - A live D7 PR rerun exposed GitHub retaining the previous attempt's combined artifact. The merger now ignores reports already marked with `ci`, preventing aggregate re-ingestion, duplicate runs, and stale failures during partial job reruns.
+
+## 2026-08-01 — 3D chase-cam pivot, Phase 0
+
+Pivoting the game from top-down 2D to a 3D behind-the-car view, shipped as a
+**second Vercel project** off `claude/3d-driving-game-pivot-urguck` so the live 2D
+game on `main` is untouched. Plan: Three.js world canvas layered under a
+transparent Phaser canvas that keeps sim, HUD, touch controls and the harness.
+
+Phase 0 is deliberately behaviour-neutral groundwork:
+
+- Branch identity: `game-manifest.json` → slug/id `beryl-racing-3d`, `package.json`
+  renamed, and the four `storageKey` values namespaced to `beryl-racing-3d.*` so a
+  3D best time can never overwrite a 2D record if both are ever proxied under the
+  same `gilmore.games` origin.
+- Extracted `RaceScene.scatterTrees()` placement into `src/scenery.js`. This is
+  simulation, not decoration — it seeds the obstacle list — so the RNG draw order
+  is preserved exactly and `displayWidth` is pinned to the tree textures' 128×128
+  size rather than read off a Phaser GameObject.
+- Deleted verified-dead code: `placeHayBales`, `placeTyreBarriers`, `offsetLoop`,
+  `toPoints`, `closed` (RaceScene); `drawBeryl`, `drawGrass`, `drawTree`,
+  `drawSkid` (art.js); the unused Arcade Physics config block and `void COLORS`
+  (main.js); the `tarmac`/`tyre-barrier`/`hay-bale` texture loads (BootScene).
+  Removed `tyre-barrier.png` and `hay-bale.png`.
+- `PLAYWRIGHT_CHROMIUM_EXECUTABLE` now overrides the browser binary in
+  `ac2-determinism.mjs` and `run.mjs`, for sandboxes whose Chromium build differs
+  from the one Playwright would fetch. Unset in CI, so CI is unaffected.
+
+### The AC2 baselines in the 2026-07-28 entry above were stale
+
+`ac2-determinism.mjs` only ever asserted run-to-run equality across three runs —
+it never checked the recorded values — so nothing caught it when 8bf33c6
+("Longer/faster courses, bigger Beryl sprite") scaled every route ×2 and Beryl's
+speed ×1.5. Three identical wrong runs pass that check.
+
+It now asserts against pinned baselines **and** a SHA-256 fingerprint of the
+scene's obstacle circles, which fails in seconds if the seeded scenery placement
+drifts. `RECORD_BASELINES=1` re-records deliberately.
+
+Re-recorded on 8bf33c6 (seed 0x0be4a1, waypoint bot), superseding the
+2026-07-28 numbers:
+
+| course | finish (ms) | final pos | obstacles |
+|---|---|---|---|
+| eastbourne-pootle | 100633.333333 | (2607.891752503, 9260.87269146) | `94932d480a8bac9b` |
+| manfield | 12950 | (1267.719065648, 2845.114155003) | `e9472f88b60d3f2a` |
+| remutaka | 142933.333333 | (9482.258917054, 1460.035772636) | `7ce0cd7df381210a` |
+| otaki | 114900 | (1117.056728411, 1169.167557303) | `b18d1bde99ea4b85` |
+
+Verified by recording the same four values on a clean `origin/main` worktree and
+on this branch: **identical on every course**, including frame counts and obstacle
+fingerprints. Phase 0 changes nothing the simulation can observe.
+
+- `npm run build` passes; default chunk 1,521.79 kB (354.14 kB gzip), marginally
+  below the 1,522.64 kB / 354.37 kB baseline.
+
+### `playtest-spec.json` finish-time windows were stale too
+
+Same root cause, same commit. A focused run confirmed `finish-time-range` was the
+*only* failure — checkpoints 100%, no softlock, zero out-of-bounds — so the
+simulation is healthy and the thresholds simply never got updated after 8bf33c6.
+`npm run playtest` was therefore already red on `main`.
+
+Re-baselined to −15%/+20% around the measured waypoint times:
+
+| course | was | now | measured |
+|---|---|---|---|
+| eastbourne-pootle | 50000–70000 | 86000–121000 | 100633 |
+| manfield | 5000–10000 | 11000–16000 | 12950 |
+| remutaka | 65000–90000 | 121000–172000 | 142933 |
+| otaki | 65000–90000 | 98000–138000 | 114900 |
+
+No other threshold in the spec was touched.

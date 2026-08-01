@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { DESIGN, COLORS } from './config.js';
+import { DESIGN } from './config.js';
 import { BootScene } from './scenes/BootScene.js';
 import { TitleScene } from './scenes/TitleScene.js';
 import { RaceScene } from './scenes/RaceScene.js';
@@ -17,10 +17,6 @@ const config = {
     mode: Phaser.Scale.RESIZE,
     width: DESIGN.width,
     height: DESIGN.height,
-  },
-  physics: {
-    default: 'arcade',
-    arcade: { debug: false },
   },
   render: {
     antialias: true,
@@ -87,6 +83,3 @@ if (harnessRequested) {
       throw error;
     });
 }
-
-// Silence unused import warnings in some bundlers while keeping palette handy.
-void COLORS;

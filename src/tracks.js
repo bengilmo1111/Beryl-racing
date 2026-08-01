@@ -66,7 +66,7 @@ export const TRACKS = [
       grassDrag: 100,
       driftLateral: 14,
     },
-    storageKey: 'beryl-racing.eastbourne-pootle.bestTimeMs.v1',
+    storageKey: 'beryl-racing-3d.eastbourne-pootle.bestTimeMs.v1',
     hud: { current: 'POOTLE TIME', progress: 'TO EASTBOURNE' },
     bestLabel: 'Eastbourne best',
     results: {
@@ -134,7 +134,7 @@ export const TRACKS = [
       grassDrag: 900,
       driftLateral: 70,
     },
-    storageKey: 'beryl-racing.manfield.bestLapMs.v1',
+    storageKey: 'beryl-racing-3d.manfield.bestLapMs.v1',
     hud: { current: 'LAP TIME', progress: 'LAP 1', lapWord: 'LAP' },
     bestLabel: 'Best lap',
   },
@@ -196,7 +196,7 @@ export const TRACKS = [
       grassDrag: 110,
       driftLateral: 14,
     },
-    storageKey: 'beryl-racing.remutaka.bestTimeMs.v1',
+    storageKey: 'beryl-racing-3d.remutaka.bestTimeMs.v1',
     hud: { current: 'CLIMB TIME', progress: 'TO THE SUMMIT' },
     bestLabel: 'Best climb',
     results: {
@@ -282,7 +282,7 @@ export const TRACKS = [
       grassDrag: 110,
       driftLateral: 14,
     },
-    storageKey: 'beryl-racing.otaki.bestTimeMs.v1',
+    storageKey: 'beryl-racing-3d.otaki.bestTimeMs.v1',
     hud: { current: 'RALLY TIME', progress: 'TO THE BEACH' },
     bestLabel: 'Best rally',
     results: {

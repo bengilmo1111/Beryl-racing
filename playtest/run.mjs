@@ -99,7 +99,12 @@ try {
   const port = typeof address === 'object' && address ? address.port : 4173;
   const baseUrl = `http://127.0.0.1:${port}/`;
 
-  browser = await chromium.launch({ headless: !options.headed });
+  // See ac2-determinism.mjs: unset in CI, set in sandboxes whose Chromium build
+  // differs from the one this Playwright version expects.
+  browser = await chromium.launch({
+    headless: !options.headed,
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined,
+  });
 
   if (!options.mobileOnly) {
     const courseRuns = await Promise.all(

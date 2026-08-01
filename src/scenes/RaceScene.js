@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { WORLD, TRACK, COLORS, STORAGE_KEY } from '../config.js';
 import { getSelectedTrack } from '../tracks.js';
 import { buildTrack, distanceToCenterline, surfaceAt } from '../track.js';
+import { scatterScenery } from '../scenery.js';
 import { Car } from '../entities/Car.js';
 import { Hud } from '../ui/Hud.js';
 import { createFullscreenButton } from '../ui/fullscreen.js';
@@ -322,69 +323,6 @@ export class RaceScene extends Phaser.Scene {
     }
   }
 
-  placeHayBales() {
-    let placed = 0;
-    let tries = 0;
-    const half = this.track.half;
-    while (placed < 11 && tries < 400) {
-      tries++;
-      const x = Phaser.Math.Between(120, WORLD.width - 120);
-      const y = Phaser.Math.Between(120, WORLD.height - 120);
-      const d = distanceToCenterline(x, y, this.track.centerline);
-      // Just off the track, in the near grass band beyond the tyre barriers.
-      if (d < half + 60 || d > half + 150) continue;
-      const bale = this.add
-        .image(x, y, 'hay-bale')
-        .setDepth(6)
-        .setScale(Phaser.Math.FloatBetween(0.7, 1.0))
-        .setRotation(Phaser.Math.FloatBetween(0, Math.PI * 2));
-      this.obstacles.push({ x, y, r: bale.displayWidth * 0.42 });
-      placed++;
-    }
-  }
-
-  placeTyreBarriers() {
-    const cl = this.track.centerline;
-    const n = cl.length;
-    let cx = 0;
-    let cy = 0;
-    for (const p of cl) {
-      cx += p.x;
-      cy += p.y;
-    }
-    cx /= n;
-    cy /= n;
-    const off = this.track.half + 30;
-    for (let i = 10; i < n - 10; i += 20) {
-      const a = cl[i - 1];
-      const b = cl[i + 1];
-      let tx = b.x - a.x;
-      let ty = b.y - a.y;
-      const L = Math.hypot(tx, ty) || 1;
-      tx /= L;
-      ty /= L;
-      let nx = -ty;
-      let ny = tx;
-      // Point the normal outward (away from the track centre).
-      if (nx * (cl[i].x - cx) + ny * (cl[i].y - cy) < 0) {
-        nx = -nx;
-        ny = -ny;
-      }
-      const bx = cl[i].x + nx * off;
-      const by = cl[i].y + ny * off;
-      this.add
-        .image(bx, by, 'tyre-barrier')
-        .setDepth(6)
-        .setScale(0.85)
-        .setRotation(Math.atan2(ty, tx));
-      // Solid tyre wall: two circles along the barrier's length so it blocks
-      // more like the row of tyres it is, rather than a single point.
-      const halfLen = 46;
-      this.obstacles.push({ x: bx + tx * halfLen, y: by + ty * halfLen, r: 30 });
-      this.obstacles.push({ x: bx - tx * halfLen, y: by - ty * halfLen, r: 30 });
-    }
-  }
-
   placeStartGantry() {
     const cp = this.track.checkpoints[0];
     // Depth 4: on the road surface (above tarmac/kerbs) but below the car, so
@@ -409,65 +347,15 @@ export class RaceScene extends Phaser.Scene {
     }
   }
 
-  offsetLoop(edge, amount) {
-    // Build a filled band `amount` px outside `edge` (sign chooses side).
-    const n = edge.length;
-    const outer = [];
-    for (let i = 0; i < n; i++) {
-      const prev = edge[(i - 1 + n) % n];
-      const next = edge[(i + 1) % n];
-      let tx = next.x - prev.x;
-      let ty = next.y - prev.y;
-      const len = Math.hypot(tx, ty) || 1;
-      tx /= len;
-      ty /= len;
-      outer.push({ x: edge[i].x - ty * amount, y: edge[i].y + tx * amount });
-    }
-    const pts = [];
-    for (const p of edge) pts.push(new Phaser.Geom.Point(p.x, p.y));
-    for (let i = outer.length - 1; i >= 0; i--) pts.push(new Phaser.Geom.Point(outer[i].x, outer[i].y));
-    return pts;
-  }
-
+  // Placement lives in src/scenery.js because it is part of the determinism
+  // contract (it seeds the obstacle list); this method only draws the result.
   scatterTrees() {
-    const variants = ['tree-1', 'tree-2', 'tree-3'];
+    const { trees, obstacles } = scatterScenery(this.track, this.def);
     const layer = this.add.container(0, 0).setDepth(5);
-    let placed = 0;
-    let tries = 0;
-    // More trees on the now-larger worlds so the roadside doesn't look bare.
-    while (placed < 90 && tries < 1200) {
-      tries++;
-      const x = Phaser.Math.Between(120, WORLD.width - 120);
-      const y = Phaser.Math.Between(120, WORLD.height - 120);
-      // No trees in Wellington Harbour (Eastbourne's water strip on the left).
-      if (this.def.theme === 'eastbourne' && x < WORLD.width * 0.196 && y < WORLD.height * 0.81) continue;
-      // No trees on Ōtaki Beach / sea (the NW corner).
-      if (this.def.theme === 'otaki') {
-        const b = this.def.scenery && this.def.scenery.beach;
-        if (b && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) continue;
-      }
-      const d = distanceToCenterline(x, y, this.track.centerline);
-      if (d < TRACK.roadWidth / 2 + 90) continue; // keep clear of the track
-      const key = Phaser.Utils.Array.GetRandom(variants);
-      const t = this.add.image(x, y, key).setScale(Phaser.Math.FloatBetween(0.7, 1.4));
-      layer.add(t);
-      // Solid trunk/canopy: a collision circle a bit smaller than the sprite so
-      // you bump the tree, not its transparent padding.
-      this.obstacles.push({ x, y, r: t.displayWidth * 0.3 });
-      placed++;
+    for (const t of trees) {
+      layer.add(this.add.image(t.x, t.y, t.variant).setScale(t.scale));
     }
-  }
-
-  toPoints(flat) {
-    const pts = [];
-    for (let i = 0; i < flat.length; i += 2) pts.push(new Phaser.Geom.Point(flat[i], flat[i + 1]));
-    return pts;
-  }
-
-  closed(arr) {
-    const pts = arr.map((p) => new Phaser.Geom.Point(p.x, p.y));
-    pts.push(new Phaser.Geom.Point(arr[0].x, arr[0].y));
-    return pts;
+    for (const o of obstacles) this.obstacles.push(o);
   }
 
   drawStartLine() {
