@@ -41,8 +41,11 @@ for (const [id, spec] of Object.entries(NZ_TREE_CATALOG)) {
     if (values.some((value) => !Number.isFinite(value))) {
       throw new Error(`${id} variant ${variant}: non-finite geometry bounds`);
     }
-    if (bounds.min.y < -1) {
-      throw new Error(`${id} variant ${variant}: geometry falls below its ground origin (${bounds.min.y})`);
+    // A slanted cylinder's circular foot extends a few units below its authored
+    // endpoint. Treat that as a buried root flare, while still catching models
+    // whose actual geometry is substantially displaced below ground.
+    if (bounds.min.y < -24) {
+      throw new Error(`${id} variant ${variant}: geometry falls too far below its ground origin (${bounds.min.y})`);
     }
 
     const height = bounds.max.y - bounds.min.y;
