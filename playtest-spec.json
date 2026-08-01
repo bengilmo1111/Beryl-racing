@@ -18,11 +18,11 @@
   },
   "courses": {
     "eastbourne-dash": {
-      "checkpointsTotal": 10,
+      "checkpointsTotal": 7,
       "waypointMustFinish": true,
       "finishTimeMs": {
-        "min": 54000,
-        "max": 77000
+        "min": 85000,
+        "max": 180000
       },
       "minimumWaypointCheckpointRate": 1,
       "noSoftlock": true,
