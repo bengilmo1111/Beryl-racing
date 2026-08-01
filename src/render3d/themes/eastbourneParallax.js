@@ -7,17 +7,14 @@
 // route, carries no collision, and uses a handful of flat-colour meshes.
 import {
   BoxGeometry,
-  BufferGeometry,
   ConeGeometry,
-  DodecahedronGeometry,
-  DoubleSide,
-  Float32BufferAttribute,
   Group,
   Mesh,
   MeshBasicMaterial,
   SphereGeometry,
 } from 'three';
 import { WORLD } from '../../config.js';
+import { addCloud, markDecorative, ridge } from './parallax.js';
 
 const COLOUR = {
   farHarbour: 0x86a9ad,
@@ -33,49 +30,11 @@ const COLOUR = {
   roofGreen: 0x557564,
 };
 
-function ridgeGeometry({ x, zStart, zEnd, segments, bottom, heightAt, driftAt }) {
-  const positions = [];
-  const indices = [];
-
-  for (let i = 0; i <= segments; i += 1) {
-    const t = i / segments;
-    const z = zStart + (zEnd - zStart) * t;
-    const px = x + driftAt(t);
-    const top = heightAt(t);
-    positions.push(px, bottom, z, px, top, z);
-
-    if (i < segments) {
-      const a = i * 2;
-      const b = a + 1;
-      const c = a + 2;
-      const d = a + 3;
-      indices.push(a, c, b, b, c, d);
-    }
-  }
-
-  const geometry = new BufferGeometry();
-  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
-  geometry.setIndex(indices);
-  geometry.computeBoundingSphere();
-  return geometry;
-}
-
-function ridge(options, colour) {
-  const material = new MeshBasicMaterial({
-    color: colour,
-    side: DoubleSide,
-    fog: false,
-  });
-  const mesh = new Mesh(ridgeGeometry(options), material);
-  mesh.frustumCulled = false;
-  return mesh;
-}
-
 function addRidges(group, sea) {
   const W = WORLD.width;
   const H = WORLD.height;
-  const zStart = -H * 0.45;
-  const zEnd = H * 1.45;
+  const start = -H * 0.45;
+  const end = H * 1.45;
   const bottom = sea - 80;
 
   // Across Wellington Harbour: a pale, low ridge and a darker nearer headland.
@@ -83,9 +42,9 @@ function addRidges(group, sea) {
   group.add(
     ridge(
       {
-        x: -W * 0.3,
-        zStart,
-        zEnd,
+        at: -W * 0.3,
+        start,
+        end,
         segments: 42,
         bottom,
         driftAt: (t) => Math.sin(t * Math.PI * 5.2) * 70 + Math.sin(t * Math.PI * 13) * 28,
@@ -98,9 +57,9 @@ function addRidges(group, sea) {
   group.add(
     ridge(
       {
-        x: W * 0.015,
-        zStart,
-        zEnd,
+        at: W * 0.015,
+        start,
+        end,
         segments: 46,
         bottom,
         driftAt: (t) => Math.sin(t * Math.PI * 7 + 1.8) * 92 + Math.sin(t * Math.PI * 15) * 35,
@@ -117,9 +76,9 @@ function addRidges(group, sea) {
   group.add(
     ridge(
       {
-        x: W * 0.95,
-        zStart,
-        zEnd,
+        at: W * 0.95,
+        start,
+        end,
         segments: 44,
         bottom: sea - 120,
         driftAt: (t) => Math.sin(t * Math.PI * 5.5 + 0.4) * 120,
@@ -132,9 +91,9 @@ function addRidges(group, sea) {
   group.add(
     ridge(
       {
-        x: W * 0.73,
-        zStart,
-        zEnd,
+        at: W * 0.73,
+        start,
+        end,
         segments: 48,
         bottom: sea - 100,
         driftAt: (t) => Math.sin(t * Math.PI * 8.2) * 95 + Math.sin(t * Math.PI * 21) * 24,
@@ -144,27 +103,6 @@ function addRidges(group, sea) {
       COLOUR.nearBush
     )
   );
-}
-
-function addCloud(group, x, y, z, scale, shaded = false) {
-  const material = new MeshBasicMaterial({
-    color: shaded ? COLOUR.cloudShade : COLOUR.cloudWarm,
-    fog: false,
-  });
-  const geometry = new DodecahedronGeometry(1, 0);
-  const puffs = [
-    [-0.95, -0.08, 0, 0.9],
-    [-0.25, 0.12, 0, 1.2],
-    [0.55, 0.02, 0, 1.0],
-    [1.18, -0.12, 0, 0.72],
-  ];
-
-  for (const [ox, oy, oz, size] of puffs) {
-    const puff = new Mesh(geometry, material);
-    puff.position.set(x + ox * scale, y + oy * scale, z + oz * scale);
-    puff.scale.set(scale * size, scale * size * 0.48, scale * size * 0.34);
-    group.add(puff);
-  }
 }
 
 function addSky(group, sea) {
@@ -180,10 +118,10 @@ function addSky(group, sea) {
   sun.position.set(-W * 0.18, sea + 820, H * 0.48);
   group.add(sun);
 
-  addCloud(group, -W * 0.12, sea + 760, H * 0.18, 105, false);
-  addCloud(group, W * 0.45, sea + 900, H * 0.42, 82, true);
-  addCloud(group, -W * 0.2, sea + 690, H * 0.72, 118, false);
-  addCloud(group, W * 0.5, sea + 840, H * 1.02, 92, true);
+  addCloud(group, { x: -W * 0.12, y: sea + 760, z: H * 0.18, scale: 105, colour: COLOUR.cloudWarm });
+  addCloud(group, { x: W * 0.45, y: sea + 900, z: H * 0.42, scale: 82, colour: COLOUR.cloudShade });
+  addCloud(group, { x: -W * 0.2, y: sea + 690, z: H * 0.72, scale: 118, colour: COLOUR.cloudWarm });
+  addCloud(group, { x: W * 0.5, y: sea + 840, z: H * 1.02, scale: 92, colour: COLOUR.cloudShade });
 }
 
 function addVillageRoofline(group, sea) {
@@ -241,8 +179,5 @@ export function buildEastbourneParallax(sea = 0) {
   addSky(group, sea);
 
   // Background-only: never participate in raycasts or collision assumptions.
-  group.traverse((object) => {
-    object.userData.decorativeBackground = true;
-  });
-  return group;
+  return markDecorative(group);
 }

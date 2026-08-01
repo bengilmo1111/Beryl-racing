@@ -64,8 +64,21 @@ export function applyTrack(def) {
   Object.assign(CAR, def.physics);
   for (const k of Object.keys(TRACK)) delete TRACK[k];
   Object.assign(TRACK, def.geometry);
+  Object.assign(FOG, DEFAULT_FOG, def.fog || {});
   STORAGE_KEY = def.storageKey;
 }
+
+// How far you can see. Fog doubles as draw-distance management on the
+// point-to-point courses: the road fades into the sky rather than needing any
+// culling scheme, and the end of a route you have not reached yet stays hidden.
+//
+// It is per-course because "how far should the player see" is a property of the
+// place, not of the engine. A road that disappears round the next headland wants
+// a short band; a circuit where the whole venue is meant to be legible from
+// anywhere on the lap wants a long one. See the note on Manfeild's `fog` in
+// tracks.js.
+const DEFAULT_FOG = { near: 1200, far: 3000 };
+export const FOG = { ...DEFAULT_FOG };
 
 // Gilmore Games house palette (see gilmore-directory/docs/ART-DIRECTION.md).
 export const COLORS = {

@@ -6,7 +6,7 @@
 // PMREM generation into the bundle. Flat poster colours are also what
 // docs/ART-DIRECTION.md asks for.
 import { Color, Fog, MeshLambertMaterial, MeshBasicMaterial } from 'three';
-import { COLORS } from '../config.js';
+import { COLORS, FOG } from '../config.js';
 
 export const C = {
   sky: new Color(COLORS.sky),
@@ -27,10 +27,11 @@ export const C = {
   chrome: new Color(COLORS.chrome),
 };
 
-// Fog doubles as draw-distance management: the long point-to-point courses fade
-// into the sky instead of needing any culling scheme.
-export const FOG_NEAR = 1200;
-export const FOG_FAR = 3000;
+// Fog distances are per course now — see FOG in config.js and the `fog` blocks
+// in tracks.js. The engine-wide constants that used to live here were tuned for
+// the point-to-point courses, where fog hiding the far end of the route is a
+// feature; on the circuit the same band erased the pit complex and the opposite
+// straight, which are exactly what a race track wants you to be able to see.
 // Depth precision scales with 1/near, so a needlessly close near plane throws
 // resolution away. This is a chase camera: nothing ever renders between it and
 // Beryl, who sits ~430 units ahead, and the ground below it is ~235 away. 50 is
@@ -40,20 +41,25 @@ export const FOG_FAR = 3000;
 export const CAMERA_NEAR = 50;
 // Far has to clear the whole course, not just the fogged world.
 //
-// Fog hides everything past FOG_FAR anyway, so 3600 was ample for terrain and
-// road. It is not enough for the unfogged background bands (themes/*Parallax),
-// which sit at fixed world points along a 10,000-unit route: a cloud simply
-// vanished at the far plane instead of fading, and popped back as the camera
-// closed on it.
+// Fog hides everything past its own far distance, so 3600 was ample for terrain
+// and road. It is not enough for the unfogged background bands
+// (themes/*Parallax), which sit at fixed world points beyond the world edge: a
+// cloud simply vanished at the far plane instead of fading, and popped back as
+// the camera closed on it.
 //
-// This is close to free. Depth precision is dominated by the *near* plane —
-// with near at 50, moving far from 3600 to 14000 changes the resolution by well
-// under a percent — and nothing extra is actually shaded, since the geometry
-// beyond the fog band resolves to sky colour.
-export const CAMERA_FAR = 14000;
+// 24000 clears the largest world with room for bands placed outside it.
+// Manfeild is the one that forced this: its world diagonal alone is 16,511, so
+// the old 14000 would have clipped the ranges and Taranaki. Otaki's 14,708
+// diagonal was already fractionally over.
+//
+// This is close to free. Depth precision is dominated by the *near* plane — with
+// near at 50, moving far from 3600 to 24000 changes the resolution by well under
+// a percent — and nothing extra is really shaded, since anything past the fog
+// band resolves to sky colour anyway.
+export const CAMERA_FAR = 24000;
 
 export function makeFog() {
-  return new Fog(C.sky.getHex(), FOG_NEAR, FOG_FAR);
+  return new Fog(C.sky.getHex(), FOG.near, FOG.far);
 }
 
 export function lambert(color, opts = {}) {

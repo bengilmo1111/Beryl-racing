@@ -15,6 +15,7 @@ import {
 } from 'three';
 import { C, basic, lambert } from '../palette.js';
 import { labelTexture } from '../textures.js';
+import { buildManfeildParallax } from './manfeildParallax.js';
 
 const M = {
   cream: lambert(0xf3ead2),
@@ -316,6 +317,13 @@ export function buildManfeild(track, def, terrain) {
   root.add(buildCornerFurniture(track));
   root.add(buildMownInfield(track));
 
+  // The Manawatū beyond the fence: ranges, Taranaki, shelter belts and paddocks,
+  // standing outside the world in depth bands. This is what gives the circuit
+  // trees on the horizon now that it has none on the ground.
+  root.add(buildManfeildParallax(track));
+
+  // Manfeild is flat by design, so the venue sits on the ground plane and never
+  // needs to sample terrain height.
   void terrain;
   return root;
 }

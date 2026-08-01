@@ -807,3 +807,68 @@ the circuit as shelter belts and only cleared the infield. The art pass removes
 them entirely, which leaves the far side of the lap — away from the pits and
 grandstand — very bare. The bales and advertising boards are spread around the
 lap, but between them there is now open grass and nothing else.
+
+## 2026-08-01 — Manfeild parallax, and fog becomes per-course
+
+### The Manawatū beyond the fence
+
+`themes/manfeildParallax.js`, replacing the outer ring of trees the art pass
+removed with distance instead of objects. What makes that skyline recognisable
+is two things: the long wall of the **Tararua and Ruahine ranges** across the
+eastern horizon, and **Mount Taranaki** alone to the north-west. Between them and
+the track is farmland, so the middle distance is **shelter belts** — the dark,
+hard-edged macrocarpa and poplar rows on every Manawatū paddock boundary. That is
+what gives the circuit trees on the horizon without putting a ring of collidable
+trunks around a course meant to be driven flat out.
+
+Also paddock bands in two greens, five farm sheds for scale, and high cumulus.
+
+Taranaki is one cone with a snow cap and nothing else: its silhouette *is* the
+recognition, so detail would only dilute it.
+
+### Extracted the shared parallax kit
+
+Eastbourne's ridge builder assumed the band runs along Z, which is right for a
+north-south coast road and wrong for a circuit that is twice as wide as it is
+deep. `themes/parallax.js` now holds `ridgeGeometry`/`ridge`/`addCloud`/
+`markDecorative` with an `along` axis, and both themes use it. Eastbourne's
+numbers are unchanged and its bands render identically.
+
+### Bands are placed off the track's bounding box, not the world's
+
+Worth recording, because the first attempt used fractions of the world and two
+of them landed on the racing surface. **The circuit fills z 0.15–0.84 of its
+world**, so "safely peripheral" world fractions are nothing of the sort: a
+shelter belt at 0.66 H sat across the infield and a paddock at 0.8 H sat on the
+main straight. Placement now derives from the centreline's real z extent
+(1208–6614) plus a margin that also clears the venue.
+
+A second bug in the same pass: the paddock bands were at y = −30, which is
+*below* `road.js`'s `GROUND_Y` of −8. The ground quad spans six times the world,
+so they were completely hidden. They sit at −3 now — above the ground, below the
+road.
+
+### Fog is per-course now
+
+`FOG` in `config.js`, filled by `applyTrack` from an optional per-course `fog`
+block, defaulting to the old 1200–3000. The engine-wide constants in `palette.js`
+are gone.
+
+The old band was tuned for the point-to-point courses, where fog hiding the road
+round the next headland is a feature. On a circuit it is not: 3000 units is about
+fourteen car lengths, which erased the pit complex, the grandstand and the
+opposite straight — the things that tell you where you are on a lap that folds
+back on itself twice. Manfeild runs **3200–9000**, which keeps the venue legible
+and still washes the horizon into the ranges. The other three are unchanged.
+
+### `CAMERA_FAR` 14000 → 24000
+
+Same class of bug as the Eastbourne cloud popping, found before it shipped:
+unfogged background bands must be inside the far plane for the whole route, and
+**Manfeild's world diagonal alone is 16,511**. Ōtaki's 14,708 was already
+fractionally over. 24000 clears the largest world with room for bands placed
+outside it, and costs well under a percent of depth resolution — precision is
+dominated by the near plane, which has not moved.
+
+Render-only: all four AC2 baselines and obstacle fingerprints byte-identical,
+matrix 16/16.

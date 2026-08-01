@@ -225,6 +225,13 @@ export const TRACKS = [
       grassDrag: 900,
       driftLateral: 70,
     },
+    // A circuit wants to be legible. The default 1200–3000 band is tuned for the
+    // point-to-point courses, where fog hiding the road round the next headland
+    // is a feature; on a lap that folds back on itself it erased the pit
+    // complex, the grandstand and the opposite straight — the things that tell
+    // you where you are. This band keeps the far side of the venue readable and
+    // still washes the horizon into the ranges behind it.
+    fog: { near: 3200, far: 9000 },
     storageKey: 'beryl-racing-3d.manfield.bestLapMs.v1',
     hud: { current: 'LAP TIME', progress: 'LAP 1', lapWord: 'LAP' },
     bestLabel: 'Best lap',
