@@ -1,11 +1,17 @@
-// The Ōtaki River crossing, the railway, and Ōtaki Beach.
+// The Ōtaki River crossing, the railway, Ōtaki Beach, and the farmhouses along
+// the rural middle of the course.
 //
-// Ported from the 2D drawOtakiSetting(), keeping its `scenery` hooks
-// (riverCp / railwayCp / beach) and its spacings. Original at
-// 491875f:src/scenes/RaceScene.js.
+// River/rail/beach geometry is ported from the 2D drawOtakiSetting(), keeping
+// its `scenery` hooks (riverCp / railwayCp / beach) and its spacings. Original
+// at 491875f:src/scenes/RaceScene.js.
+//
+// The farmhouses have no 2D ancestor. They are broad low-poly rural
+// silhouettes: weatherboard homesteads, gabled farm cottages, verandahs,
+// chimneys and detached sheds, varied mostly through colour.
 import { Group, Mesh, PlaneGeometry, BoxGeometry } from 'three';
 import { WORLD } from '../../config.js';
 import { C, basic, lambert } from './../palette.js';
+import { buildOtakiFarmhouse } from '../houses.js';
 
 const BANK_COLOR = 0xcfc19a;
 const SLEEPER_COLOR = 0x7a5b3a;
@@ -18,6 +24,16 @@ function placeAcross(object, cp, height) {
   object.position.set(cp.x, height, cp.y);
   object.rotation.y = Math.PI / 2 - cp.angle;
   return object;
+}
+
+// Farmhouses are scenery only — no collision, same as Eastbourne's villas.
+function placeFarmhouse(group, terrain, spec, sx, sz) {
+  const farmhouse = buildOtakiFarmhouse(spec);
+  const x = spec.x * sx;
+  const z = spec.z * sz;
+  farmhouse.position.set(x, terrain.heightAt(x, z) + 1, z);
+  farmhouse.rotation.y = spec.yaw;
+  group.add(farmhouse);
 }
 
 export function buildOtaki(track, def, terrain) {
@@ -100,6 +116,49 @@ export function buildOtaki(track, def, terrain) {
       group.add(o);
     }
   }
+
+  // Farmhouses sit through the middle farmland section, not in the bushy Forks
+  // start or the built-up township. Positions use the original 5200×5200 course
+  // coordinates and scale with the live world. Their larger footprints and
+  // nearby sheds distinguish rural homesteads from Eastbourne's tight villas.
+  const sx = WORLD.width / 5200;
+  const sz = WORLD.height / 5200;
+  const farmhouses = [
+    {
+      x: 3850, z: 3180, yaw: -0.18, variant: 'homestead', shed: true,
+      palette: {
+        wall: 0xeee6d2, trim: 0xfff7e3, roof: 0x6f7775, door: 0x6c4d3c,
+        shedWall: 0x8a6a4d, shedRoof: 0x7b5a4e,
+      },
+    },
+    {
+      x: 3420, z: 2550, yaw: Math.PI + 0.08, variant: 'gabled', shed: false,
+      palette: { wall: 0xdce3cf, trim: 0xf6efd9, roof: 0x8b4e3e, door: 0x6a4438 },
+    },
+    {
+      x: 2970, z: 3000, yaw: 0.18, variant: 'cottage', shed: true,
+      palette: {
+        wall: 0xeee9df, trim: 0xffffff, roof: 0x68746f, door: 0x58705d,
+        shedWall: 0x9b7d5b, shedRoof: 0x74554b,
+      },
+    },
+    {
+      x: 2820, z: 1940, yaw: Math.PI - 0.16, variant: 'two-storey', shed: false,
+      palette: { wall: 0xe3cfaa, trim: 0xfaf2df, roof: 0x4f585e, door: 0x7c4538 },
+    },
+    {
+      x: 2350, z: 2420, yaw: 0.42, variant: 'homestead', shed: true,
+      palette: {
+        wall: 0xd9d2c2, trim: 0xf3ecdc, roof: 0x6a725e, door: 0x6e4638,
+        shedWall: 0x896c51, shedRoof: 0x895448,
+      },
+    },
+    {
+      x: 2050, z: 1700, yaw: -0.25, variant: 'gabled', shed: false,
+      palette: { wall: 0xe4e8e5, trim: 0xfbf5e6, roof: 0x778189, door: 0x496978 },
+    },
+  ];
+  for (const farmhouse of farmhouses) placeFarmhouse(group, terrain, farmhouse, sx, sz);
 
   return group;
 }
