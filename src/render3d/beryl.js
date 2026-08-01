@@ -28,7 +28,7 @@ import { toThree, yawFor, alphaFor } from './coords.js';
 // 0.85, so she is 108.8 wide and 217.6 long. The visible shell is lower than the
 // old code-built car: closer to the reference model's squat height/width ratio,
 // while still exaggerated enough to feel friendly at gameplay scale.
-export const BERYL = { width: 108.8, length: 217.6, height: 99 };
+export const BERYL = { width: 108.8, length: 217.6, height: 106 };
 
 const W = BERYL.width;
 const L = BERYL.length;
@@ -122,7 +122,7 @@ function buildBumper(width, z, material) {
   const geometry = new CylinderGeometry(4.4, 4.4, width, 8);
   geometry.rotateZ(Math.PI / 2);
   const bumper = new Mesh(geometry, material);
-  bumper.position.set(0, 34, z);
+  bumper.position.set(0, 33, z);
   return bumper;
 }
 
@@ -143,7 +143,14 @@ function buildWheel(materials) {
   wallGeom.rotateZ(Math.PI / 2);
   hub.add(new Mesh(wallGeom, materials.whitewall));
 
-  const capGeom = new CylinderGeometry(WHEEL_R * 0.34, WHEEL_R * 0.34, WHEEL_W + 2.5, 10);
+  // Beryl's wheel centres are painted body colour with a small chrome hubcap in
+  // the middle — clearly visible in the photo and a nicer detail than a plain
+  // chrome disc.
+  const dishGeom = new CylinderGeometry(WHEEL_R * 0.5, WHEEL_R * 0.5, WHEEL_W + 2, 12);
+  dishGeom.rotateZ(Math.PI / 2);
+  hub.add(new Mesh(dishGeom, materials.body));
+
+  const capGeom = new CylinderGeometry(WHEEL_R * 0.26, WHEEL_R * 0.26, WHEEL_W + 3, 10);
   capGeom.rotateZ(Math.PI / 2);
   hub.add(new Mesh(capGeom, materials.chrome));
 
@@ -155,7 +162,10 @@ function buildWheel(materials) {
 export function buildBeryl() {
   const materials = {
     body: lambert(C.berylBody, { flatShading: true }),
-    roof: lambert(C.berylRoof, { flatShading: true }),
+    // The real Beryl is one colour all over — the photo shows the roof in the
+    // same turquoise as the flanks, not the pale contrast roof the art notes
+    // assumed. Lighting alone gives the roof its lift.
+    roof: lambert(C.berylBody, { flatShading: true }),
     glass: lambert(C.glass, { flatShading: true }),
     chrome: lambert(C.chrome, { flatShading: true }),
     accent: lambert(C.red, { flatShading: true }),
@@ -179,29 +189,39 @@ export function buildBeryl() {
   // tapers, the front wings reach full width early, the doors stay broad, and
   // the boot pinches back in. Height is deliberately compressed for Beryl's
   // friendly, slightly squashed character.
+  // Measured off public/assets/beryl-photo.png rather than guessed. On the real
+  // car the glass band is only about 30% of her total height and the body side
+  // below it is a deep 50%, with the wheels making up the rest. Earlier passes
+  // had that backwards — a shallow body under an oversized bubble — which is
+  // what kept reading as a low wedge instead of an upright little saloon.
+  //
+  // The waistline runs level from screen to boot; the bonnet sits just under it
+  // and slopes gently down to a rounded nose.
   chassis.add(loft([
-    { z: -L * 0.50, halfWidth: W * 0.31, bottom: 31, top: 47 },
-    { z: -L * 0.465, halfWidth: W * 0.40, bottom: 28, top: 56 },
-    { z: -L * 0.35, halfWidth: W * 0.50, bottom: 26, top: 66 },
-    { z: -L * 0.18, halfWidth: W * 0.49, bottom: 26, top: 63 },
-    { z: L * 0.14, halfWidth: W * 0.49, bottom: 26, top: 62 },
-    { z: L * 0.30, halfWidth: W * 0.48, bottom: 27, top: 61 },
-    { z: L * 0.44, halfWidth: W * 0.43, bottom: 29, top: 54 },
-    { z: L * 0.50, halfWidth: W * 0.31, bottom: 33, top: 45 },
+    { z: -L * 0.50, halfWidth: W * 0.30, bottom: 30, top: 56 },
+    { z: -L * 0.455, halfWidth: W * 0.41, bottom: 25, top: 62 },
+    { z: -L * 0.34, halfWidth: W * 0.49, bottom: 22, top: 68 },
+    { z: -L * 0.20, halfWidth: W * 0.50, bottom: 22, top: 73 },
+    { z: L * 0.10, halfWidth: W * 0.50, bottom: 22, top: 75 },
+    { z: L * 0.30, halfWidth: W * 0.485, bottom: 23, top: 74 },
+    { z: L * 0.44, halfWidth: W * 0.42, bottom: 26, top: 68 },
+    { z: L * 0.50, halfWidth: W * 0.29, bottom: 30, top: 60 },
   ], materials.body));
 
   // Pronounced separate wings are one of the quickest Morris Minor tells. Low-
   // segment ellipsoids give a round impression while staying visibly low-poly.
   for (const sx of [-1, 1]) {
-    chassis.add(ellipsoid(W * 0.22, 19, L * 0.17,
-      sx * W * 0.375, 43, AXLE_FRONT - L * 0.015, materials.body));
-    chassis.add(ellipsoid(W * 0.205, 17, L * 0.135,
-      sx * W * 0.38, 42, AXLE_REAR, materials.body));
+    chassis.add(ellipsoid(W * 0.22, 22, L * 0.17,
+      sx * W * 0.375, 50, AXLE_FRONT - L * 0.015, materials.body));
+    chassis.add(ellipsoid(W * 0.205, 20, L * 0.135,
+      sx * W * 0.38, 49, AXLE_REAR, materials.body));
   }
 
   // A gently crowned bonnet keeps the nose from reading like a flat tabletop.
-  chassis.add(ellipsoid(W * 0.31, 10, L * 0.19,
-    0, 61, -L * 0.335, materials.body, 12));
+  // Sat just *into* the shell rather than proud of it: raised, it became a
+  // separate lump on top of the car instead of the bonnet's centre spine.
+  chassis.add(ellipsoid(W * 0.30, 7, L * 0.20,
+    0, 62, -L * 0.325, materials.body, 12));
 
   // --- Cabin -----------------------------------------------------------------
   // The reference cabin spans almost half the car and sits slightly rearward.
@@ -212,12 +232,18 @@ export function buildBeryl() {
   // only angle that matters: the chase camera sits behind her, so a cabin that
   // tapers away rearward reads as a chopped roof and the car looks low-slung
   // rather than like an upright little Minor.
+  // The greenhouse is the thing that makes her a Minor. In the photo it is tall,
+  // upright and airy — roughly as much of her height as the body below it — and
+  // nearly as wide as the body, with a long flattish roof. Earlier passes kept
+  // making it a shallow bubble, which is what left her looking chopped.
+  // Spans -0.16L to +0.35L, matching the photo's cabin at roughly half her
+  // length and set slightly rearward, sitting on the 73-75 waistline.
   const cabinStations = [
-    { z: -L * 0.18, halfWidth: W * 0.32, bottom: 59, top: 74 },
-    { z: -L * 0.115, halfWidth: W * 0.375, bottom: 59, top: 90 },
-    { z: L * 0.015, halfWidth: W * 0.39, bottom: 59, top: 97 },
-    { z: L * 0.17, halfWidth: W * 0.375, bottom: 59, top: 96 },
-    { z: L * 0.30, halfWidth: W * 0.335, bottom: 58, top: 87 },
+    { z: -L * 0.175, halfWidth: W * 0.33, bottom: 73, top: 82 },
+    { z: -L * 0.105, halfWidth: W * 0.405, bottom: 73, top: 100 },
+    { z: L * 0.03, halfWidth: W * 0.435, bottom: 73, top: 106 },
+    { z: L * 0.20, halfWidth: W * 0.425, bottom: 73, top: 105 },
+    { z: L * 0.335, halfWidth: W * 0.35, bottom: 72, top: 92 },
   ];
   chassis.add(loft(cabinStations, materials.glass));
 
@@ -238,22 +264,47 @@ export function buildBeryl() {
   })), materials.roof));
 
   // Body-colour pillars stop the glass envelope looking like one giant visor.
-  for (const sx of [-1, 1]) {
-    const aPillar = box(5, 31, 6, sx * W * 0.345, 74, -L * 0.145, materials.body);
-    aPillar.rotation.x = -0.34;
-    chassis.add(aPillar);
-
-    chassis.add(box(5, 31, 6, sx * W * 0.385, 74, L * 0.055, materials.body));
-
-    const cPillar = box(6, 31, 7, sx * W * 0.34, 74, L * 0.245, materials.body);
-    cPillar.rotation.x = 0.34;
-    chassis.add(cPillar);
-  }
+  //
+  // Sized from the cabin loft rather than by hand: fixed-height boxes overshot
+  // the roofline at the sloped ends and stuck out of her silhouette like roll-bar
+  // struts. Interpolating the cabin's own profile keeps every pillar inside it.
+  const cabinAt = (z) => {
+    const st = cabinStations;
+    if (z <= st[0].z) return st[0];
+    if (z >= st[st.length - 1].z) return st[st.length - 1];
+    for (let i = 1; i < st.length; i += 1) {
+      if (z > st[i].z) continue;
+      const a = st[i - 1];
+      const b = st[i];
+      const t = (z - a.z) / (b.z - a.z);
+      return {
+        halfWidth: a.halfWidth + (b.halfWidth - a.halfWidth) * t,
+        bottom: a.bottom + (b.bottom - a.bottom) * t,
+        top: a.top + (b.top - a.top) * t,
+      };
+    }
+    return st[st.length - 1];
+  };
+  const pillar = (z, thickness, depth, tilt) => {
+    const at = cabinAt(z);
+    const height = Math.max(6, at.top - at.bottom - 4);
+    for (const sx of [-1, 1]) {
+      const p = box(thickness, height, depth, sx * at.halfWidth * 0.97,
+        at.bottom + height / 2, z, materials.body);
+      p.rotation.x = tilt;
+      chassis.add(p);
+    }
+  };
+  pillar(-L * 0.145, 5, 6, -0.3);
+  // The four-door B-pillar: the photo shows a clear upright post splitting the
+  // side glass in two, and it is the cue that stops her looking like a coupe.
+  pillar(L * 0.05, 6, 7, 0);
+  pillar(L * 0.285, 6, 8, 0.34);
 
   // Rear glass is the face seen most often by the chase camera, so reinforce it
   // as a broad sloped panel rather than leaving it implicit in the loft.
-  const rearScreen = box(W * 0.60, 22, 4, 0, 75, L * 0.272, materials.glass);
-  rearScreen.rotation.x = 0.48;
+  const rearScreen = box(W * 0.58, 22, 4, 0, 88, L * 0.295, materials.glass);
+  rearScreen.rotation.x = 0.5;
   chassis.add(rearScreen);
 
   // --- Chrome, lamps and recognisable face ----------------------------------
@@ -263,45 +314,51 @@ export function buildBeryl() {
   // Rounded bumper overriders add the tiny bit of period character that reads
   // clearly without requiring texture maps.
   for (const sx of [-1, 1]) {
-    chassis.add(box(7, 16, 7, sx * W * 0.31, 39, -L * 0.50, materials.chrome));
-    chassis.add(box(7, 16, 7, sx * W * 0.31, 39, L * 0.50, materials.chrome));
+    chassis.add(box(7, 18, 7, sx * W * 0.30, 38, -L * 0.497, materials.chrome));
+    chassis.add(box(7, 18, 7, sx * W * 0.30, 38, L * 0.497, materials.chrome));
   }
 
   const lampGeom = new CylinderGeometry(10.5, 10.5, 7, 12);
   lampGeom.rotateX(Math.PI / 2);
   for (const sx of [-1, 1]) {
     const lamp = new Mesh(lampGeom, materials.lamp);
-    lamp.position.set(sx * W * 0.37, 57, -L * 0.46);
+    lamp.position.set(sx * W * 0.385, 60, -L * 0.452);
     chassis.add(lamp);
   }
 
   // Dark inset grille with simple chrome vertical bars: recognisable as a Morris
   // front without chasing photo-real trim.
-  chassis.add(box(W * 0.34, 23, 4, 0, 47, -L * 0.492, materials.grille));
+  chassis.add(box(W * 0.30, 26, 4, 0, 50, -L * 0.487, materials.grille));
   for (const x of [-0.12, -0.06, 0, 0.06, 0.12]) {
-    chassis.add(box(2.2, 20, 3, W * x, 47, -L * 0.495, materials.chrome));
+    chassis.add(box(2.2, 23, 3, W * x, 50, -L * 0.49, materials.chrome));
   }
 
   const tailGeom = new CylinderGeometry(6.5, 6.5, 7, 10);
   tailGeom.rotateX(Math.PI / 2);
   for (const sx of [-1, 1]) {
     const tail = new Mesh(tailGeom, materials.accent);
-    tail.position.set(sx * W * 0.35, 52, L * 0.477);
+    tail.position.set(sx * W * 0.355, 60, L * 0.473);
     chassis.add(tail);
   }
 
   // Warm cream rear number plate; deliberately text-free at this scale.
-  chassis.add(box(W * 0.27, 10, 3, 0, 43, L * 0.501, materials.plate));
+  chassis.add(box(W * 0.27, 10, 3, 0, 47, L * 0.497, materials.plate));
 
   // Red side pinstripe — Beryl has one, and it reads even at speed.
+  //
+  // It has to sit ON the shoulder crease, which is where the loft is actually at
+  // full width. The cross-section is an octagon that pulls in above the
+  // shoulder, so a stripe placed up at the waistline (y 68) was hanging ~13
+  // units outside the bodywork down the whole flank — from the chase camera it
+  // read as a pair of red fins rather than a pinstripe.
   for (const sx of [-1, 1]) {
-    chassis.add(box(3, 4.5, L * 0.65, sx * W * 0.493, 45, L * 0.015, materials.accent));
+    chassis.add(box(2.5, 3, L * 0.56, sx * W * 0.503, 54, -L * 0.02, materials.accent));
   }
 
   // Bonnet and boot seams are cheap, readable cues to the classic three-box
   // shape when the camera climbs on a hill.
-  chassis.add(box(2, 2, L * 0.29, 0, 69, -L * 0.335, materials.chrome));
-  chassis.add(box(W * 0.52, 2, 2, 0, 62, L * 0.39, materials.chrome));
+  chassis.add(box(2, 2, L * 0.30, 0, 66, -L * 0.33, materials.chrome));
+  chassis.add(box(W * 0.44, 2, 2, 0, 67, L * 0.4, materials.chrome));
 
   // --- Wheels ----------------------------------------------------------------
   const wheels = [];

@@ -308,7 +308,7 @@ The most valuable reference information was qualitative rather than microscopic:
 - Chrome bumpers and bumper overriders.
 - Whitewall tyres and chrome hubcaps.
 - Small red tail lamps.
-- Turquoise body and pale roof.
+- Turquoise body **including the roof** — see §14.
 - Thin red side pinstripe.
 - Period-style rear plate.
 
@@ -355,3 +355,61 @@ Limitations:
 ## 13. Concise art brief
 
 > Build Beryl as a broad, cheerful, low-poly Morris Minor with a 56% wheelbase, wheels pushed toward the outer edges, a rear-shifted half-length cabin, a long rounded bonnet, separate bulbous front wings, and a pinched rounded boot. Keep her wider, taller, and more generously wheeled than the detailed reference model so she reads clearly and affectionately from the chase camera. Preserve turquoise paint, pale roof, round lamps, chrome bumpers, whitewalls, hubcaps, and the red pinstripe. Do not pursue photorealism.
+
+
+---
+
+## 14. Corrections from the photograph
+
+The reference FBX gave good *layout* — wheelbase, overhangs, cabin position — but
+two things it could not settle were only resolved by measuring
+`public/assets/beryl-photo.png`, the actual car. Both had already made it into
+the game model and both were wrong.
+
+### 14.1 She has no contrast roof
+
+§10 above listed "turquoise body and pale roof", and the code used a lighter
+`berylRoof` for the cabin cap. The photograph shows one uniform turquoise over
+the whole car; the roof only looks lighter where it catches the sky. The model
+now uses the body colour throughout and lets lighting do the work.
+
+`COLORS.berylRoof` still exists in `src/config.js` and is used elsewhere, so it
+was left alone.
+
+### 14.2 Vertical proportions were inverted
+
+Measured off the photograph, as fractions of her total height including wheels:
+
+| Band | Photo | Earlier model |
+|---|---:|---:|
+| Glass and roof | **29%** | 45% |
+| Body side, waist to sill | **50%** | 33% |
+| Wheel below the sill | 21% | 22% |
+
+The earlier passes had a shallow body under an oversized glass bubble — the exact
+inverse — which is why she kept reading as a low wedge no matter how the cabin
+was adjusted. The fix was not a taller cabin but a **much deeper body side**: the
+waistline moved from 58 up to 75, with the greenhouse left as a ~32-unit band on
+top of it.
+
+Cabin length was already close: the photo puts it at roughly 34%–85% of her
+length, and the model spans −0.175L to +0.335L, which is 33%–84%.
+
+### 14.3 Trim has to sit on the bodywork, not at a nominal height
+
+The loft's cross-section is an octagon that pulls inward above the shoulder, so a
+constant-height, constant-width trim strip does not follow the surface. The red
+pinstripe was placed at the waistline (y 68) where the body is only ~40 wide,
+leaving it hanging ~13 units out in mid-air down the whole flank — from the chase
+camera it read as a pair of red fins. It now sits on the shoulder crease (y 54),
+where the loft is genuinely at full width.
+
+The same mistake had put the bonnet seam above the bonnet and the rear screen
+above the roofline. **Any new trim needs checking against the loft's width at the
+height it is placed, not just its plan position.**
+
+### 14.4 Pillars must be derived, not hand-placed
+
+Fixed-height pillar boxes overshot the roofline at the sloped ends and stuck out
+of the silhouette like roll-bar struts. They are now sized by interpolating the
+cabin stations, so they cannot escape the cabin whatever the profile becomes.
