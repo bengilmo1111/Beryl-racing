@@ -577,3 +577,61 @@ Two places it deliberately does not paint:
 
 Sits at y = 0.4 — above the apron at 0.2, below the kerb lip at 5 — so it stacks
 cleanly in the existing road-surface ordering without z-fighting.
+
+## 2026-08-01 — Eastbourne landmark models (PR #21)
+
+Days Bay Wharf, Williams Park, Rona Bay, the village shop strip and the RSA, as
+real low-poly geometry rather than a name on a board. All code-built; the only
+raster surfaces are runtime-drawn text labels on physical signboards, using the
+`labelTexture()` path the course furniture already uses.
+
+`signs.js` now suppresses the freestanding board for any name a model carries
+(`WILLIAMS PARK`, `RONA BAY`, `EASTBOURNE RSA`) and shrinks the two that remain,
+so the names appear once each.
+
+### Fixed on merge: two sources of truth for where a landmark is
+
+As submitted, the models were positioned by world proportions (`W * 0.46`,
+`H * 0.32`, …) invented in the landmark file, while `def.landmarks` — the list
+the signs are built from — said something different. They disagreed by 300–740
+units, and Rona Bay was on the *opposite side of the road* in the two. Because
+the PR also deletes the roadside board, the name would have silently moved to
+wherever the model happened to be.
+
+Placement now reads `def.landmarks`, so there is one authored position per
+landmark and these follow any re-authoring of the route or change of
+`LENGTH_SCALE` for free. `buildEastbourne()` takes `(track, def, terrain)` to
+match `buildOtaki()`.
+
+### Fixed on merge: models sitting in the road
+
+The authored point is where a *sign* stood — at the roadside. A building on that
+point is in the carriageway, so each model is pushed outward along the road
+normal until it clears the kerb by 90 units, with the setback measured from the
+model's own bounding box.
+
+A single perpendicular setback is not enough, and the reason is worth keeping.
+These models are 400–740 units wide and sit parallel to the tangent at their
+anchor, but Eastbourne's road curves away underneath them — so the far end
+swings back over the carriageway even though the near corner cleared. Measured
+against the whole centreline, the village shops overlapped the road by **163
+units** and the RSA by **74**. The push is therefore iterative: seat, measure the
+footprint against the entire route, push again. Distance is computed
+point-to-rectangle against the world AABB, which is exact for a box and
+conservative for the model inside it.
+
+Measured clearance past the kerb, after: wharf 380, Williams Park 90, Rona Bay
+93, shops 93, RSA 94.
+
+This was only visible because the roads had just doubled. At the old width the
+RSA cleared by 58 units and the flaw would have shipped looking fine.
+
+### Rona Bay goes inland
+
+Its name marker is authored on the seaward side, but the strip between the road
+and the seawall is about 320 units — narrower than the shelter once set back, so
+honouring that side buried it *inside* the seawall mesh. It sits inland instead.
+The name, which is what the landmark is for, is unchanged.
+
+Render-only throughout: all four AC2 baselines and obstacle fingerprints are
+byte-identical, and the matrix is 15/16 with no console errors.

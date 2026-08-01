@@ -13,6 +13,7 @@ import { WORLD } from '../../config.js';
 import { C, basic, lambert } from './../palette.js';
 import { buildEastbourneParallax } from './eastbourneParallax.js';
 import { buildEastbourneVilla } from '../houses.js';
+import { buildEastbourneLandmarks } from '../landmarks/eastbourneLandmarks.js';
 
 const WATER_COLOR = 0x4fadd0;
 const FOAM_COLOR = 0xffe2a6;
@@ -28,7 +29,7 @@ function placeHouse(group, terrain, spec, sx, sz) {
   group.add(house);
 }
 
-export function buildEastbourne(terrain) {
+export function buildEastbourne(track, def, terrain) {
   const group = new Group();
   const W = WORLD.width;
   const H = WORLD.height;
@@ -65,6 +66,13 @@ export function buildEastbourne(terrain) {
   const seawall = new Mesh(new BoxGeometry(46, 78, wallLength), lambert(C.cream));
   seawall.position.set(wall, sea + 39, wallStart + wallLength / 2);
   group.add(seawall);
+
+  // Route-defining Eastbourne landmarks as real low-poly geometry: Days Bay
+  // Wharf, Williams Park, Rona Bay, the village shop strip and the RSA finish.
+  // Seated on the authored `def.landmarks` points — the same list the roadside
+  // signs come from — and on terrain height, so they stay put through any
+  // re-authoring of the route or change of scale.
+  group.add(buildEastbourneLandmarks(track, def, terrain, { shoreX: hw, seaLevel: sea }));
 
   // Four depth bands beyond the playable route provide the Eastbourne view:
   // harbour hills, nearer headlands, village roofs, and inland bush. Because

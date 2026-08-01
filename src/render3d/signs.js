@@ -16,6 +16,23 @@ import { labelTexture } from './textures.js';
 const BOARD_BOTTOM = 120;
 const POST_WIDTH = 9;
 
+// These Eastbourne names now live on the physical landmark models themselves.
+// Keeping the old freestanding boards as well produced doubled signs in front of
+// Williams Park, Rona Bay and the RSA.
+const EASTBOURNE_INTEGRATED_SIGNS = new Set([
+  'WILLIAMS PARK',
+  'RONA BAY',
+  'EASTBOURNE RSA',
+]);
+
+// Days Bay Wharf and the village still use roadside labels, but the landmark
+// models supply most of the recognition now. Their boards can be smaller and
+// less intrusive than the original greybox labels.
+const EASTBOURNE_COMPACT_SIGNS = new Set([
+  'DAYS BAY WHARF',
+  'EASTBOURNE VILLAGE',
+]);
+
 // Yaw so the board faces back down the road toward an approaching car.
 //
 // A plane faces its local +Z. The nearest centreline tangent points the way
@@ -62,7 +79,13 @@ export function buildSigns(track, def, terrain) {
 
   // Landmark names: cream on the house ink blue.
   for (const [x, y, text] of def.landmarks || []) {
-    const sign = buildSign(text, { color: '#fff8e7', background: '#15314bcc', fontSize: 60 }, 58);
+    if (def.theme === 'eastbourne' && EASTBOURNE_INTEGRATED_SIGNS.has(text)) continue;
+    const compact = def.theme === 'eastbourne' && EASTBOURNE_COMPACT_SIGNS.has(text);
+    const sign = buildSign(
+      text,
+      { color: '#fff8e7', background: '#15314bcc', fontSize: compact ? 44 : 60 },
+      compact ? 44 : 58
+    );
     const aim = facingTraffic(x, y, track);
     sign.position.set(x, terrain.heightAt(x, y), y);
     sign.rotation.y = aim.yaw;

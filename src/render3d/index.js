@@ -68,7 +68,9 @@ class RaceWorld {
     }
 
     // Theme setpieces sit under the trees and signage.
-    if (scene.def.theme === 'eastbourne') this.scene3d.add(buildEastbourne(this.terrain));
+    if (scene.def.theme === 'eastbourne') {
+      this.scene3d.add(buildEastbourne(scene.track, scene.def, this.terrain));
+    }
     if (scene.def.theme === 'otaki') this.scene3d.add(buildOtaki(scene.track, scene.def, this.terrain));
 
     this.scene3d.add(buildTrees(scene.scenery.trees, this.terrain));
