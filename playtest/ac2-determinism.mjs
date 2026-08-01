@@ -43,10 +43,14 @@ import { TRACKS } from '../src/tracks.js';
 // radius the road folds through itself. Ceilings: Eastbourne 602, Manfield 339,
 // Remutaka 260, Otaki 299.
 const BASELINES = {
+  // Re-recorded on 2026-08-02 for the complete Eastbourne route replacement:
+  // longer Ferry Road, a new coastal alignment, seven checkpoints, a branching
+  // village road network and a different inland-only obstacle field. The other
+  // three courses stayed identical, confirming the change remained isolated.
   'eastbourne-dash': {
-    finishTimeMs: 63166.666667,
-    pos: { x: 2564.543957223, y: 9031.06365964 },
-    obstacles: '03391c49f50abb65',
+    finishTimeMs: 108133.333333,
+    pos: { x: 2670.485515835, y: 13879.714365457 },
+    obstacles: '9404101c358ce680',
   },
   // Re-recorded when the circuit stopped being an invented oval and became the
   // real Manfeild layout (see docs/tracks/MANFEILD-LAYOUT.md), then again when

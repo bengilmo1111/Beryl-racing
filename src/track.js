@@ -1,6 +1,6 @@
-// Builds the race track geometry: a smooth centreline (closed loop or open
-// point-to-point, per TRACK.closed) plus the left/right tarmac edges,
-// checkpoints, and a helper to test whether a point is on-road.
+// Builds road geometry: a smooth primary centreline plus optional branch roads,
+// checkpoints, surfaces, elevation and helpers for testing whether a point is on
+// any driveable road.
 import { TRACK } from './config.js';
 
 function catmullRom(p0, p1, p2, p3, t) {
@@ -22,15 +22,10 @@ function catmullRom(p0, p1, p2, p3, t) {
   };
 }
 
-export function buildTrack() {
-  const anchors = TRACK.anchors;
+function buildCenterline(anchors, steps, closed) {
   const n = anchors.length;
-  const steps = TRACK.samplesPerSegment;
-  const closed = !!TRACK.closed;
-
-  // Smooth Catmull-Rom through the anchors. A closed loop uses a periodic spline
-  // (wrapping neighbours); an open route duplicates the endpoints instead.
   const centerline = [];
+
   if (closed) {
     for (let i = 0; i < n; i++) {
       const p0 = anchors[(i - 1 + n) % n];
@@ -45,7 +40,7 @@ export function buildTrack() {
     for (let i = 0; i < n - 1; i++) {
       const p0 = anchors[Math.max(0, i - 1)];
       const p1 = anchors[i];
-      const p2 = anchors[(i + 1) % n];
+      const p2 = anchors[i + 1];
       const p3 = anchors[Math.min(n - 1, i + 2)];
       for (let s = 0; s < steps; s++) {
         centerline.push(catmullRom(p0, p1, p2, p3, s / steps));
@@ -54,11 +49,16 @@ export function buildTrack() {
     centerline.push({ ...anchors[n - 1] });
   }
 
+  return centerline;
+}
+
+function buildEdges(centerline, roadWidth, closed) {
   const count = centerline.length;
-  const half = TRACK.roadWidth / 2;
+  const half = roadWidth / 2;
   const wrap = (i) => (closed ? (i + count) % count : Math.min(Math.max(i, 0), count - 1));
   const left = [];
   const right = [];
+
   for (let i = 0; i < count; i++) {
     const prev = centerline[wrap(i - 1)];
     const next = centerline[wrap(i + 1)];
@@ -67,97 +67,154 @@ export function buildTrack() {
     const len = Math.hypot(tx, ty) || 1;
     tx /= len;
     ty /= len;
-    // Left normal is (-ty, tx).
     left.push({ x: centerline[i].x - ty * half, y: centerline[i].y + tx * half });
     right.push({ x: centerline[i].x + ty * half, y: centerline[i].y - tx * half });
   }
 
-  // Ordered gates. On a loop, index 0 is the start/finish gate and the gates are
-  // spread over the whole lap; on an open route, index 0 is the start and the
-  // last gate is the finish.
-  const checkpoints = [];
-  for (let c = 0; c < TRACK.numCheckpoints; c++) {
+  return { left, right, half };
+}
+
+function buildSurfaces(surfaceBands, count) {
+  if (!Array.isArray(surfaceBands) || !surfaceBands.length) return null;
+  const surfaces = new Array(count);
+  for (let i = 0; i < count; i++) {
+    const frac = count > 1 ? i / (count - 1) : 0;
+    let type = surfaceBands[surfaceBands.length - 1].type;
+    for (const band of surfaceBands) {
+      if (frac <= band.until) {
+        type = band.type;
+        break;
+      }
+    }
+    surfaces[i] = type;
+  }
+  return surfaces;
+}
+
+function buildHeights(profile, count) {
+  if (!Array.isArray(profile) || profile.length < 2) return null;
+  const heights = new Array(count);
+  for (let i = 0; i < count; i++) {
+    const frac = count > 1 ? i / (count - 1) : 0;
+    heights[i] = sampleProfile(profile, frac);
+  }
+  return heights;
+}
+
+function buildRoad(spec, fallback = {}) {
+  const closed = spec.closed ?? fallback.closed ?? false;
+  const roadWidth = spec.roadWidth ?? fallback.roadWidth;
+  const steps = spec.samplesPerSegment ?? fallback.samplesPerSegment;
+  const centerline = buildCenterline(spec.anchors, steps, closed);
+  const { left, right, half } = buildEdges(centerline, roadWidth, closed);
+  return {
+    id: spec.id || fallback.id || 'primary',
+    centerline,
+    left,
+    right,
+    half,
+    closed,
+    surfaces: buildSurfaces(spec.surfaceBands, centerline.length),
+    heights: buildHeights(spec.elevation && spec.elevation.profile, centerline.length),
+  };
+}
+
+function copyNearestPrimaryHeights(primary, road) {
+  if (!primary.heights) return null;
+  return road.centerline.map((point) => {
+    let best = Infinity;
+    let bestHeight = primary.heights[0];
+    for (let i = 0; i < primary.centerline.length; i++) {
+      const dx = primary.centerline[i].x - point.x;
+      const dy = primary.centerline[i].y - point.y;
+      const d = dx * dx + dy * dy;
+      if (d < best) {
+        best = d;
+        bestHeight = primary.heights[i];
+      }
+    }
+    return bestHeight;
+  });
+}
+
+function buildCheckpoints(primary) {
+  const centerline = primary.centerline;
+  const count = centerline.length;
+  const closed = primary.closed;
+  const fractions = Array.isArray(TRACK.checkpointFractions) && TRACK.checkpointFractions.length
+    ? TRACK.checkpointFractions
+    : Array.from({ length: TRACK.numCheckpoints }, (_, c) => (
+        closed ? c / TRACK.numCheckpoints : c / (TRACK.numCheckpoints - 1)
+      ));
+  const wrap = (i) => (closed ? (i + count) % count : Math.min(Math.max(i, 0), count - 1));
+
+  return fractions.map((fraction) => {
     const idx = closed
-      ? Math.floor((c / TRACK.numCheckpoints) * count)
-      : Math.floor((c / (TRACK.numCheckpoints - 1)) * (count - 1));
+      ? Math.floor(fraction * count) % count
+      : Math.floor(fraction * (count - 1));
     const p = centerline[idx];
     const next = centerline[wrap(idx + 1)];
     const prev = centerline[wrap(idx - 1)];
-    checkpoints.push({
+    return {
       x: p.x,
       y: p.y,
       index: idx,
       angle: closed
         ? Math.atan2(next.y - p.y, next.x - p.x)
         : Math.atan2(next.y - prev.y, next.x - prev.x),
+    };
+  });
+}
+
+export function buildTrack() {
+  const primary = buildRoad(
+    {
+      id: 'primary',
+      anchors: TRACK.anchors,
+      roadWidth: TRACK.roadWidth,
+      samplesPerSegment: TRACK.samplesPerSegment,
+      closed: !!TRACK.closed,
+      surfaceBands: TRACK.surfaceBands,
+      elevation: TRACK.elevation,
+    },
+    TRACK
+  );
+
+  const roads = [primary];
+  for (const branchSpec of TRACK.branches || []) {
+    const branch = buildRoad(branchSpec, TRACK);
+    branch.heights = copyNearestPrimaryHeights(primary, branch);
+    roads.push(branch);
+  }
+
+  // Existing callers pass only track.centerline to distanceToCenterline(). Give
+  // that array a non-enumerated network reference so old code automatically
+  // treats every Eastbourne street as driveable without changing simulation
+  // call sites or determinism-sensitive ordering.
+  for (const road of roads) {
+    Object.defineProperty(road.centerline, 'network', {
+      value: roads,
+      configurable: true,
+      enumerable: false,
     });
   }
 
-  // Optional per-sample road surface. `surfaceBands` is an ordered list of
-  // { type, until } where `until` is a fraction (0..1] of the route; each sample
-  // takes the first band whose `until` covers its position. Absent → null, and
-  // everything downstream falls back to a single (sealed) surface.
-  let surfaces = null;
-  if (Array.isArray(TRACK.surfaceBands) && TRACK.surfaceBands.length) {
-    const bands = TRACK.surfaceBands;
-    surfaces = new Array(count);
-    for (let i = 0; i < count; i++) {
-      const frac = count > 1 ? i / (count - 1) : 0;
-      let type = bands[bands.length - 1].type;
-      for (const band of bands) {
-        if (frac <= band.until) { type = band.type; break; }
-      }
-      surfaces[i] = type;
-    }
-  }
-
-  // Optional per-sample road height, from an ordered { at, h } profile keyed to
-  // a fraction of the route. Interpolated with a smoothstep between control
-  // points so grade changes ease in and out rather than breaking sharply — a
-  // linear profile puts a visible crease across the road at every control point.
-  // Absent → null, and the course is flat with gravity disabled entirely.
-  let heights = null;
-  const profile = TRACK.elevation && TRACK.elevation.profile;
-  if (Array.isArray(profile) && profile.length > 1) {
-    heights = new Array(count);
-    for (let i = 0; i < count; i++) {
-      const frac = count > 1 ? i / (count - 1) : 0;
-      heights[i] = sampleProfile(profile, frac);
-    }
-  }
-
-  // Start pose: on the line, facing along the track from the first sample.
-  const start = centerline[0];
-  const startNext = centerline[1];
+  const checkpoints = buildCheckpoints(primary);
+  const start = primary.centerline[0];
+  const startNext = primary.centerline[1];
   const tx = startNext.x - start.x;
   const ty = startNext.y - start.y;
-  // Sprite is drawn nose-up; forward = (sin r, -cos r) => r = atan2(tx, -ty).
   const startRotation = Math.atan2(tx, -ty);
 
   return {
-    centerline,
-    left,
-    right,
+    ...primary,
+    roads,
     checkpoints,
-    surfaces,
-    heights,
-    // Standing water the terrain builder holds flat, instead of letting it
-    // follow the nearest road height uphill. Coastlines are authored as rects;
-    // the river is generated here because it has to line up with the checkpoint
-    // the bridge crossing is already keyed to.
-    sea: buildWaterRegions(checkpoints, heights),
+    sea: buildWaterRegions(checkpoints, primary.heights),
     start: { x: start.x, y: start.y, rotation: startRotation },
-    half,
-    closed,
   };
 }
 
-// Coastline rects plus, if the course has one, an oriented carve for the river.
-//
-// The river has to be generated rather than authored: it runs across the road at
-// whatever angle the route happens to take through its checkpoint, and the
-// terrain either side has to drop to the water while the road stays up on the
-// bridge. Road cells are pinned before carving, so the bridge survives.
 function buildWaterRegions(checkpoints, heights) {
   const elevation = TRACK.elevation;
   if (!elevation) return null;
@@ -165,8 +222,6 @@ function buildWaterRegions(checkpoints, heights) {
   const river = elevation.river;
   if (river && checkpoints[river.cp]) {
     const cp = checkpoints[river.cp];
-    // `angle` is the along-road direction, so halfW measures the water the car
-    // crosses and halfL runs up and downstream.
     regions.push({
       cx: cp.x,
       cy: cp.y,
@@ -179,8 +234,6 @@ function buildWaterRegions(checkpoints, heights) {
   return regions.length ? regions : null;
 }
 
-// Height at a fraction along an ordered [{ at, h }] profile. Smoothstep between
-// control points, flat beyond the ends.
 function sampleProfile(profile, frac) {
   if (frac <= profile[0].at) return profile[0].h;
   const last = profile[profile.length - 1];
@@ -197,13 +250,10 @@ function sampleProfile(profile, frac) {
   return last.h;
 }
 
-// Shortest distance from (px,py) to the centreline polyline. On a closed loop
-// the final wrap-around segment is included; on an open route it is not (so the
-// straight line from finish back to start never reads as "on-road").
-export function distanceToCenterline(px, py, centerline) {
+function distanceToPolyline(px, py, centerline, closed) {
   let best = Infinity;
   const n = centerline.length;
-  const segs = TRACK.closed ? n : n - 1;
+  const segs = closed ? n : n - 1;
   for (let i = 0; i < segs; i++) {
     const a = centerline[i];
     const b = centerline[(i + 1) % n];
@@ -220,20 +270,40 @@ export function distanceToCenterline(px, py, centerline) {
   return Math.sqrt(best);
 }
 
-// Road surface ('gravel' | 'sealed' | ...) at the point nearest (px,py), or null
-// when the course has no per-surface tagging. Nearest-sample scan — same cost
-// class as distanceToCenterline, cheap enough to call once per frame.
-export function surfaceAt(px, py, track) {
-  const surfaces = track && track.surfaces;
-  if (!surfaces) return null;
-  const cl = track.centerline;
-  let bestIdx = 0;
-  let best = Infinity;
-  for (let i = 0; i < cl.length; i++) {
-    const dx = cl[i].x - px;
-    const dy = cl[i].y - py;
-    const d = dx * dx + dy * dy;
-    if (d < best) { best = d; bestIdx = i; }
+// Shortest distance from (px,py) to the supplied centreline. When the line came
+// from buildTrack(), this transparently checks the complete road network.
+export function distanceToCenterline(px, py, centerline) {
+  const roads = centerline && centerline.network;
+  if (roads) {
+    let best = Infinity;
+    for (const road of roads) {
+      const d = distanceToPolyline(px, py, road.centerline, road.closed);
+      // Account for differently sized branch roads while retaining the old
+      // caller contract, which compares the returned value to primary half.
+      const adjusted = d + (TRACK.roadWidth / 2 - road.half);
+      if (adjusted < best) best = adjusted;
+    }
+    return best;
   }
-  return surfaces[bestIdx];
+  return distanceToPolyline(px, py, centerline, !!TRACK.closed);
+}
+
+// Road surface ('gravel' | 'sealed' | ...) at the nearest road sample, or null
+// when the nearest road is ordinary sealed tarmac.
+export function surfaceAt(px, py, track) {
+  const roads = track && track.roads ? track.roads : track ? [track] : [];
+  let best = Infinity;
+  let type = null;
+  for (const road of roads) {
+    for (let i = 0; i < road.centerline.length; i++) {
+      const dx = road.centerline[i].x - px;
+      const dy = road.centerline[i].y - py;
+      const d = dx * dx + dy * dy;
+      if (d < best) {
+        best = d;
+        type = road.surfaces ? road.surfaces[i] : null;
+      }
+    }
+  }
+  return type;
 }

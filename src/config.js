@@ -6,6 +6,8 @@
 // these objects/bindings (Car.js, track.js, RaceScene, TitleScene) always read
 // the active course without needing to know which one it is.
 
+import { applyEastbourneRoute } from './eastbourneRoute.js';
+
 export const DESIGN = {
   // Landscape design resolution; the Scale Manager fits this to any screen.
   width: 1280,
@@ -60,6 +62,13 @@ export let STORAGE_KEY = 'beryl-racing-3d.eastbourne-dash.bestTimeMs.v1';
 // is fully replaced (old geometry keys cleared first) so no stale field from a
 // previously selected course can leak through.
 export function applyTrack(def) {
+  // Eastbourne's first 3D pass inherited a compressed prototype route. Keep the
+  // old catalogue entry for history, but replace it here with the researched
+  // road network before anything reads the live config. The override also
+  // mutates the selected definition so render-only theme data and labels agree
+  // with the live route.
+  if (def.theme === 'eastbourne') applyEastbourneRoute(def);
+
   Object.assign(WORLD, def.world);
   Object.assign(CAR, def.physics);
   for (const k of Object.keys(TRACK)) delete TRACK[k];
