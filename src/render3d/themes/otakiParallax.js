@@ -2,13 +2,14 @@
 //
 // The two ends of this level need opposite horizons. Looking inland toward the
 // Forks should mean driving into high, steep, bush-covered ranges; approaching
-// the beach should open into low Tasman sea and sky. These bands are fixed in
-// world space on the appropriate sides of the map, so the contrast follows both
-// position and heading without a camera-facing skybox or a hard background swap.
+// the beach should open into low Tasman sea and sky.
 //
-// As with Eastbourne's parallax, these are real meshes at several depths. The
-// chase camera therefore gets natural parallax while the player moves and turns.
-// Everything is decorative, unfogged and outside the driveable world.
+// The geometry stays fixed in world space, so it still produces real parallax,
+// but the two directional groups cross-fade by position and heading. That last
+// part matters: an earlier fixed-only version left the tops of the eastern ranges
+// visible above fogged terrain while driving west, as a broken strip of floating
+// fragments. The ranges now appear when Beryl actually turns inland, while the
+// sea horizon grows in only as she approaches and faces the coast.
 import {
   DoubleSide,
   Group,
@@ -49,7 +50,7 @@ function addCoastalHorizon(group, sea) {
   ocean.frustumCulled = false;
   group.add(ocean);
 
-  // Two very low north-facing bands make a clean, flat water/sky break. They
+  // Three very low north-facing bands make a clean, flat water/sky break. They
   // deliberately contain no island or headland: the finish should feel exposed
   // to the Tasman rather than framed by another wall of land.
   group.add(
@@ -97,6 +98,28 @@ function addCoastalHorizon(group, sea) {
       COLOUR.horizonHaze
     )
   );
+
+  const sun = new Mesh(
+    new SphereGeometry(115, 12, 8),
+    new MeshBasicMaterial({ color: COLOUR.sun, fog: false })
+  );
+  sun.position.set(-W * 0.18, sea + 930, H * 0.04);
+  group.add(sun);
+
+  addCloud(group, {
+    x: -W * 0.12,
+    y: sea + 820,
+    z: H * 0.12,
+    scale: 120,
+    colour: COLOUR.cloudWarm,
+  });
+  addCloud(group, {
+    x: W * 0.22,
+    y: sea + 1020,
+    z: -H * 0.08,
+    scale: 92,
+    colour: COLOUR.cloudShade,
+  });
 }
 
 function addInlandRanges(group, sea) {
@@ -156,36 +179,9 @@ function addInlandRanges(group, sea) {
       COLOUR.nearRange
     )
   );
-}
 
-function addSky(group, sea) {
-  const W = WORLD.width;
-  const H = WORLD.height;
-
-  // Low western sun and sparse sea clouds keep the coast broad and airy. The
-  // inland side gets only one higher shaded cloud so the mountain silhouette
-  // remains the dominant read when facing the Forks.
-  const sun = new Mesh(
-    new SphereGeometry(115, 12, 8),
-    new MeshBasicMaterial({ color: COLOUR.sun, fog: false })
-  );
-  sun.position.set(-W * 0.18, sea + 930, H * 0.04);
-  group.add(sun);
-
-  addCloud(group, {
-    x: -W * 0.12,
-    y: sea + 820,
-    z: H * 0.12,
-    scale: 120,
-    colour: COLOUR.cloudWarm,
-  });
-  addCloud(group, {
-    x: W * 0.22,
-    y: sea + 1020,
-    z: -H * 0.08,
-    scale: 92,
-    colour: COLOUR.cloudShade,
-  });
+  // One high shaded cloud belongs to the inland group, so it fades with the
+  // range rather than hanging over an otherwise empty western horizon.
   addCloud(group, {
     x: W * 1.02,
     y: sea + 1850,
@@ -195,13 +191,103 @@ function addSky(group, sea) {
   });
 }
 
+function setFadeable(group) {
+  group.traverse((object) => {
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    for (const material of materials) {
+      if (!material) continue;
+      material.transparent = true;
+      material.opacity = 0;
+      material.depthWrite = false;
+    }
+  });
+  group.visible = false;
+}
+
+function setOpacity(group, opacity) {
+  group.visible = opacity > 0.015;
+  if (!group.visible) return;
+  group.traverse((object) => {
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    for (const material of materials) {
+      if (material) material.opacity = opacity;
+    }
+  });
+}
+
+function clamp01(value) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function smoothstep(edge0, edge1, value) {
+  const t = clamp01((value - edge0) / (edge1 - edge0));
+  return t * t * (3 - 2 * t);
+}
+
+function facing(car, targetX, targetZ) {
+  const dx = targetX - car.x;
+  const dz = targetZ - car.y;
+  const length = Math.hypot(dx, dz) || 1;
+  const dot = car.forward.x * (dx / length) + car.forward.y * (dz / length);
+  return smoothstep(-0.08, 0.72, dot);
+}
+
 export function buildOtakiParallax(sea = 0) {
-  const group = new Group();
-  group.name = 'otaki-directional-parallax-backgrounds';
+  const root = new Group();
+  root.name = 'otaki-directional-parallax-backgrounds';
 
-  addCoastalHorizon(group, sea);
-  addInlandRanges(group, sea);
-  addSky(group, sea);
+  const coast = new Group();
+  coast.name = 'otaki-open-coast-background';
+  addCoastalHorizon(coast, sea);
+  setFadeable(coast);
+  root.add(coast);
 
-  return markDecorative(group);
+  const mountains = new Group();
+  mountains.name = 'otaki-forks-mountain-background';
+  addInlandRanges(mountains, sea);
+  setFadeable(mountains);
+  root.add(mountains);
+
+  root.userData.otakiParallax = {
+    coast,
+    mountains,
+    coastOpacity: 0,
+    mountainOpacity: 0,
+  };
+
+  return markDecorative(root);
+}
+
+// Render-only directional blend. `car.forward` is already the authoritative
+// body heading used by the camera; this never touches simulation state or RNG.
+export function updateOtakiParallax(root, car, dt) {
+  const state = root?.userData?.otakiParallax;
+  if (!state || !car) return;
+
+  const W = WORLD.width;
+  const H = WORLD.height;
+  const westwardProgress = 1 - car.x / W;
+
+  // The open horizon is only useful in the lower flats/town/coast half. The
+  // target sits north-west of the finish, matching the last road segment so the
+  // sea remains straight ahead rather than slipping to the side at the line.
+  const coastPosition = smoothstep(0.38, 0.88, westwardProgress);
+  const coastFacing = facing(car, -W * 0.18, -H * 0.45);
+  const targetCoast = coastPosition * coastFacing;
+
+  // The range can be seen from the coast when the player turns back inland, and
+  // becomes more imposing as the Forks get closer. Heading is the hard gate that
+  // prevents its peaks showing as fragments during the normal coastward run.
+  const inlandPosition = 0.68 + 0.32 * smoothstep(0.38, 0.94, car.x / W);
+  const inlandFacing = facing(car, W * 1.12, H * 0.2);
+  const targetMountains = inlandPosition * inlandFacing;
+
+  // About a third of a second to settle: enough to avoid a pop through a bend,
+  // quick enough that turning the car around clearly changes the horizon.
+  const alpha = dt > 0 ? 1 - Math.pow(0.003, dt / 0.34) : 1;
+  state.coastOpacity += (targetCoast - state.coastOpacity) * alpha;
+  state.mountainOpacity += (targetMountains - state.mountainOpacity) * alpha;
+
+  setOpacity(state.coast, state.coastOpacity);
+  setOpacity(state.mountains, state.mountainOpacity);
 }
