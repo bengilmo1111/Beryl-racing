@@ -52,6 +52,12 @@ These relationships support the town network rather than a single prescribed rib
 - baches, dunes, pines, a thin beach and open Tasman water;
 - no floating route labels, arrows, START gantry or labelled finish.
 
+### Directional parallax
+
+The two ends deliberately carry opposite distant backgrounds. The coast side has a very low, flat Tasman horizon with broad open sky and no invented island or headland, so the last northward run opens into sea. The Forks side has three progressively darker and steeper bush-covered range silhouettes beyond the eastern world edge.
+
+Both sets are real meshes at different depths, not a painted skybox. Their visibility is blended from Beryl's position and heading: the sea horizon grows in as she approaches and faces the beach, while the ranges appear when she turns inland and become strongest near the Forks. This prevents distant mountain peaks showing as detached fragments above fogged foreground terrain during the normal coastward drive.
+
 ## Deliberate departures
 
 - Distances and street spacing are compressed and rotated to fit a chase-camera game.
