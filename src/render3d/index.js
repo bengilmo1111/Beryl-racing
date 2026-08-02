@@ -16,6 +16,7 @@ import { buildEastbourne } from './themes/eastbourne.js';
 import { buildOtaki } from './themes/otaki.js';
 import { buildOtakiParallax, updateOtakiParallax } from './themes/otakiParallax.js';
 import { buildManfeild } from './themes/manfeild.js';
+import { buildHorizonRanges } from './themes/horizon.js';
 import { SkidRibbon } from './fx/skid.js';
 import { PuffPool } from './fx/puffs.js';
 import { ChaseCamera } from './chaseCamera.js';
@@ -97,6 +98,12 @@ class RaceWorld {
     }
     if (scene.def.theme === 'manfield') {
       this.scene3d.add(buildManfeild(scene.track, scene.def, this.terrain));
+    }
+    // Remutaka keeps the generic all-sided bush horizon added with the summer
+    // haze pass. Ōtaki deliberately does not: its bespoke coast/Forks contrast
+    // replaces that generic ring and is blended by position and heading above.
+    if (scene.def.theme === 'remutaka') {
+      this.scene3d.add(buildHorizonRanges());
     }
 
     this.scene3d.add(buildTrees(scene.scenery.trees, this.terrain));
