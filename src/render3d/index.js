@@ -9,7 +9,7 @@ import { C, makeFog } from './palette.js';
 import { getRenderer, showCanvas, syncSize, getCanvas } from './renderer.js';
 import { buildRoad, buildKerbs, buildApron, buildGround, buildCentreLine } from './road.js';
 import { buildStartLine, buildStartGantry } from './markers.js';
-import { buildBeryl, updateBeryl } from './berylRounder.js';
+import { buildBeryl, updateBeryl } from './beryl.js';
 import { buildTrees } from './trees.js';
 import { buildSigns } from './signs.js';
 import { buildEastbourne } from './themes/eastbourne.js';
