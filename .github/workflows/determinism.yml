@@ -24,6 +24,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      # Record once after the test driver gained primary-road look-ahead.
-      - name: Record Otaki road-following baseline
-        run: RECORD_BASELINES=1 npm run test:determinism
+      - name: Verify replay and obstacle baselines
+        run: npm run test:determinism
