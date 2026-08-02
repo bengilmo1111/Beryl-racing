@@ -1212,3 +1212,37 @@ days ago existed only because Remutaka and Ōtaki had no distant scenery; both n
 have bespoke layers, so it had no callers left.
 
 Determinism unchanged on all four courses, matrix 16/16.
+
+### PR #27 (lower, rounder Beryl): merged, then reverted
+
+Merged, attempted the fix, reverted. Recording why, because the *engineering*
+finding is reusable even though the art did not land.
+
+**The diagnosis was right but incomplete.** The review predicted one defect —
+pillars hard-coded at `x = ±W * 0.418, y = 70` against a shell that is only
+`W * 0.36` wide with a top of 76 at that station. Fixing it by deriving the pose
+from `cabinAt(z)` worked, and then the *same bug* appeared twice more:
+
+1. **Pillars** — 6 units outboard, standing proud of the roof.
+2. **Side glass** — pinned at `x = ±W * 0.414` while the shell tapers to
+   `W * 0.3765` by the front of the door glass. The dark slivers that looked like
+   detached struts in side view were the windows themselves.
+3. **Windscreen and rear screen** — 17 units tall centred on y 72 reaches 80.5
+   where the cabin top is 76; the rear screen reached 78 against 75.3. Both
+   speared out through the roofline.
+
+Every one is the same mistake: **a fixed coordinate measured against a lofted
+surface that moves**. It is the fourth, fifth and sixth time this model has hit
+it (the pinstripe floating 13 units off the bodywork and the bonnet seam above
+the bonnet were the earlier ones). The lesson for the next attempt: when the
+cabin loft changes, nothing may keep a literal x or y — pillars, glass, screens
+and trim must all be derived from `cabinAt(z)`.
+
+**Why it was reverted anyway.** With all three fixed the silhouette is clean, but
+the greenhouse has become a shallow dark band and the front three-quarter shows
+almost no windscreen. Against `public/assets/beryl-photo.png` — which has a tall
+greenhouse with generous windows, one of the Minor's strongest cues — it reads
+less like a Morris Minor than the model it replaces. The height figure itself is
+sound (91/217.6 = 0.418 against the real car's 1.55/3.73 = 0.416; the current 106
+is 0.487, genuinely too tall), so a future pass should keep the lower body and
+*raise the glass into it* rather than shrinking the cabin with the roof.
