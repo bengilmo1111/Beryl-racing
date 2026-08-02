@@ -37,6 +37,34 @@ function roundTime(value) {
   return Number(value.toFixed(6));
 }
 
+// Ōtaki deliberately keeps every gameplay gate before the town routes split,
+// plus the finish, so all branches are valid. The test driver still needs road
+// detail between those sparse gates or its screenshots show a straight-line cut
+// across paddocks. Give it a look-ahead point on the primary route without
+// changing checkpoints, player rules or simulation.
+function primaryDriveTarget(scene) {
+  if (scene.def.id !== 'otaki' || scene.finished) return null;
+  const line = scene.track.centerline;
+  if (!line?.length) return null;
+
+  let nearest = 0;
+  let best = Infinity;
+  for (let i = 0; i < line.length; i++) {
+    const dx = line[i].x - scene.car.x;
+    const dy = line[i].y - scene.car.y;
+    const distanceSq = dx * dx + dy * dy;
+    if (distanceSq < best) {
+      best = distanceSq;
+      nearest = i;
+    }
+  }
+
+  // About half a second of road at rally pace: far enough to steer smoothly,
+  // close enough to respect the gorge bends and town corners.
+  const target = line[Math.min(line.length - 1, nearest + 18)];
+  return { x: round(target.x), y: round(target.y) };
+}
+
 export function startHarness({ Phaser, config, createGame }) {
   const capturedErrors = captureHarnessErrors();
   const params = new URLSearchParams(window.location.search);
@@ -192,6 +220,7 @@ export function startHarness({ Phaser, config, createGame }) {
       checkpointsHit,
       checkpointsTotal,
       nextCheckpoint: next ? { x: round(next.x), y: round(next.y) } : null,
+      driveTarget: finished ? null : primaryDriveTarget(scene),
       lap: scene.lapNumber,
       finished,
       finishTimeMs:
