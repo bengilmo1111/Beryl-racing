@@ -122,3 +122,18 @@ export function buildTrees(trees, terrain) {
 
   return group;
 }
+
+// Standalone authored models. Re-exporting them here makes the build parse and
+// validate the library without changing any existing scenery placement.
+export {
+  NZ_TREE_CATALOG,
+  buildNzTreeAsset,
+  buildNzTreeShowcase,
+  buildPohutukawa,
+  buildTiKouka,
+  buildKowhai,
+  buildTotara,
+  buildKanuka,
+  buildRimu,
+  buildNorfolkPine,
+} from './models/nzTrees.js';
