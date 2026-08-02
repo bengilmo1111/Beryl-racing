@@ -1081,3 +1081,70 @@ removed; the library now costs nothing until something renders from it.
 `npm run build` had been changed to run the art validator first. That couples a
 Vercel deploy to art linting — a broken tree model would block shipping a
 gameplay fix. Moved to the determinism workflow instead, so CI still catches it.
+
+## 2026-08-02 — Ōtaki rebuilt Forks-to-coast (PR #26)
+
+The rally course is now the real route: Ōtaki Forks, the gravel upper gorge, the
+sealed lower gorge, market-garden flats, the river crossing, a rail overbridge,
+the old-town road network and the beach settlement. Eight gates, a
+sealed/gravel split matching DOC's description of the last five kilometres to
+the Forks, branch roads through town, and its own parallax layer.
+
+It correctly follows the `preScaled` / route-data-in-`tracks.js` pattern
+established when Eastbourne was rebuilt, which was good to see.
+
+### The change worth arguing about: the playtest driver
+
+The PR added a `driveTarget` to the harness — a look-ahead point on the primary
+road — and had the waypoint bot steer to it. That is a change to the *test
+driver*, which is the sharpest tool in the suite, so it deserved scrutiny.
+
+**Testing the premise first.** With it disabled, Ōtaki's bot still finishes: 100%
+of gates, 132.7 s, but **68% off-road**. So the change was not needed to pass —
+it was needed to stop the bot driving across paddocks between sparse gates.
+
+**Why the gates are sparse is legitimate.** A branching course must keep every
+required gate *before* its routes split, or one arbitrary street becomes the
+"correct" one. That leaves 44% of Ōtaki with no gate. Manfeild solved the same
+problem by adding gates (6 → 18), but Ōtaki cannot: measured against the primary,
+its branches run 460–1,500 units away through that span, far outside the ~350
+unit capture radius, so any gate there would invalidate the routes the sparse
+gates exist to protect.
+
+So the mechanism is justified. Two things about it were not.
+
+**It was keyed off `def.id === 'otaki'`** — one course hard-coded into a harness
+that is meant to know nothing about them. Removed.
+
+**Generalising it naively breaks Remutaka.** Made unconditional, the bot fails to
+finish at all: a fixed 18-sample look-ahead is a chord across a hairpin, and it
+cuts the switchbacks. So the rule is now about geometry, not identity — follow
+the road only while the next gate is more than 1,600 units away, aim at the gate
+once it is close. Courses whose gates are denser than that behave exactly as
+before.
+
+The result is a test driver that actually drives the road:
+
+| course | off-road, waypoint bot | before | after |
+|---|---|---:|---:|
+| eastbourne-dash | | 27% | **1%** |
+| manfield | | 32% | **4%** |
+| otaki | | 68% | **31%** |
+| remutaka | (gates dense — unchanged by design) | 63% | 62% |
+
+That also makes the off-road percentage a real signal about a *course* rather
+than about the bot's cornering, which it never was before.
+
+### Also fixed on merge
+
+The PR deleted the whole baseline history from `ac2-determinism.mjs`, replacing
+~50 lines of *why* with three lines of generic policy. That history is what makes
+a baseline change auditable — each entry records not just that numbers moved but
+which check the move proved (Manfield unchanged proving the `grade !== 0` guard
+is free; Eastbourne's finish state unchanged proving buildings sit off the racing
+line). Restored, condensed to a list, with a note saying why it is kept.
+
+Also restored the module header and lighting-rig rationale in `render3d/index.js`.
+
+All four baselines re-recorded — every course moves, because the bot corners on
+the road now. Matrix 16/16.

@@ -37,15 +37,29 @@ function roundTime(value) {
   return Number(value.toFixed(6));
 }
 
-// Ōtaki deliberately keeps every gameplay gate before the town routes split,
-// plus the finish, so all branches are valid. The test driver still needs road
-// detail between those sparse gates or its screenshots show a straight-line cut
-// across paddocks. Give it a look-ahead point on the primary route without
-// changing checkpoints, player rules or simulation.
+// A look-ahead point on the primary road, for the test driver only.
+//
+// Why this exists: a branching course has to keep its required gates *before*
+// the routes split, or one arbitrary street becomes the "correct" one. Ōtaki
+// does exactly that, which leaves 44% of the route with no gate at all — and a
+// bot that aims only at gates then drives a straight line across the paddocks
+// between them. Manfeild solved the same problem by adding gates (6 -> 18), but
+// Ōtaki cannot: its branches run up to 1,500 units off the primary, far beyond
+// the ~350-unit capture radius, so any gate placed in that span would invalidate
+// the very routes the sparse gates exist to protect.
+//
+// This is deliberately NOT course-specific. The first version keyed off
+// `def.id === 'otaki'`, which hard-codes one course into a harness that is meant
+// to know nothing about them; and a test driver that follows the road is the
+// better driver everywhere, because it makes the off-road percentage a real
+// signal about the course rather than about the bot's cornering.
+//
+// It changes no checkpoint, no player rule and no simulation — this field is
+// only read by playtest bots.
 function primaryDriveTarget(scene) {
-  if (scene.def.id !== 'otaki' || scene.finished) return null;
+  if (scene.finished) return null;
   const line = scene.track.centerline;
-  if (!line?.length) return null;
+  if (!line || !line.length) return null;
 
   let nearest = 0;
   let best = Infinity;
@@ -59,9 +73,13 @@ function primaryDriveTarget(scene) {
     }
   }
 
-  // About half a second of road at rally pace: far enough to steer smoothly,
-  // close enough to respect the gorge bends and town corners.
-  const target = line[Math.min(line.length - 1, nearest + 18)];
+  // About half a second of road ahead: far enough to steer smoothly, close
+  // enough to respect gorge bends and town corners. A closed circuit wraps;
+  // a point-to-point clamps at the finish.
+  const ahead = nearest + 18;
+  const target = scene.track.closed
+    ? line[ahead % line.length]
+    : line[Math.min(line.length - 1, ahead)];
   return { x: round(target.x), y: round(target.y) };
 }
 

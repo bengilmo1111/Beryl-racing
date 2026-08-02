@@ -1,5 +1,8 @@
-// The 3D view of a race. Phaser owns simulation/input/HUD; this module only
-// reads scene state and renders it.
+// The 3D view of a race.
+//
+// Phaser still owns the simulation, the HUD, input, audio and the playtest
+// harness. This module owns everything the player sees of the world: it reads
+// car and track state and draws it, and never writes back.
 import Phaser from 'phaser';
 import { Scene, HemisphereLight, DirectionalLight } from 'three';
 import { C, makeFog } from './palette.js';
@@ -30,8 +33,17 @@ class RaceWorld {
     this.scene3d.background = C.sky.clone();
     this.scene3d.fog = makeFog();
 
-    // Bright, soft low-poly lighting. No shadow maps: contact discs do the job
-    // at this scale and SwiftShader/landscape phones are happier without them.
+    // Soft and restrained, per docs/ART-DIRECTION.md, and deliberately bright.
+    //
+    // The rig is tuned so a vertical surface still reads close to its authored
+    // colour. A hemisphere light gives a horizontal normal the midpoint of its
+    // sky and ground colours, so a dim rig with a deep-grass ground colour left
+    // Beryl's turquoise rear reading as a muddy teal — the one face the player
+    // looks at all race. Bright sky, pale warm ground bounce, and a gentle sun
+    // that models form without carving out dark sides.
+    //
+    // No shadow maps: they cost, SwiftShader in CI is happier without them, and
+    // flat contact-shadow discs read fine at this scale.
     this.scene3d.add(new HemisphereLight(0xdfefff, 0xa9c69a, 1.35));
     const sun = new DirectionalLight(0xfff3d0, 0.55);
     sun.position.set(-1, 2, -0.6);
@@ -41,14 +53,22 @@ class RaceWorld {
     this.otakiParallax = null;
     this.scene3d.add(buildGround(this.terrain));
 
-    // Branch streets are deliberately bare tarmac. Giving every town street an
-    // apron, kerbs and centre line creates a knot of overlapping markings at
-    // junctions; only the primary through-road carries those treatments.
+    // Ground first, then every driveable road, each painted outward-in and
+    // bottom-up: apron, road, centre line, kerbs.
+    //
+    // Branch streets are deliberately bare tarmac. Aprons, kerbs and centre
+    // lines are highway markings, and drawing them on every street turned
+    // Eastbourne's village into a paved yard: five roads converge there, so ten
+    // painted kerb lines, ten run-off bands and five lines of dashes all crossed
+    // each other at the junctions. A side street that is simply sealed tarmac
+    // joining the main road reads as a street, and is what they look like.
     const roads = scene.track.roads || [scene.track];
     for (const road of roads) {
       const through = road === roads[0];
       if (through) for (const strip of buildApron(road)) this.scene3d.add(strip);
       this.scene3d.add(buildRoad(road));
+      // A race circuit has no centre line either — Manfeild gets rumble kerbs
+      // and a start/finish line, which is what actually marks a racing surface.
       if (through && scene.def.theme !== 'manfield') {
         this.scene3d.add(buildCentreLine(road));
       }
