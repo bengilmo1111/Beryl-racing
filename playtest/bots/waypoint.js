@@ -7,7 +7,11 @@ function wrapAngle(angle) {
 }
 
 export default function waypoint(state) {
-  const target = state.nextCheckpoint;
+  // Branching courses keep their required gameplay gates before the split so
+  // every town route is valid. For automated visual/play tests the harness may
+  // additionally supply a look-ahead point on the primary road, preventing the
+  // bot from drawing a straight line across the landscape between sparse gates.
+  const target = state.driveTarget || state.nextCheckpoint;
   if (!target || state.finished) return { throttle: 0, brake: 1, steer: 0 };
 
   const dx = target.x - state.pos.x;
