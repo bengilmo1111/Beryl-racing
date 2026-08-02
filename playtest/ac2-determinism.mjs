@@ -47,6 +47,11 @@ import { TRACKS } from '../src/tracks.js';
 //   driver started following the primary road between sparse gates (see
 //   primaryDriveTarget in src/harness/index.js). The latter moves every course,
 //   because the bot now corners on the road instead of aiming across country.
+// - Otaki's fingerprint moved once more when its farmhouse footprints were put
+//   back under src/structures.js. The rebuild had left the theme owning its own
+//   copy of the positions, so the visible houses and their collision circles were
+//   thousands of units apart. Its finish time and position did not move, which is
+//   how we know the bot was touching neither set.
 const BASELINES = {
   'eastbourne-dash': {
     finishTimeMs: 88300,
@@ -74,7 +79,7 @@ const BASELINES = {
   otaki: {
     finishTimeMs: 112600,
     pos: { x: 1198.201214702, y: 8335.845253765 },
-    obstacles: 'f30794a984cd487e',
+    obstacles: '9d263852ff4450a1',
   },
 };
 

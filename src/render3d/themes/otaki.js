@@ -52,10 +52,19 @@ function terrainPlane(width, depth, colour, x, z, terrain, lift = 2) {
   return mesh;
 }
 
-function placeFarmhouse(group, terrain, spec) {
-  const farmhouse = buildOtakiFarmhouse(spec);
-  farmhouse.position.set(spec.x, terrain.heightAt(spec.x, spec.z) + 1, spec.z);
-  farmhouse.rotation.y = spec.yaw;
+// Farmhouses are solid, and their poses come from the resolved structure list in
+// src/structures.js — the same footprints the car collides with. Placing a model
+// anywhere else puts the house you can see and the house you can hit in
+// different places, which is exactly what happened when this theme briefly kept
+// its own copy of the positions.
+function placeFarmhouse(group, terrain, structure, palette) {
+  const farmhouse = buildOtakiFarmhouse({
+    variant: structure.variant,
+    palette,
+    shed: structure.shed,
+  });
+  farmhouse.position.set(structure.x, terrain.heightAt(structure.x, structure.z) + 1, structure.z);
+  farmhouse.rotation.y = structure.yaw;
   group.add(farmhouse);
 }
 
@@ -263,42 +272,30 @@ function addBeach(group, terrain, layout) {
   }
 }
 
-function addFarmhouses(group, terrain) {
-  const farmhouses = [
+function addFarmhouses(group, terrain, structures) {
+  // Palettes only; positions and footprints belong to src/structures.js.
+  const palettes = [
     {
-      x: 14350, z: 3900, yaw: -0.18, variant: 'homestead', shed: true,
-      palette: {
-        wall: 0xeee6d2, trim: 0xfff7e3, roof: 0x6f7775, door: 0x6c4d3c,
-        shedWall: 0x8a6a4d, shedRoof: 0x7b5a4e,
-      },
+      wall: 0xeee6d2, trim: 0xfff7e3, roof: 0x6f7775, door: 0x6c4d3c,
+      shedWall: 0x8a6a4d, shedRoof: 0x7b5a4e,
     },
+    { wall: 0xdce3cf, trim: 0xf6efd9, roof: 0x8b4e3e, door: 0x6a4438 },
     {
-      x: 12400, z: 4450, yaw: Math.PI + 0.08, variant: 'gabled', shed: false,
-      palette: { wall: 0xdce3cf, trim: 0xf6efd9, roof: 0x8b4e3e, door: 0x6a4438 },
+      wall: 0xeee9df, trim: 0xffffff, roof: 0x68746f, door: 0x58705d,
+      shedWall: 0x9b7d5b, shedRoof: 0x74554b,
     },
+    { wall: 0xe3cfaa, trim: 0xfaf2df, roof: 0x4f585e, door: 0x7c4538 },
     {
-      x: 10900, z: 6000, yaw: 0.18, variant: 'cottage', shed: true,
-      palette: {
-        wall: 0xeee9df, trim: 0xffffff, roof: 0x68746f, door: 0x58705d,
-        shedWall: 0x9b7d5b, shedRoof: 0x74554b,
-      },
-    },
-    {
-      x: 8200, z: 7200, yaw: Math.PI - 0.16, variant: 'two-storey', shed: false,
-      palette: { wall: 0xe3cfaa, trim: 0xfaf2df, roof: 0x4f585e, door: 0x7c4538 },
-    },
-    {
-      x: 7000, z: 7550, yaw: 0.42, variant: 'homestead', shed: true,
-      palette: {
-        wall: 0xd9d2c2, trim: 0xf3ecdc, roof: 0x6a725e, door: 0x6e4638,
-        shedWall: 0x896c51, shedRoof: 0x895448,
-      },
+      wall: 0xd9d2c2, trim: 0xf3ecdc, roof: 0x6a725e, door: 0x6e4638,
+      shedWall: 0x896c51, shedRoof: 0x895448,
     },
   ];
-  for (const farmhouse of farmhouses) placeFarmhouse(group, terrain, farmhouse);
+  structures
+    .filter((s) => s.kind === 'farmhouse')
+    .forEach((s, i) => placeFarmhouse(group, terrain, s, palettes[i % palettes.length]));
 }
 
-export function buildOtaki(track, def, terrain) {
+export function buildOtaki(track, def, terrain, structures = []) {
   const group = new Group();
   group.name = 'otaki-forks-to-coast';
 
@@ -309,7 +306,7 @@ export function buildOtaki(track, def, terrain) {
   addRiver(group, track, def, terrain);
   addRailOverbridge(group, track, def);
   addMarketGardens(group, terrain);
-  addFarmhouses(group, terrain);
+  addFarmhouses(group, terrain, structures);
   addTown(group, terrain, layout);
 
   return group;

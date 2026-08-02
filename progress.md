@@ -1148,3 +1148,26 @@ Also restored the module header and lighting-rig rationale in `render3d/index.js
 
 All four baselines re-recorded — every course moves, because the bot corners on
 the road now. Matrix 16/16.
+
+### Regression caught after the Ōtaki merge: farmhouses came unstuck
+
+Merging PR #26 quietly undid the single-list rule for Ōtaki. Its rebuilt theme
+went back to owning a copy of the farmhouse positions, so `buildOtaki` was still
+*handed* `scene.structures` and simply ignored them — while `structures.js` went
+on returning the pre-rebuild coordinates.
+
+The result on the live branch: five farmhouses you could drive straight through,
+and nine invisible collision blobs sitting thousands of units away, at positions
+that meant nothing in the new 19000×11000 world. Rendered (14350, 3900) against a
+collision circle at (14067, **6727**).
+
+Positions moved back under `src/structures.js`; the theme keeps only palettes.
+Worth noting what did and did not catch it: `node --check` passed, `npm run
+build` passed (Vite does not resolve free variables), and the playtest matrix
+passed — because the bot never drove into either set. It was only visible by
+comparing the two lists directly. The determinism run *did* catch the follow-up
+slip, where `buildOtaki`'s signature had lost its `structures` parameter, because
+that threw at scene creation.
+
+Ōtaki's fingerprint moved; its finish time and position did not, which is how we
+know the bot was touching neither set. Matrix 16/16.

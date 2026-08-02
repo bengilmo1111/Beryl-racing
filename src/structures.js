@@ -156,34 +156,38 @@ function eastbourneStructures() {
   ];
 }
 
-function otakiStructures(def) {
-  // Ported from the farmhouse array the Ōtaki theme used to own. Footprints
-  // cover the homestead and, where there is one, its shed.
-  const sx = def.world.width / 5200;
-  const sz = def.world.height / 5200;
-  const SIZE = {
-    homestead: { w: 250, d: 164 },
-    gabled: { w: 230, d: 142 },
-    cottage: { w: 178, d: 122 },
-    'two-storey': { w: 190, d: 138 },
-  };
-  return [
-    [3850, 3180, -0.18, 'homestead', true],
-    [3420, 2550, Math.PI + 0.08, 'gabled', false],
-    [2970, 3000, 0.18, 'cottage', true],
-    [2820, 1940, Math.PI - 0.16, 'two-storey', false],
-    [2350, 2420, 0.42, 'homestead', true],
-    [2050, 1700, -0.25, 'gabled', false],
-  ].flatMap(([ax, az, yaw, variant, shed]) => {
-    const x = ax * sx;
-    const z = az * sz;
-    const out = [{ kind: 'farmhouse', variant, shed, x, z, yaw, ...SIZE[variant] }];
+// Ōtaki's farmhouses through the market-garden flats.
+//
+// Authored here, at final world scale, and read back by themes/otaki for
+// rendering. When the course was rebuilt Forks-to-coast the theme briefly went
+// back to owning its own copy of these positions, which left five farmhouses you
+// could drive straight through and nine invisible collision blobs sitting where
+// the old pre-rebuild course used to be — the exact split this module exists to
+// prevent. Palettes stay in the theme; positions live here.
+const OTAKI_FARMHOUSES = [
+  { x: 14350, z: 3900, yaw: -0.18, variant: 'homestead', shed: true },
+  { x: 12400, z: 4450, yaw: Math.PI + 0.08, variant: 'gabled', shed: false },
+  { x: 10900, z: 6000, yaw: 0.18, variant: 'cottage', shed: true },
+  { x: 8200, z: 7200, yaw: Math.PI - 0.16, variant: 'two-storey', shed: false },
+  { x: 7000, z: 7550, yaw: 0.42, variant: 'homestead', shed: true },
+];
+
+const FARMHOUSE_FOOTPRINT = {
+  homestead: { w: 250, d: 164 },
+  gabled: { w: 230, d: 142 },
+  cottage: { w: 178, d: 122 },
+  'two-storey': { w: 190, d: 138 },
+};
+
+function otakiStructures() {
+  return OTAKI_FARMHOUSES.flatMap(({ x, z, yaw, variant, shed }) => {
+    const out = [{ kind: 'farmhouse', variant, shed, x, z, yaw, ...FARMHOUSE_FOOTPRINT[variant] }];
     if (shed) {
       // The shed sits at local (190, 105) inside the farmhouse group.
       const c = Math.cos(yaw);
-      const s = Math.sin(yaw);
+      const sn = Math.sin(yaw);
       out.push({
-        kind: 'shed', x: x + 190 * c + 105 * s, z: z - 190 * s + 105 * c,
+        kind: 'shed', x: x + 190 * c + 105 * sn, z: z - 190 * sn + 105 * c,
         w: 115, d: 95, yaw: yaw - 0.18,
       });
     }
@@ -245,7 +249,7 @@ function manfeildStructures(def, track) {
 export function buildStructures(def, track) {
   let list = [];
   if (def.theme === 'eastbourne') list = eastbourneStructures();
-  else if (def.theme === 'otaki') list = otakiStructures(def);
+  else if (def.theme === 'otaki') list = otakiStructures();
   else if (def.theme === 'manfield') list = manfeildStructures(def, track);
 
   const roads = track.roads || [track];
