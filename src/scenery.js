@@ -23,6 +23,10 @@ const VARIANTS = ['tree-1', 'tree-2', 'tree-3'];
 // radius stop depending on a Phaser GameObject having been created.
 const TREE_TEXTURE_SIZE = 128;
 
+function insideRect(x, y, rect) {
+  return rect && x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h;
+}
+
 // Returns { trees, obstacles }. `trees` is render data (the caller decides
 // whether that means a sprite or a mesh); `obstacles` is gameplay and must be
 // appended to the scene's obstacle list in this order.
@@ -47,8 +51,6 @@ export function scatterScenery(track, def) {
 
     if (def.theme === 'eastbourne') {
       // The harbour and continuous narrow beach occupy the whole western edge.
-      // Previously this exclusion stopped before the end of the course, leaving
-      // trees standing in the water beside Eastbourne village.
       if (x < WORLD.width * 0.23) continue;
 
       // Keep the deliberately authored village core readable: clinic, shop row,
@@ -59,14 +61,18 @@ export function scatterScenery(track, def) {
     }
 
     if (def.theme === 'otaki') {
-      const b = def.scenery && def.scenery.beach;
-      if (b && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) continue;
+      // These filters run only after the two coordinate draws above, preserving
+      // the deterministic call order. The route itself is still cleared below
+      // by distanceToCenterline(), which transparently sees every branch road.
+      const beach = def.layout?.zones?.beach || def.scenery?.beach;
+      const town = def.layout?.zones?.town;
+      if (insideRect(x, y, beach) || insideRect(x, y, town)) continue;
     }
 
-    // distanceToCenterline transparently checks the complete Eastbourne road
-    // network, so no alternate route receives trees or invisible obstacles.
+    // distanceToCenterline transparently checks the complete road network, so
+    // no alternate route receives trees or invisible obstacles.
     const d = distanceToCenterline(x, y, track.centerline);
-    if (d < TRACK.roadWidth / 2 + 90) continue; // keep clear of every road
+    if (d < TRACK.roadWidth / 2 + 90) continue;
 
     const variant = Phaser.Utils.Array.GetRandom(VARIANTS);
     const scale = Phaser.Math.FloatBetween(0.7, 1.4);
