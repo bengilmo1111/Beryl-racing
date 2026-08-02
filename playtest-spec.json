@@ -51,11 +51,11 @@
       "maxOutOfBoundsEvents": 0
     },
     "otaki": {
-      "checkpointsTotal": 13,
+      "checkpointsTotal": 8,
       "waypointMustFinish": true,
       "finishTimeMs": {
-        "min": 69000,
-        "max": 100000
+        "min": 100000,
+        "max": 190000
       },
       "minimumWaypointCheckpointRate": 1,
       "noSoftlock": true,
