@@ -30,11 +30,12 @@ const BASELINES = {
   },
   // Re-recorded 2026-08-02 for the complete Ōtaki replacement: a much longer
   // Forks-to-coast route, realistic sealed/gravel split, eight gates, branch
-  // roads through town and a newly filtered obstacle field. Eastbourne,
-  // Manfeild and Remutaka stayed byte-identical.
+  // roads through town and a newly filtered obstacle field. The test driver now
+  // follows the primary road between sparse branch-safe gates rather than
+  // cutting straight across paddocks. Other courses stayed byte-identical.
   otaki: {
-    finishTimeMs: 132683.333333,
-    pos: { x: 1447.921500501, y: 7976.607908423 },
+    finishTimeMs: 105300,
+    pos: { x: 1143.180988072, y: 8345.932976982 },
     obstacles: '6e270ace41b2c2d7',
   },
 };
