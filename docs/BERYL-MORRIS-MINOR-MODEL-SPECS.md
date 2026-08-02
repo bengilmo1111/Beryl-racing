@@ -226,18 +226,18 @@ A literal proportional conversion would look too narrow, delicate, and realistic
 
 ## 9. Dimensions used in the new low-poly Beryl
 
-Current implementation in `src/render3d/beryl.js` on `feature/model-informed-cute-beryl`:
+Current implementation in `src/render3d/beryl.js`:
 
 ```js
 BERYL.width  = 108.8
 BERYL.length = 217.6
-BERYL.height = 96
+BERYL.height = 91
 
-WHEEL_R      = width  × 0.235 = 25.568
-WHEEL_W      = width  × 0.185 = 20.128
+WHEEL_R      = width  × 0.205 = 22.304
+WHEEL_W      = width  × 0.150 = 16.320
 AXLE_FRONT   = length × -0.31 = -67.456
 AXLE_REAR    = length × 0.255 = 55.488
-AXLE_X       = width  × 0.435 = ±47.328
+AXLE_X       = width  × 0.425 = ±46.240
 ```
 
 Derived game dimensions:
@@ -246,11 +246,16 @@ Derived game dimensions:
 |---|---:|---:|
 | Length | 217.60 | 1.000 of length |
 | Width | 108.80 | 0.500 of length |
-| Height | 96.00 | 0.441 of length |
-| Wheel diameter | 51.14 | 47.0% of width |
-| Wheel width | 20.13 | 18.5% of width |
+| Height | 91.00 | 0.418 of length |
+| Wheel diameter | 44.61 | 41.0% of width |
+| Wheel width | 16.32 | 15.0% of width |
 | Wheelbase | 122.94 | **56.5% of length** |
-| Track width | 94.66 | **87.0% of width** |
+| Track width | 92.48 | **85.0% of width** |
+
+Height is the one figure that is *not* exaggerated. A real Minor 1000 is
+1524 mm tall on 3759 mm of length — a ratio of 0.406 — so 0.418 is close to
+literal. Height is what makes a car read as its era, and an over-tall Minor
+stops looking like a Minor at all.
 
 ### What was preserved
 
@@ -264,10 +269,9 @@ Derived game dimensions:
 ### What was deliberately exaggerated
 
 - Width: `108.8` rather than the model-proportional `85.3`.
-- Height: `96` rather than the model-proportional body height of `70.9`.
-- Wheel diameter: `51.1` rather than the model-proportional `33.8`.
-- Wheel thickness: `20.1` rather than the model-proportional `9.1`.
-- Track: `94.7` rather than the model-proportional `73.1`.
+- Wheel diameter: `44.6` rather than the model-proportional `33.8`.
+- Wheel thickness: `16.3` rather than the model-proportional `9.1`.
+- Track: `92.5` rather than the model-proportional `73.1`.
 
 These changes make Beryl squatter, broader, sturdier, and more readable from the chase camera while preserving the underlying Morris Minor layout.
 
