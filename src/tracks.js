@@ -179,13 +179,11 @@ export const TRACKS = [
       grassDrag: 900,
       driftLateral: 70,
     },
-    // A circuit wants to be legible. The default 1200–3000 band is tuned for the
-    // point-to-point courses, where fog hiding the road round the next headland
-    // is a feature; on a lap that folds back on itself it erased the pit
-    // complex, the grandstand and the opposite straight — the things that tell
-    // you where you are. This band keeps the far side of the venue readable and
-    // still washes the horizon into the ranges behind it.
-    fog: { near: 3200, far: 9000 },
+    // Wider still than the default. Manfeild's world is 14,500 units across and
+    // the whole venue is meant to be legible from anywhere on the lap — the pit
+    // complex, the grandstand and the opposite straight are what tell you where
+    // you are on a layout that folds back on itself twice.
+    fog: { near: 6000, far: 20000 },
     storageKey: 'beryl-racing-3d.manfield.bestLapMs.v1',
     hud: { current: 'LAP TIME', progress: 'LAP 1', lapWord: 'LAP' },
     bestLabel: 'Best lap',

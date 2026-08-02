@@ -23,6 +23,7 @@ export const C = {
   sand: new Color(COLORS.sand),
   berylBody: new Color(COLORS.berylBody),
   berylRoof: new Color(COLORS.berylRoof),
+  haze: new Color(COLORS.haze),
   glass: new Color(COLORS.glass),
   chrome: new Color(COLORS.chrome),
 };
@@ -59,7 +60,7 @@ export const CAMERA_NEAR = 50;
 export const CAMERA_FAR = 24000;
 
 export function makeFog() {
-  return new Fog(C.sky.getHex(), FOG.near, FOG.far);
+  return new Fog(C.haze.getHex(), FOG.near, FOG.far);
 }
 
 export function lambert(color, opts = {}) {

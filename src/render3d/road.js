@@ -12,6 +12,10 @@ import { C, basic, lambert } from './palette.js';
 // but far enough outside the depth buffer's resolution at distance that the two
 // surfaces can never argue about which is on top.
 export const GROUND_Y = -8;
+// How far past the height grid the terrain's outer ring is dragged, so the
+// ground reaches the horizon instead of ending in mid-air. Comfortably beyond
+// CAMERA_FAR from anywhere on any course.
+const SKIRT = 30000;
 export const ROAD_Y = 0;
 export const APRON_Y = 0.2;
 export const CENTRE_LINE_Y = 0.4;
@@ -316,9 +320,19 @@ function buildTerrainMesh(info) {
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const k = (r * cols + c) * 3;
-      positions[k] = minX + c * cell;
+      // Skirt: the outermost ring is thrown far out, keeping its own height.
+      //
+      // The height grid only covers the world plus a small pad, which was
+      // invisible while fog swallowed everything past 3000 units. With the view
+      // opened up you would otherwise see the mesh simply stop, and a hard edge
+      // with sky under it reads instantly as "the ground has run out" — the same
+      // failure buildGround's flat quad is oversized to avoid. Dragging the edge
+      // ring outward continues the terrain to the horizon for no extra cells.
+      const edgeX = c === 0 ? -SKIRT : c === cols - 1 ? SKIRT : 0;
+      const edgeZ = r === 0 ? -SKIRT : r === rows - 1 ? SKIRT : 0;
+      positions[k] = minX + c * cell + edgeX;
       positions[k + 1] = grid[r * cols + c] + GROUND_Y;
-      positions[k + 2] = minY + r * cell;
+      positions[k + 2] = minY + r * cell + edgeZ;
     }
   }
 

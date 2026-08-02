@@ -15,6 +15,7 @@ import { buildSigns } from './signs.js';
 import { buildEastbourne } from './themes/eastbourne.js';
 import { buildOtaki } from './themes/otaki.js';
 import { buildManfeild } from './themes/manfeild.js';
+import { buildHorizonRanges } from './themes/horizon.js';
 import { SkidRibbon } from './fx/skid.js';
 import { PuffPool } from './fx/puffs.js';
 import { ChaseCamera } from './chaseCamera.js';
@@ -96,6 +97,12 @@ class RaceWorld {
     }
     if (scene.def.theme === 'manfield') {
       this.scene3d.add(buildManfeild(scene.track, scene.def, this.terrain));
+    }
+    // Remutaka and Ōtaki have no bespoke parallax layer. With the haze pushed
+    // back far enough to see the whole course, they need *something* on the
+    // horizon or the terrain skirt reads as an endless flat plain.
+    if (scene.def.theme === 'remutaka' || scene.def.theme === 'otaki') {
+      this.scene3d.add(buildHorizonRanges());
     }
 
     this.scene3d.add(buildTrees(scene.scenery.trees, this.terrain));
