@@ -9,19 +9,19 @@ import { TRACKS } from '../src/tracks.js';
 // these pinned values also catch three identical but wrong runs. Re-record only
 // when gameplay deliberately changes, and say why.
 const BASELINES = {
-  // Complete Eastbourne route replacement: longer coast run, branch network,
-  // seven gates and a different obstacle field.
+  // Complete Eastbourne route replacement. The obstacle fingerprint includes
+  // the later solid-structure pass merged from 3d-port; finish state is unchanged.
   'eastbourne-dash': {
     finishTimeMs: 108133.333333,
     pos: { x: 2670.485515835, y: 13879.714365457 },
-    obstacles: '9404101c358ce680',
+    obstacles: '5bbda54a9e300c32',
   },
-  // Real Manfeild layout, enlarged so its broad road fits the tightest radius;
-  // no trees or collision circles on the race venue.
+  // Real Manfeild layout. Its fingerprint now includes the solid pit buildings,
+  // grandstand, sheds and marshal huts from the shared-structure pass.
   manfield: {
     finishTimeMs: 34883.333333,
     pos: { x: 8271.057258642, y: 6535.478402139 },
-    obstacles: '4f53cda18c2baa0c',
+    obstacles: 'daa5a3d3cd8a28cb',
   },
   remutaka: {
     finishTimeMs: 91966.666667,
@@ -32,7 +32,7 @@ const BASELINES = {
   // Forks-to-coast route, realistic sealed/gravel split, eight gates, branch
   // roads through town and a newly filtered obstacle field. The test driver now
   // follows the primary road between sparse branch-safe gates rather than
-  // cutting straight across paddocks. Other courses stayed byte-identical.
+  // cutting straight across paddocks.
   otaki: {
     finishTimeMs: 105300,
     pos: { x: 1143.180988072, y: 8345.932976982 },
