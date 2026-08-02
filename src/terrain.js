@@ -4,6 +4,8 @@
 // placement, skid decals and the ground mesh all read `heightAt()` from here.
 // The road network is the landform's skeleton: primary and branch roads are all
 // pinned into the same field so alternate streets neither float nor disappear.
+import { getSelectedTrack } from './tracks.js';
+import { remutakaRoadProfile, remutakaVisualHeight } from './remutakaTerrain.js';
 
 const CELL = 120;
 const BLUR_PASSES = 3;
@@ -36,11 +38,15 @@ export class Terrain {
           x: road.centerline[i].x,
           y: road.centerline[i].y,
           h: road.heights[i],
+          index: i,
           pinRadiusSq: (road.half * 2 * ROAD_PIN_FACTOR) ** 2,
         });
       }
     }
 
+    const def = getSelectedTrack();
+    const remutaka = def?.theme === 'remutaka';
+    const nearestSample = remutaka ? new Int32Array(this.cols * this.rows) : null;
     const grid = new Float32Array(this.cols * this.rows);
     const pinned = new Uint8Array(this.cols * this.rows);
     const seas = (track.sea || []).map((s) => (
@@ -62,18 +68,22 @@ export class Terrain {
         const wx = this.minX + c * CELL;
         let best = Infinity;
         let bestSample = samples[0];
-        for (const sample of samples) {
+        let bestSampleIndex = 0;
+        for (let i = 0; i < samples.length; i++) {
+          const sample = samples[i];
           const dx = sample.x - wx;
           const dy = sample.y - wy;
           const d = dx * dx + dy * dy;
           if (d < best) {
             best = d;
             bestSample = sample;
+            bestSampleIndex = i;
           }
         }
 
         const k = r * this.cols + c;
         grid[k] = bestSample ? bestSample.h : 0;
+        if (nearestSample) nearestSample[k] = bestSampleIndex;
         if (bestSample && best <= bestSample.pinRadiusSq) pinned[k] = 1;
 
         // Water stays flat, but never overwrites a road or bridge cell.
@@ -95,15 +105,39 @@ export class Terrain {
       }
     }
 
-    this.grid = this.#blur(grid, pinned);
+    // Keep the original smooth nearest-road field as the physics truth. The
+    // recorded climb depends on its grade, and an art pass must not silently
+    // change Beryl's acceleration or the waypoint driver's finish state.
+    this.physicsGrid = this.#blur(grid, pinned);
+    this.grid = this.physicsGrid;
+
+    if (remutaka) {
+      const profile = remutakaRoadProfile(track);
+      const visual = Float32Array.from(this.physicsGrid);
+      for (let r = 0; r < this.rows; r++) {
+        const wz = this.minY + r * CELL;
+        for (let c = 0; c < this.cols; c++) {
+          const k = r * this.cols + c;
+          if (pinned[k]) continue;
+          const wx = this.minX + c * CELL;
+          const sample = samples[nearestSample[k]];
+          const point = profile[sample?.index || 0];
+          visual[k] = remutakaVisualHeight(point, wx, wz, this.physicsGrid[k], track.half);
+        }
+      }
+      // One restrained smoothing pass joins the grid cells without sanding the
+      // cliff back into the broad plateau this course used to have. Road cells
+      // remain restored to their exact original heights by #blur.
+      this.grid = this.#blur(visual, pinned, 1);
+    }
   }
 
-  #blur(grid, pinned) {
+  #blur(grid, pinned, passes = BLUR_PASSES) {
     const { cols, rows } = this;
     const original = Float32Array.from(grid);
     let src = grid;
     let dst = new Float32Array(cols * rows);
-    for (let pass = 0; pass < BLUR_PASSES; pass++) {
+    for (let pass = 0; pass < passes; pass++) {
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           let sum = 0;
@@ -131,33 +165,45 @@ export class Terrain {
     return src;
   }
 
-  #at(c, r) {
+  #at(grid, c, r) {
     const col = c < 0 ? 0 : c >= this.cols ? this.cols - 1 : c;
     const row = r < 0 ? 0 : r >= this.rows ? this.rows - 1 : r;
-    return this.grid[row * this.cols + col];
+    return grid[row * this.cols + col];
   }
 
-  heightAt(x, y) {
-    if (this.flat) return 0;
+  #sample(grid, x, y) {
     const fx = (x - this.minX) / CELL;
     const fy = (y - this.minY) / CELL;
     const c0 = Math.floor(fx);
     const r0 = Math.floor(fy);
     const tx = fx - c0;
     const ty = fy - r0;
-    const h00 = this.#at(c0, r0);
-    const h10 = this.#at(c0 + 1, r0);
-    const h01 = this.#at(c0, r0 + 1);
-    const h11 = this.#at(c0 + 1, r0 + 1);
+    const h00 = this.#at(grid, c0, r0);
+    const h10 = this.#at(grid, c0 + 1, r0);
+    const h01 = this.#at(grid, c0, r0 + 1);
+    const h11 = this.#at(grid, c0 + 1, r0 + 1);
     const a = h00 + (h10 - h00) * tx;
     const b = h01 + (h11 - h01) * tx;
     return a + (b - a) * ty;
   }
 
+  heightAt(x, y) {
+    if (this.flat) return 0;
+    return this.#sample(this.grid, x, y);
+  }
+
+  physicsHeightAt(x, y) {
+    if (this.flat) return 0;
+    return this.#sample(this.physicsGrid, x, y);
+  }
+
   gradeAlong(x, y, fwdX, fwdY, step = CELL * 0.5) {
     if (this.flat) return 0;
-    const ahead = this.heightAt(x + fwdX * step, y + fwdY * step);
-    const behind = this.heightAt(x - fwdX * step, y - fwdY * step);
+    // Grade is intentionally sampled from the original field, not Remutaka's
+    // exaggerated render terrain. The cliffs are visual geography; Beryl still
+    // climbs the exact profile the deterministic simulation has always used.
+    const ahead = this.physicsHeightAt(x + fwdX * step, y + fwdY * step);
+    const behind = this.physicsHeightAt(x - fwdX * step, y - fwdY * step);
     return (ahead - behind) / (step * 2);
   }
 
