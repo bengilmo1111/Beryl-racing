@@ -14,6 +14,7 @@ import { buildTrees } from './trees.js';
 import { buildSigns } from './signs.js';
 import { buildEastbourne } from './themes/eastbourne.js';
 import { buildOtaki } from './themes/otaki.js';
+import { buildOtakiParallax } from './themes/otakiParallax.js';
 import { buildManfeild } from './themes/manfeild.js';
 import { SkidRibbon } from './fx/skid.js';
 import { PuffPool } from './fx/puffs.js';
@@ -84,7 +85,13 @@ class RaceWorld {
     if (scene.def.theme === 'eastbourne') {
       this.scene3d.add(buildEastbourne(scene.track, scene.def, this.terrain));
     }
-    if (scene.def.theme === 'otaki') this.scene3d.add(buildOtaki(scene.track, scene.def, this.terrain));
+    if (scene.def.theme === 'otaki') {
+      this.scene3d.add(buildOtaki(scene.track, scene.def, this.terrain));
+      // Fixed west/north sea bands and east-side mountain ranges give the course
+      // opposite directional horizons: open Tasman ahead at the finish, steep
+      // bush-covered ranges ahead when driving back toward the Forks.
+      this.scene3d.add(buildOtakiParallax(this.terrain.seaLevel || 0));
+    }
     if (scene.def.theme === 'manfield') {
       this.scene3d.add(buildManfeild(scene.track, scene.def, this.terrain));
     }
