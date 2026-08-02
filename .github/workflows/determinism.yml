@@ -24,7 +24,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      # This route-replacement PR records the intentionally new Ōtaki baseline.
-      # The flag is removed as soon as the values are committed.
-      - name: Record deliberate Otaki route baseline
-        run: RECORD_BASELINES=1 npm run test:determinism
+      - name: Verify replay and obstacle baselines
+        run: npm run test:determinism
