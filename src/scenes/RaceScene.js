@@ -3,6 +3,8 @@ import { WORLD, TRACK, COLORS, STORAGE_KEY } from '../config.js';
 import { getSelectedTrack } from '../tracks.js';
 import { buildTrack, distanceToCenterline, surfaceAt } from '../track.js';
 import { scatterScenery } from '../scenery.js';
+import { buildStructures, structureObstacles } from '../structures.js';
+import { EASTBOURNE_LAYOUT } from '../eastbourneRoute.js';
 import { Terrain } from '../terrain.js';
 import { Car } from '../entities/Car.js';
 import { Hud } from '../ui/Hud.js';
@@ -36,9 +38,18 @@ export class RaceScene extends Phaser.Scene {
     this.terrain = new Terrain(this.track, WORLD);
 
     // Solid scenery Beryl bumps into: each is a {x, y, r} collision circle.
-    // Seeded placement lives in src/scenery.js; theme setpieces add their own.
+    //
+    // Order matters and is fixed: resolveObstacles() walks this list every frame
+    // and resolves contacts in order, so shuffling it moves recorded finish
+    // positions. Seawall, then buildings, then the seeded scatter.
     this.obstacles = [];
     if (this.def.theme === 'eastbourne') this.placeSeawall();
+    // Buildings are solid. Their footprints come from src/structures.js rather
+    // than from the render themes, so what you can see and what you can hit are
+    // the same list — render3d/ is a lazily-loaded chunk the simulation must not
+    // depend on, which is exactly how the two drift apart.
+    this.structures = buildStructures(this.def, this.track);
+    for (const o of structureObstacles(this.structures)) this.obstacles.push(o);
     this.scenery = scatterScenery(this.track, this.def);
     for (const o of this.scenery.obstacles) this.obstacles.push(o);
 
@@ -122,16 +133,28 @@ export class RaceScene extends Phaser.Scene {
   // unchanged from the 2D build, because resolveObstacles() walks this list
   // every frame and the determinism baselines are pinned to it.
 
-  // Eastbourne's continuous seawall, which makes the harbour visible but
-  // unreachable. Geometry is expressed relative to the (possibly scaled) world
-  // so it stays aligned with the route at any LENGTH_SCALE.
+  // Eastbourne's seawall, which makes the harbour visible but unreachable.
+  //
+  // Built by walking EASTBOURNE_LAYOUT.shoreline — the same polyline the theme
+  // draws the beach and its landward edging from — so what you see and what you
+  // hit are the same wall. It used to be derived from fractions of the world
+  // instead, which happened to land within about 55 units of the drawn edging
+  // after the course was rebuilt; that is luck, not agreement.
   placeSeawall() {
-    const W = WORLD.width;
-    const H = WORLD.height;
-    const hw = W * 0.167; // harbour width (was 400 in a 2400-wide world)
-    const hEnd = H * 0.8; // harbour runs down to the inland turn
-    const wall = hw + W * 0.008;
-    for (let y = H * 0.09; y < hEnd; y += 50) this.obstacles.push({ x: wall, y, r: 32 });
+    const line = EASTBOURNE_LAYOUT.shoreline;
+    // 115 is the offset the theme draws its landward edging at.
+    const STEP = 50;
+    for (let i = 0; i < line.length - 1; i += 1) {
+      const a = line[i];
+      const b = line[i + 1];
+      const dx = b.x - a.x;
+      const dz = b.z - a.z;
+      const steps = Math.max(1, Math.round(Math.hypot(dx, dz) / STEP));
+      for (let s = 0; s < steps; s += 1) {
+        const t = s / steps;
+        this.obstacles.push({ x: a.x + dx * t + 115, y: a.z + dz * t, r: 32 });
+      }
+    }
   }
 
 

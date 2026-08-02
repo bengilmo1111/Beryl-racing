@@ -38,15 +38,17 @@ import { TRACKS } from '../src/tracks.js';
 // than merely differently — Remutaka nearly halved, from 168.7s to 92.0s,
 // because the waypoint bot stops falling off the switchbacks.
 //
+// Re-recorded again when buildings became solid (src/structures.js). Only the
+// obstacle fingerprints moved on Eastbourne and Manfeild — their finish times
+// and positions are identical to the run before, which is the check that the
+// buildings sit off the racing line rather than in it. Otaki shifted 50 ms
+// because the push-clear pass nudged two farmhouses the bot drives past.
+//
 // The widths are capped per course, not simply doubled. track.js offsets the
 // centreline by ±half along its own normal, so once half exceeds a corner's
 // radius the road folds through itself. Ceilings: Eastbourne 602, Manfield 339,
 // Remutaka 260, Otaki 299.
 const BASELINES = {
-  // Re-recorded on 2026-08-02 for the complete Eastbourne route replacement:
-  // longer Ferry Road, a new coastal alignment, seven checkpoints, a branching
-  // village road network and a different inland-only obstacle field. The other
-  // three courses stayed identical, confirming the change remained isolated.
   // Re-recorded when Eastbourne was rebuilt around the real coastal road
   // network: a much longer route from 28 Ferry Road, a branch road network
   // through the village, seven gates placed by `checkpointFractions` instead of
@@ -56,7 +58,7 @@ const BASELINES = {
   'eastbourne-dash': {
     finishTimeMs: 108133.333333,
     pos: { x: 2670.485515835, y: 13879.714365457 },
-    obstacles: '9404101c358ce680',
+    obstacles: '5bbda54a9e300c32',
   },
   // Re-recorded when the circuit stopped being an invented oval and became the
   // real Manfeild layout (see docs/tracks/MANFEILD-LAYOUT.md), then again when
@@ -67,12 +69,11 @@ const BASELINES = {
   manfield: {
     finishTimeMs: 34883.333333,
     pos: { x: 8271.057258642, y: 6535.478402139 },
-    // Empty: the SHA-256 of `[]`. Manfeild's art pass removed its trees, and
-    // with them every collision circle on the circuit — deliberately, so a track
-    // you are meant to drive flat out has nothing invisible to hit. Its finish
-    // time and position did not move, which is the check that the trees the bot
-    // was passing were never ones it touched.
-    obstacles: '4f53cda18c2baa0c',
+    // Manfeild has no trees, so every circle on the circuit belongs to a
+    // building — pit wall, garages, timing tower, paddock sheds, grandstand and
+    // marshal huts. Nothing invisible: the fingerprint went from the SHA-256 of
+    // `[]` to this when buildings became solid.
+    obstacles: 'daa5a3d3cd8a28cb',
   },
   remutaka: {
     finishTimeMs: 91966.666667,
@@ -90,9 +91,9 @@ const BASELINES = {
   // runs at the top of RaceScene.create(), before any text or HUD exists, so UI
   // churn can no longer perturb gameplay placement.
   otaki: {
-    finishTimeMs: 81833.333333,
-    pos: { x: 1248.88744466, y: 1243.523102511 },
-    obstacles: '84952307dd7e9846',
+    finishTimeMs: 81783.333333,
+    pos: { x: 1249.226925573, y: 1243.792525361 },
+    obstacles: 'd19445eea4c5aea6',
   },
 };
 

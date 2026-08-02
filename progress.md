@@ -943,3 +943,71 @@ fix is the one used for the landmark models in PR #21 — push each building out
 along the road normal until its footprint clears the kerb — but the theme places
 ~127 objects at hand-authored positions, so it is a bigger change than it looks.
 Nothing reads as broken in play.
+
+## 2026-08-02 — Buildings are solid
+
+Every building on every course is now something Beryl cannot drive through, and
+the buildings that were clipping Eastbourne's roads have been pushed properly
+clear.
+
+### `src/structures.js`
+
+The two halves of the problem turned out to be one problem. Buildings were
+authored inside `render3d/`, which is a **lazily-loaded chunk the simulation must
+never import** — so collision could not see them, and any fix that added
+collision separately would have created a second set of positions to drift out of
+sync. That is the same failure mode as the seawall, PR #21's landmarks and PR
+#25's route.
+
+So footprints moved into simulation-land as one list. `buildStructures(def,
+track)` returns `{ x, z, w, d, yaw, kind, ... }` per building; `RaceScene` turns
+them into collision circles, and each render theme places its models at exactly
+those poses. Nothing consumes RNG — positions are authored — so the seeded
+scenery placement in `scenery.js` is untouched; only the obstacle list changes.
+
+Coverage: Eastbourne's 17 coastal villas, park shelter, clinic, shop strip,
+school and RSA; Ōtaki's six farmhouses and their sheds; Manfeild's pit wall, six
+garages, timing tower, three paddock sheds, grandstand and eight marshal huts.
+Remutaka has no buildings.
+
+### Clearing the roads
+
+`pushClear()` moves a building out along the road normal until its footprint
+clears the kerb by 70 units, measured against **every road on the course** and
+re-measured after each push. Iterating matters for the same reason it did for the
+landmark models: a footprint hundreds of units wide, sitting beside a curving
+road — or beside a *second* road it was never measured against, which is what
+Eastbourne's village has — swings back over the carriageway even after its near
+corner cleared. Worst clearance is now +72 on Eastbourne and +111 on Ōtaki,
+against −29 and worse before.
+
+### Two things this surfaced
+
+**Manfeild's grandstand was standing on the ess.** It was placed directly
+opposite the pits, which is the right instinct on a normal circuit and wrong
+here: Manfeild's layout folds back on itself, so the ground across from the
+start/finish line is not open infield — the ess runs through it. Its footprint
+overlapped the racing surface by 225 units. Moved along the main straight
+(`MANFEILD_STAND_Z`, shared with the theme so model and footprint agree).
+
+**The seawall was derived from the wrong numbers.** It still used fractions of
+the world from the prototype course, which after the rebuild happened to land
+within ~55 units of the beach edging the theme draws. That is luck, not
+agreement. It now walks `EASTBOURNE_LAYOUT.shoreline` — the same polyline the
+beach is drawn from.
+
+### Collision shape
+
+A long building becomes a row of circles along its major axis, since the car
+collides against circles and one circle round a 900-unit grandstand would block
+half the paddock. The result is a stadium: very slightly inside the rectangle at
+the corners, which is the right way to be wrong — better to clip a corner you can
+see than be stopped by a wall that is not there.
+
+### Verification
+
+Eastbourne's and Manfeild's finish times and final positions are **identical** to
+the run before; only their obstacle fingerprints moved. That is the check that
+the buildings sit off the racing line rather than in it — the bots never touch
+one. Ōtaki shifted 50 ms, because the push-clear pass nudged two farmhouses it
+drives past. Remutaka is untouched. Matrix 16/16.

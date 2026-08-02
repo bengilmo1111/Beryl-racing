@@ -26,17 +26,22 @@ function placeAcross(object, cp, height) {
   return object;
 }
 
-// Farmhouses are scenery only — no collision, same as Eastbourne's villas.
-function placeFarmhouse(group, terrain, spec, sx, sz) {
-  const farmhouse = buildOtakiFarmhouse(spec);
-  const x = spec.x * sx;
-  const z = spec.z * sz;
-  farmhouse.position.set(x, terrain.heightAt(x, z) + 1, z);
-  farmhouse.rotation.y = spec.yaw;
+// Farmhouses are solid, and their positions come from the resolved structure
+// list in src/structures.js — the same footprints the car collides with, already
+// pushed clear of the road. Placing a model anywhere else would put the house
+// you can see and the house you can hit in different places.
+function placeFarmhouse(group, terrain, structure, palette) {
+  const farmhouse = buildOtakiFarmhouse({
+    variant: structure.variant,
+    palette,
+    shed: structure.shed,
+  });
+  farmhouse.position.set(structure.x, terrain.heightAt(structure.x, structure.z) + 1, structure.z);
+  farmhouse.rotation.y = structure.yaw;
   group.add(farmhouse);
 }
 
-export function buildOtaki(track, def, terrain) {
+export function buildOtaki(track, def, terrain, structures = []) {
   const group = new Group();
   const sc = def.scenery || {};
   const cps = track.checkpoints;
@@ -118,47 +123,32 @@ export function buildOtaki(track, def, terrain) {
   }
 
   // Farmhouses sit through the middle farmland section, not in the bushy Forks
-  // start or the built-up township. Positions use the original 5200×5200 course
-  // coordinates and scale with the live world. Their larger footprints and
-  // nearby sheds distinguish rural homesteads from Eastbourne's tight villas.
-  const sx = WORLD.width / 5200;
-  const sz = WORLD.height / 5200;
-  const farmhouses = [
+  // start or the built-up township. Their larger footprints and nearby sheds
+  // distinguish rural homesteads from Eastbourne's tight villas.
+  //
+  // Positions come from src/structures.js, which owns them because they are
+  // collision footprints as well as models. Only the palettes live here, in the
+  // same order.
+  const palettes = [
     {
-      x: 3850, z: 3180, yaw: -0.18, variant: 'homestead', shed: true,
-      palette: {
-        wall: 0xeee6d2, trim: 0xfff7e3, roof: 0x6f7775, door: 0x6c4d3c,
-        shedWall: 0x8a6a4d, shedRoof: 0x7b5a4e,
-      },
+      wall: 0xeee6d2, trim: 0xfff7e3, roof: 0x6f7775, door: 0x6c4d3c,
+      shedWall: 0x8a6a4d, shedRoof: 0x7b5a4e,
     },
+    { wall: 0xdce3cf, trim: 0xf6efd9, roof: 0x8b4e3e, door: 0x6a4438 },
     {
-      x: 3420, z: 2550, yaw: Math.PI + 0.08, variant: 'gabled', shed: false,
-      palette: { wall: 0xdce3cf, trim: 0xf6efd9, roof: 0x8b4e3e, door: 0x6a4438 },
+      wall: 0xeee9df, trim: 0xffffff, roof: 0x68746f, door: 0x58705d,
+      shedWall: 0x9b7d5b, shedRoof: 0x74554b,
     },
+    { wall: 0xe3cfaa, trim: 0xfaf2df, roof: 0x4f585e, door: 0x7c4538 },
     {
-      x: 2970, z: 3000, yaw: 0.18, variant: 'cottage', shed: true,
-      palette: {
-        wall: 0xeee9df, trim: 0xffffff, roof: 0x68746f, door: 0x58705d,
-        shedWall: 0x9b7d5b, shedRoof: 0x74554b,
-      },
+      wall: 0xd9d2c2, trim: 0xf3ecdc, roof: 0x6a725e, door: 0x6e4638,
+      shedWall: 0x896c51, shedRoof: 0x895448,
     },
-    {
-      x: 2820, z: 1940, yaw: Math.PI - 0.16, variant: 'two-storey', shed: false,
-      palette: { wall: 0xe3cfaa, trim: 0xfaf2df, roof: 0x4f585e, door: 0x7c4538 },
-    },
-    {
-      x: 2350, z: 2420, yaw: 0.42, variant: 'homestead', shed: true,
-      palette: {
-        wall: 0xd9d2c2, trim: 0xf3ecdc, roof: 0x6a725e, door: 0x6e4638,
-        shedWall: 0x896c51, shedRoof: 0x895448,
-      },
-    },
-    {
-      x: 2050, z: 1700, yaw: -0.25, variant: 'gabled', shed: false,
-      palette: { wall: 0xe4e8e5, trim: 0xfbf5e6, roof: 0x778189, door: 0x496978 },
-    },
+    { wall: 0xe4e8e5, trim: 0xfbf5e6, roof: 0x778189, door: 0x496978 },
   ];
-  for (const farmhouse of farmhouses) placeFarmhouse(group, terrain, farmhouse, sx, sz);
+  structures
+    .filter((st) => st.kind === 'farmhouse')
+    .forEach((st, i) => placeFarmhouse(group, terrain, st, palettes[i % palettes.length]));
 
   return group;
 }
