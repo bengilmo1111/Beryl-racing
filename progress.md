@@ -943,3 +943,115 @@ fix is the one used for the landmark models in PR #21 — push each building out
 along the road normal until its footprint clears the kerb — but the theme places
 ~127 objects at hand-authored positions, so it is a bigger change than it looks.
 Nothing reads as broken in play.
+
+## 2026-08-02 — Buildings are solid
+
+Every building on every course is now something Beryl cannot drive through, and
+the buildings that were clipping Eastbourne's roads have been pushed properly
+clear.
+
+### `src/structures.js`
+
+The two halves of the problem turned out to be one problem. Buildings were
+authored inside `render3d/`, which is a **lazily-loaded chunk the simulation must
+never import** — so collision could not see them, and any fix that added
+collision separately would have created a second set of positions to drift out of
+sync. That is the same failure mode as the seawall, PR #21's landmarks and PR
+#25's route.
+
+So footprints moved into simulation-land as one list. `buildStructures(def,
+track)` returns `{ x, z, w, d, yaw, kind, ... }` per building; `RaceScene` turns
+them into collision circles, and each render theme places its models at exactly
+those poses. Nothing consumes RNG — positions are authored — so the seeded
+scenery placement in `scenery.js` is untouched; only the obstacle list changes.
+
+Coverage: Eastbourne's 17 coastal villas, park shelter, clinic, shop strip,
+school and RSA; Ōtaki's six farmhouses and their sheds; Manfeild's pit wall, six
+garages, timing tower, three paddock sheds, grandstand and eight marshal huts.
+Remutaka has no buildings.
+
+### Clearing the roads
+
+`pushClear()` moves a building out along the road normal until its footprint
+clears the kerb by 70 units, measured against **every road on the course** and
+re-measured after each push. Iterating matters for the same reason it did for the
+landmark models: a footprint hundreds of units wide, sitting beside a curving
+road — or beside a *second* road it was never measured against, which is what
+Eastbourne's village has — swings back over the carriageway even after its near
+corner cleared. Worst clearance is now +72 on Eastbourne and +111 on Ōtaki,
+against −29 and worse before.
+
+### Two things this surfaced
+
+**Manfeild's grandstand was standing on the ess.** It was placed directly
+opposite the pits, which is the right instinct on a normal circuit and wrong
+here: Manfeild's layout folds back on itself, so the ground across from the
+start/finish line is not open infield — the ess runs through it. Its footprint
+overlapped the racing surface by 225 units. Moved along the main straight
+(`MANFEILD_STAND_Z`, shared with the theme so model and footprint agree).
+
+**The seawall was derived from the wrong numbers.** It still used fractions of
+the world from the prototype course, which after the rebuild happened to land
+within ~55 units of the beach edging the theme draws. That is luck, not
+agreement. It now walks `EASTBOURNE_LAYOUT.shoreline` — the same polyline the
+beach is drawn from.
+
+### Collision shape
+
+A long building becomes a row of circles along its major axis, since the car
+collides against circles and one circle round a 900-unit grandstand would block
+half the paddock. The result is a stadium: very slightly inside the rectangle at
+the corners, which is the right way to be wrong — better to clip a corner you can
+see than be stopped by a wall that is not there.
+
+### Verification
+
+Eastbourne's and Manfeild's finish times and final positions are **identical** to
+the run before; only their obstacle fingerprints moved. That is the check that
+the buildings sit off the racing line rather than in it — the bots never touch
+one. Ōtaki shifted 50 ms, because the push-clear pass nudged two farmhouses it
+drives past. Remutaka is untouched. Matrix 16/16.
+
+## 2026-08-02 — Header without a panel, and summer haze instead of fog
+
+### The progress header
+
+`TO EASTBOURNE` / `LAP 1` sat on a **fixed-width** rounded rect
+(`lapPanelW = 150 * s`), which cannot work for copy that varies that much: the
+short label floated in a box too big for it and the long one spilled out of both
+ends. Panel removed. The text now carries a chunky ink outline instead — the
+same treatment the roadside advance arrows already use, and it stays readable
+over sky, tarmac or grass at any length.
+
+### Fog was doing much less than its comment claimed
+
+The old comment said fog "doubles as draw-distance management … instead of
+needing any culling scheme". That is not true: **fog culls nothing in Three**.
+Every mesh is submitted to the GPU either way and the fragment shader just
+blends toward the fog colour. A tight band bought no performance at all — it only
+decided how much of the world the player was allowed to see.
+
+And it was very tight. At ~59 units/metre, 1200–3000 is about 20–50 m of
+visibility. On a summer afternoon that read as sea fog rolling in.
+
+Now 5000–15000 by default and 6000–20000 on Manfeild, and fading to a new
+`COLORS.haze` (`0xd4e7e9`) rather than to the sky. Fading to a separate colour is
+what makes it read as hot air rather than as weather: the horizon goes milky and
+slightly warm while the sky above stays a clean blue.
+
+### What the tight fog had been hiding
+
+**The terrain runs out.** The height grid only covers the world plus 960 units,
+and elevated courses draw *only* that grid — so opening the view up showed the
+mesh simply stop, with sky underneath. The outer ring of the terrain mesh is now
+dragged 30,000 units outward at its own edge height, which continues the ground
+to the horizon for no extra cells.
+
+**Remutaka and Ōtaki have no distant scenery.** Eastbourne and Manfeild each
+build a specific view; the other two never needed one while fog ate everything
+past 3000 units. Without it they showed a flat green plain running to the
+horizon, which is a poor backdrop for a climb through a mountain range. Added
+`themes/horizon.js`: three depths of overlapping bush ridge, on all four sides so
+they work whichever way a route wanders, using the shared parallax kit.
+
+All render-only — four baselines byte-identical, matrix 16/16.

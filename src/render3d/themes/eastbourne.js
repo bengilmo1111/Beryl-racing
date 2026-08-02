@@ -201,49 +201,24 @@ function addHills(group, terrain) {
   }
 }
 
-function villaSpec(x, z, yaw, variant, wall, roof, door) {
-  return {
-    x,
-    z,
-    yaw,
-    variant,
-    palette: {
-      wall,
-      trim: COLOUR.white,
-      roof,
-      door,
-    },
-  };
-}
-
-function addHouses(group, terrain) {
-  // Houses run for most of the coast, becoming denser near Eastbourne. Most are
-  // white or warm-white weatherboard forms, with colour carried by roofs and
-  // doors rather than by a rainbow of walls.
-  const houses = [
-    villaSpec(2340, 3600, Math.PI / 2, 'cottage', COLOUR.white, COLOUR.roofGreen, 0x58736a),
-    villaSpec(2260, 4300, Math.PI / 2 + 0.08, 'bungalow', COLOUR.warmWhite, COLOUR.roofDark, 0x4f7180),
-    villaSpec(2420, 5000, Math.PI / 2 - 0.06, 'villa', COLOUR.white, COLOUR.roofRed, 0x86514b),
-    villaSpec(2380, 5850, Math.PI / 2 + 0.05, 'cottage', COLOUR.paleBlue, COLOUR.roofDark, 0x446c76),
-    villaSpec(2470, 6700, Math.PI / 2 - 0.08, 'bungalow', COLOUR.white, COLOUR.roofGreen, 0x6c5b48),
-    villaSpec(2380, 7600, Math.PI / 2 + 0.03, 'villa', COLOUR.warmWhite, COLOUR.roofRed, 0x77524c),
-    villaSpec(2600, 8450, Math.PI / 2 - 0.04, 'cottage', COLOUR.white, COLOUR.roofDark, 0x506b5c),
-    villaSpec(2550, 9300, Math.PI / 2 + 0.06, 'bungalow', COLOUR.white, COLOUR.roofGreen, 0x4b6e79),
-    villaSpec(2820, 10050, Math.PI / 2 - 0.05, 'two-storey', COLOUR.warmWhite, COLOUR.roofDark, 0x7d5149),
-    villaSpec(3020, 10800, Math.PI / 2 + 0.04, 'villa', COLOUR.white, COLOUR.roofRed, 0x557468),
-    villaSpec(3850, 11250, -Math.PI / 2, 'cottage', COLOUR.white, COLOUR.roofGreen, 0x4e7180),
-    villaSpec(4050, 11850, -Math.PI / 2 + 0.06, 'bungalow', COLOUR.warmWhite, COLOUR.roofDark, 0x76544b),
-    villaSpec(4010, 13000, -Math.PI / 2 - 0.04, 'villa', COLOUR.white, COLOUR.roofRed, 0x496d62),
-    villaSpec(3600, 13700, Math.PI, 'cottage', COLOUR.white, COLOUR.roofGreen, 0x5a7080),
-    villaSpec(2450, 13450, 0, 'bungalow', COLOUR.warmWhite, COLOUR.roofDark, 0x77514d),
-    villaSpec(2050, 12600, Math.PI / 2, 'cottage', COLOUR.white, COLOUR.roofGreen, 0x466d79),
-    villaSpec(2050, 11800, Math.PI / 2, 'villa', COLOUR.white, COLOUR.roofRed, 0x765048),
-  ];
-
-  for (const spec of houses) {
-    const house = buildEastbourneVilla(spec);
-    placeAtGround(house, terrain, spec.x, spec.z, 1);
-    house.rotation.y = spec.yaw;
+// Houses come from the resolved structure list, not from a copy of the
+// positions: those footprints are what the car collides with, and they have
+// already been pushed clear of the roads, so placing a model anywhere else would
+// put the visible house and its solid footprint in different places.
+function addHouses(group, terrain, structures) {
+  for (const s of structures) {
+    if (s.kind !== 'villa') continue;
+    const house = buildEastbourneVilla({
+      variant: s.variant,
+      palette: {
+        wall: COLOUR[s.palette.wall],
+        trim: COLOUR.white,
+        roof: COLOUR[s.palette.roof],
+        door: s.palette.door,
+      },
+    });
+    placeAtGround(house, terrain, s.x, s.z, 1);
+    house.rotation.y = s.yaw;
     group.add(house);
   }
 }
@@ -274,22 +249,29 @@ function addWindowBand(group, width, y, z) {
   }
 }
 
-function addVillage(group, terrain) {
+function addVillage(group, terrain, structures) {
   const places = EASTBOURNE_LAYOUT.places;
+  // Same rule as the houses: the resolved footprint is the truth. Flat ground
+  // decoration (the park lawn, the school field, the RSA forecourt) is not solid
+  // and stays keyed to the authored place.
+  const at = (kind) => structures.find((s) => s.kind === kind);
 
   // Open green at Williams Park, a major break in the otherwise built-up edge.
   const lawn = box(760, 5, 540, lambert(COLOUR.lawn));
   placeAtGround(lawn, terrain, places.williamsPark.x, places.williamsPark.z, 2);
   group.add(lawn);
+  const shelterAt = at('shelter');
   const shelter = simpleGableBuilding(190, 135, 95, COLOUR.white, COLOUR.roofGreen);
-  placeAtGround(shelter, terrain, places.williamsPark.x + 170, places.williamsPark.z + 40, 4);
+  placeAtGround(shelter, terrain, shelterAt.x, shelterAt.z, 4);
+  shelter.rotation.y = shelterAt.yaw;
   group.add(shelter);
 
   // Doctors / clinic: a low white civic-looking building immediately north of
   // the shops, matching the H marker relationship in the supplied map.
+  const clinicAt = at('clinic');
   const clinic = simpleGableBuilding(430, 210, 130, COLOUR.white, COLOUR.roofDark);
-  placeAtGround(clinic, terrain, places.doctors.x, places.doctors.z, 2);
-  clinic.rotation.y = Math.PI / 2;
+  placeAtGround(clinic, terrain, clinicAt.x, clinicAt.z, 2);
+  clinic.rotation.y = clinicAt.yaw;
   addWindowBand(clinic, 330, 72, -110);
   group.add(clinic);
 
@@ -317,8 +299,9 @@ function addVillage(group, terrain) {
   const footpath = box(900, 7, 105, lambert(COLOUR.concrete));
   footpath.position.set(0, 3.5, -128);
   shopRoot.add(footpath);
-  placeAtGround(shopRoot, terrain, places.shops.x, places.shops.z, 2);
-  shopRoot.rotation.y = Math.PI / 2;
+  const shopsAt = at('shops');
+  placeAtGround(shopRoot, terrain, shopsAt.x, shopsAt.z, 2);
+  shopRoot.rotation.y = shopsAt.yaw;
   group.add(shopRoot);
 
   // Muritai School: a spread-out white classroom block and open field directly
@@ -326,25 +309,27 @@ function addVillage(group, terrain) {
   const schoolField = box(760, 4, 520, lambert(COLOUR.lawn));
   placeAtGround(schoolField, terrain, places.school.x, places.school.z, 2);
   group.add(schoolField);
+  const schoolAt = at('school');
   const school = simpleGableBuilding(620, 190, 122, COLOUR.white, COLOUR.roofGreen);
-  placeAtGround(school, terrain, places.school.x + 80, places.school.z - 55, 5);
-  school.rotation.y = Math.PI / 2;
+  placeAtGround(school, terrain, schoolAt.x, schoolAt.z, 5);
+  school.rotation.y = schoolAt.yaw;
   addWindowBand(school, 500, 66, -100);
   group.add(school);
 
   // RSA destination: a broad white community hall with green roof and a paved
   // forecourt. It remains recognisable as a finish building without a text sign.
+  const rsaAt = at('rsa');
   const rsa = simpleGableBuilding(520, 280, 165, COLOUR.warmWhite, COLOUR.roofGreen);
-  placeAtGround(rsa, terrain, places.rsa.x, places.rsa.z, 2);
-  rsa.rotation.y = Math.PI;
+  placeAtGround(rsa, terrain, rsaAt.x, rsaAt.z, 2);
+  rsa.rotation.y = rsaAt.yaw;
   addWindowBand(rsa, 390, 82, -145);
   group.add(rsa);
   const forecourt = box(540, 6, 260, lambert(COLOUR.concrete));
-  placeAtGround(forecourt, terrain, places.rsa.x, places.rsa.z - 260, 2);
+  placeAtGround(forecourt, terrain, rsaAt.x, rsaAt.z - 260, 2);
   group.add(forecourt);
 }
 
-export function buildEastbourne(track, def, terrain) {
+export function buildEastbourne(track, def, terrain, structures = []) {
   const group = new Group();
   group.name = 'eastbourne-layout-environment';
 
@@ -352,8 +337,8 @@ export function buildEastbourne(track, def, terrain) {
   addWharf(group, terrain);
   addCoastalPines(group, terrain);
   addHills(group, terrain);
-  addHouses(group, terrain);
-  addVillage(group, terrain);
+  addHouses(group, terrain, structures);
+  addVillage(group, terrain, structures);
 
   // Distant real geometry supplies harbour and bush parallax beyond the detailed
   // foreground. It is decorative and carries no gameplay collision.

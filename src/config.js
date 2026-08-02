@@ -68,16 +68,21 @@ export function applyTrack(def) {
   STORAGE_KEY = def.storageKey;
 }
 
-// How far you can see. Fog doubles as draw-distance management on the
-// point-to-point courses: the road fades into the sky rather than needing any
-// culling scheme, and the end of a route you have not reached yet stays hidden.
+// How far you can see, per course.
 //
-// It is per-course because "how far should the player see" is a property of the
-// place, not of the engine. A road that disappears round the next headland wants
-// a short band; a circuit where the whole venue is meant to be legible from
-// anywhere on the lap wants a long one. See the note on Manfeild's `fog` in
-// tracks.js.
-const DEFAULT_FOG = { near: 1200, far: 3000 };
+// Deliberately distant. Fog does not cull anything in Three — every mesh is
+// submitted to the GPU either way — so a tight band buys no performance at all;
+// it only decides how much of the world the player is allowed to see. At ~59
+// units/metre the old 1200–3000 band was about 20–50 m of visibility, which on a
+// summer afternoon read as sea fog rolling in.
+//
+// What is left is heat haze: it starts far enough out that the whole course is
+// legible, and fades to COLORS.haze rather than to the sky, so the horizon goes
+// milky while the sky above stays clean blue.
+//
+// Per-course because "how far should the player see" is a property of the place.
+// See the note on Manfeild's `fog` in tracks.js.
+const DEFAULT_FOG = { near: 5000, far: 15000 };
 export const FOG = { ...DEFAULT_FOG };
 
 // Gilmore Games house palette (see gilmore-directory/docs/ART-DIRECTION.md).
@@ -104,4 +109,9 @@ export const COLORS = {
   gravel: 0x9a8b74, // warm grey-brown dusty gravel road
   sand: 0xe6d6a8, // dry beach sand
   river: 0x5a8f8c, // blue-green river / calm water
+  // Summer heat haze. Distance fades to this rather than to the sky, which is
+  // what makes it read as hot air rather than as weather: the sky above stays a
+  // clean blue while the horizon goes milky and slightly warm. Roughly the sky
+  // lifted 70% toward the warm white the sun light uses.
+  haze: 0xd4e7e9,
 };
