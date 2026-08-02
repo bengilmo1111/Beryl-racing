@@ -123,17 +123,12 @@ export function buildTrees(trees, terrain) {
   return group;
 }
 
-// Standalone authored models. Re-exporting them here makes the build parse and
-// validate the library without changing any existing scenery placement.
-export {
-  NZ_TREE_CATALOG,
-  buildNzTreeAsset,
-  buildNzTreeShowcase,
-  buildPohutukawa,
-  buildTiKouka,
-  buildKowhai,
-  buildTotara,
-  buildKanuka,
-  buildRimu,
-  buildNorfolkPine,
-} from './models/nzTrees.js';
+// The species library in models/nzTrees.js is deliberately NOT re-exported here.
+//
+// It was, to "make the build parse and validate" it — but the validator
+// (scripts/validate-nz-tree-models.mjs) imports it directly, so re-exporting
+// only pulled ~500 lines of unused builders into the shipped bundle. Nothing
+// renders from it yet: the roadside scatter needs 90 trees in a handful of draw
+// calls, which is what the InstancedMesh above delivers, and the library builds
+// a full Group per tree. Wiring it into the scatter is a real piece of work
+// (instancing per species, or a much smaller tree count), not an import swap.

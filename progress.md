@@ -1055,3 +1055,29 @@ horizon, which is a poor backdrop for a climb through a mountain range. Added
 they work whichever way a route wanders, using the shared parallax kit.
 
 All render-only — four baselines byte-identical, matrix 16/16.
+
+## 2026-08-02 — NZ tree model library (PR #24)
+
+Seven code-built native species — pōhutukawa, tī kōuka, kōwhai, tōtara, kānuka,
+rimu, Norfolk pine — with three variants each, a catalogue of nominal
+dimensions and collision radii, and `scripts/validate-nz-tree-models.mjs`, which
+checks every variant builds with finite bounds, a sane height against its nominal
+and a triangle count in budget.
+
+**Not yet used by anything, deliberately.** The roadside scatter needs 90 trees
+in a handful of draw calls, which is what the existing `InstancedMesh` in
+`trees.js` delivers; the library builds a full `Group` per tree. Swapping the
+scatter over is real work — instancing per species, or a much smaller tree count
+— not an import swap, and doing it naively would be a draw-call regression on
+exactly the landscape phones CI cannot measure.
+
+### Fixed on merge
+
+The library was re-exported from `trees.js` "to make the build parse and validate
+it". That pulled ~500 lines of unused builders into the **shipped bundle** for no
+runtime benefit, and the validator imports the module directly anyway. Re-export
+removed; the library now costs nothing until something renders from it.
+
+`npm run build` had been changed to run the art validator first. That couples a
+Vercel deploy to art linting — a broken tree model would block shipping a
+gameplay fix. Moved to the determinism workflow instead, so CI still catches it.
