@@ -1,9 +1,11 @@
-// A lower, rounder Morris Minor 1000 silhouette for Beryl.
+// Beryl, the family's turquoise Morris Minor 1000, as a low-poly shell.
 //
-// This keeps the render-only contract of the original model but rebuilds the
-// visible shell around real Minor proportions: a low body wrapped around modest
-// wheels, a long rounded bonnet, a rear-biased cabin, and a softly pinched boot.
-// Colours deliberately remain identical to the established Beryl palette.
+// Render-only: nothing here is read by the simulation. The shape is built from
+// two lofted shells — a low body and an upright greenhouse — and every piece of
+// trim that has to sit *on* one of those shells asks the shell where its skin is
+// rather than repeating a coordinate. That is the whole discipline of this file:
+// a hard-coded window pinned to a shell that later moves becomes a pane floating
+// in mid-air, and pillars pinned that way become aerials sticking out of a roof.
 import {
   Group,
   Mesh,
@@ -20,8 +22,10 @@ import { CAR } from '../config.js';
 import { C, lambert, basic } from './palette.js';
 import { toThree, yawFor, alphaFor } from './coords.js';
 
-// Keep the gameplay footprint unchanged. Only the visible height and component
-// proportions move closer to a real Morris Minor 1000.
+// The gameplay footprint is unchanged; height matches the real car's ratio.
+// A Minor 1000 is 3759 mm long and 1524 mm tall, so 217.6 units of length wants
+// about 88 units of height. The width is deliberately over scale — it is the
+// collision box as much as the car.
 export const BERYL = { width: 108.8, length: 217.6, height: 91 };
 
 const W = BERYL.width;
@@ -32,44 +36,181 @@ const AXLE_FRONT = -L * 0.31;
 const AXLE_REAR = L * 0.255;
 const AXLE_X = W * 0.425;
 
+// Widest half-width of the greenhouse. Cabin stations and the screens that span
+// them are both expressed against this, so the roof and the glass in it stay in
+// proportion when one of them is retuned.
+const CABIN_HW = W * 0.465;
+// How far glass stands off the shell it is set into. Enough to beat depth
+// fighting at chase distance, small enough to read as flush.
+const GLASS_PROUD = 1.8;
+
+// Cross-sections, as the right-hand half of a closed ring walked from sill to
+// crown: `x` is a fraction of the station half-width, `y` a fraction of its
+// height, and `c` a multiple of its centre crown added on top.
+//
+// The body is round-shouldered and tumbles home hard, which is what gives the
+// wings and boot their bulge. The greenhouse carries its width much higher and
+// tumbles home only gently, because a Minor's is an upright glasshouse, not a
+// fastback bubble — using one profile for both was what made the cabin read as a
+// dome with a dark band cut in it.
+const BODY_PROFILE = [
+  { x: 0.60, y: 0.00, c: 0 },
+  { x: 0.83, y: 0.06, c: 0 },
+  { x: 0.96, y: 0.18, c: 0 },
+  { x: 1.00, y: 0.39, c: 0 },
+  { x: 0.99, y: 0.60, c: 0 },
+  { x: 0.91, y: 0.78, c: 0 },
+  { x: 0.73, y: 0.91, c: 0 },
+  { x: 0.40, y: 1.00, c: 0.6 },
+  { x: 0.00, y: 1.00, c: 1 },
+];
+
+const CABIN_PROFILE = [
+  { x: 0.72, y: 0.00, c: 0 },
+  { x: 0.90, y: 0.10, c: 0 },
+  { x: 0.98, y: 0.26, c: 0 },
+  { x: 1.00, y: 0.48, c: 0 },
+  { x: 0.99, y: 0.66, c: 0 },
+  { x: 0.94, y: 0.80, c: 0 },
+  { x: 0.82, y: 0.91, c: 0 },
+  { x: 0.46, y: 1.00, c: 0.6 },
+  { x: 0.00, y: 1.00, c: 1 },
+];
+
+// Low body shell: a long bonnet that is deliberately much narrower than the
+// car — on a Minor the width at the front comes from the faired wings either
+// side of it, not from the bonnet itself — a shoulder that runs level from the
+// scuttle to the rear door, then a short rounded boot.
+const BODY_STATIONS = [
+  { z: -L * 0.500, halfWidth: W * 0.20, bottom: 27, top: 40, crown: 1 },
+  { z: -L * 0.472, halfWidth: W * 0.29, bottom: 22, top: 45, crown: 1.5 },
+  { z: -L * 0.430, halfWidth: W * 0.33, bottom: 19, top: 49, crown: 2 },
+  { z: -L * 0.350, halfWidth: W * 0.355, bottom: 17, top: 53, crown: 2.5 },
+  { z: -L * 0.250, halfWidth: W * 0.395, bottom: 16, top: 57, crown: 2.5 },
+  { z: -L * 0.150, halfWidth: W * 0.465, bottom: 15, top: 60, crown: 2 },
+  { z: -L * 0.040, halfWidth: W * 0.50, bottom: 14, top: 62, crown: 1.5 },
+  { z: L * 0.080, halfWidth: W * 0.50, bottom: 14, top: 62, crown: 1.5 },
+  { z: L * 0.200, halfWidth: W * 0.495, bottom: 15, top: 62, crown: 1.5 },
+  { z: L * 0.300, halfWidth: W * 0.478, bottom: 17, top: 61, crown: 1.5 },
+  { z: L * 0.390, halfWidth: W * 0.44, bottom: 20, top: 59, crown: 1.5 },
+  { z: L * 0.465, halfWidth: W * 0.375, bottom: 23, top: 56, crown: 1 },
+  { z: L * 0.500, halfWidth: W * 0.27, bottom: 26, top: 49, crown: 1 },
+];
+
+// Greenhouse. It springs from below the body shoulder so the two shells meet
+// with no seam, climbs a steep windscreen, runs flat for a third of the car and
+// drops down an upright rear screen. `bottom` is buried inside the body — the
+// visible belt line is BELT, below.
+// The greenhouse reaches nearly its full width at the scuttle and only its
+// *height* climbs the windscreen — a cabin that narrows towards the front as
+// well leaves the windscreen sitting on a ridge, with nothing wide enough
+// underneath it to be a scuttle.
+const CABIN_STATIONS = [
+  { z: -L * 0.190, halfWidth: CABIN_HW * 0.80, bottom: 56, top: 59, crown: 0.3 },
+  { z: -L * 0.160, halfWidth: CABIN_HW * 0.86, bottom: 56, top: 66, crown: 1 },
+  { z: -L * 0.125, halfWidth: CABIN_HW * 0.92, bottom: 56, top: 78, crown: 2 },
+  { z: -L * 0.090, halfWidth: CABIN_HW * 0.965, bottom: 56, top: 86, crown: 3 },
+  { z: L * 0.030, halfWidth: CABIN_HW * 1.00, bottom: 56, top: 88, crown: 3 },
+  { z: L * 0.150, halfWidth: CABIN_HW * 0.99, bottom: 56, top: 87, crown: 3 },
+  { z: L * 0.240, halfWidth: CABIN_HW * 0.92, bottom: 56, top: 84, crown: 2.5 },
+  { z: L * 0.305, halfWidth: CABIN_HW * 0.78, bottom: 56, top: 68, crown: 1.5 },
+  { z: L * 0.350, halfWidth: CABIN_HW * 0.58, bottom: 55, top: 60, crown: 1 },
+];
+
+// Bottom of the side glass, just above the body shoulder.
+const BELT = 64;
+
 function box(w, h, d, x, y, z, material) {
   const mesh = new Mesh(new BoxGeometry(w, h, d), material);
   mesh.position.set(x, y, z);
   return mesh;
 }
 
-// More cross-section points and more longitudinal stations than the previous
-// shell. The result stays lightweight, but the eye reads continuous compound
-// curves instead of an octagonal body with a separate block placed on top.
-function roundedRing(station) {
+function ring(station, profile) {
   const { halfWidth: w, bottom, top } = station;
   const h = top - bottom;
   const crown = station.crown || 0;
-  return [
-    [-w * 0.60, bottom],
-    [-w * 0.83, bottom + h * 0.06],
-    [-w * 0.96, bottom + h * 0.18],
-    [-w, bottom + h * 0.39],
-    [-w * 0.99, bottom + h * 0.60],
-    [-w * 0.91, bottom + h * 0.78],
-    [-w * 0.73, bottom + h * 0.91],
-    [-w * 0.40, top + crown * 0.60],
-    [0, top + crown],
-    [w * 0.40, top + crown * 0.60],
-    [w * 0.73, bottom + h * 0.91],
-    [w * 0.91, bottom + h * 0.78],
-    [w * 0.99, bottom + h * 0.60],
-    [w, bottom + h * 0.39],
-    [w * 0.96, bottom + h * 0.18],
-    [w * 0.83, bottom + h * 0.06],
-    [w * 0.60, bottom],
-  ];
+  const points = [];
+  for (const p of profile) points.push([-p.x * w, bottom + p.y * h + p.c * crown]);
+  // Mirror back down the other side, skipping the shared crown and sill points.
+  for (let i = profile.length - 2; i >= 1; i -= 1) {
+    const p = profile[i];
+    points.push([p.x * w, bottom + p.y * h + p.c * crown]);
+  }
+  return points;
+}
+
+// Where the skin of a station sits at a given height. This is the query that
+// keeps glass and trim on the shell.
+function skinAt(station, y) {
+  const { halfWidth: w, bottom, top } = station;
+  const h = top - bottom || 1;
+  const crown = station.crown || 0;
+  const heightOf = (p) => bottom + p.y * h + p.c * crown;
+  const profile = station.profile;
+  if (y <= heightOf(profile[0])) return profile[0].x * w;
+  for (let i = 1; i < profile.length; i += 1) {
+    const ya = heightOf(profile[i - 1]);
+    const yb = heightOf(profile[i]);
+    if (y > yb) continue;
+    const t = yb === ya ? 0 : (y - ya) / (yb - ya);
+    return (profile[i - 1].x + (profile[i].x - profile[i - 1].x) * t) * w;
+  }
+  return 0;
+}
+
+// Height of a station's skin directly above a lateral offset — the inverse of
+// skinAt, and what lets a windscreen be laid *over* the front of the greenhouse
+// instead of chording straight through it.
+function topAt(station, x) {
+  const { halfWidth: w, bottom, top } = station;
+  const h = top - bottom || 1;
+  const crown = station.crown || 0;
+  const profile = station.profile;
+  const heightOf = (p) => bottom + p.y * h + p.c * crown;
+  const want = Math.abs(x);
+  // Walk down from the crown. x grows on the way down until the widest point,
+  // which is as far as a pane laid over the top can reach.
+  for (let i = profile.length - 1; i > 0; i -= 1) {
+    const xa = profile[i].x * w;
+    const xb = profile[i - 1].x * w;
+    if (xb <= xa) return heightOf(profile[i]);
+    if (want > xb) continue;
+    const t = (want - xa) / (xb - xa);
+    return heightOf(profile[i]) + (heightOf(profile[i - 1]) - heightOf(profile[i])) * t;
+  }
+  return heightOf(profile[0]);
+}
+
+// A station interpolated between the authored ones, so trim can be hung
+// anywhere along a shell rather than only where a station happens to be.
+function stationAt(stations, z) {
+  const first = stations[0];
+  const last = stations[stations.length - 1];
+  if (z <= first.z) return first;
+  if (z >= last.z) return last;
+  for (let i = 1; i < stations.length; i += 1) {
+    const b = stations[i];
+    if (z > b.z) continue;
+    const a = stations[i - 1];
+    const t = (z - a.z) / (b.z - a.z);
+    const mix = (key) => a[key] + (b[key] - a[key]) * t;
+    return {
+      z,
+      halfWidth: mix('halfWidth'),
+      bottom: mix('bottom'),
+      top: mix('top'),
+      crown: mix('crown'),
+      profile: a.profile,
+    };
+  }
+  return last;
 }
 
 function loftGeometry(stations) {
   const positions = [];
   const indices = [];
-  const rings = stations.map(roundedRing);
+  const rings = stations.map((station) => ring(station, station.profile));
   const ringSize = rings[0].length;
 
   for (let i = 0; i < stations.length; i += 1) {
@@ -121,10 +262,26 @@ function ellipsoid(rx, ry, rz, x, y, z, material) {
   return mesh;
 }
 
-function panel(points, material) {
+// A quad grid from rows of equal length. Glass is built this way rather than as
+// single quads because a flat quad spanning a curved shell chords across it and
+// sinks inside — which is exactly how a windscreen disappears.
+function sheet(rows, material) {
+  const positions = [];
+  const indices = [];
+  const cols = rows[0].length;
+  for (const row of rows) for (const p of row) positions.push(p[0], p[1], p[2]);
+  for (let r = 0; r < rows.length - 1; r += 1) {
+    for (let c = 0; c < cols - 1; c += 1) {
+      const a = r * cols + c;
+      const b = a + 1;
+      const d = (r + 1) * cols + c;
+      const e = d + 1;
+      indices.push(a, d, b, b, d, e);
+    }
+  }
   const geometry = new BufferGeometry();
-  geometry.setAttribute('position', new Float32BufferAttribute(points.flat(), 3));
-  geometry.setIndex([0, 1, 2, 0, 2, 3]);
+  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
   geometry.computeVertexNormals();
   return new Mesh(geometry, material);
 }
@@ -179,8 +336,8 @@ function buildWheel(materials) {
 
 export function buildBeryl() {
   const materials = {
-    // Same colour constants as the existing model; only the normals change from
-    // deliberately faceted to smooth so the new curves actually read as curves.
+    // Same colour constants as before; the normals are smooth rather than
+    // faceted so the compound curves actually read as curves.
     body: lambert(C.berylBody, { flatShading: false }),
     glass: lambert(C.glass, { flatShading: false, side: DoubleSide }),
     chrome: lambert(C.chrome, { flatShading: false }),
@@ -197,146 +354,177 @@ export function buildBeryl() {
   const chassis = new Group();
   root.add(chassis);
 
-  // Low continuous body shell. The waist is about 13 units lower than the old
-  // version, while the sill drops around the wheels so Beryl looks planted
-  // rather than perched on an oversized undercarriage.
-  chassis.add(loft([
-    { z: -L * 0.50, halfWidth: W * 0.23, bottom: 25, top: 43, crown: 1 },
-    { z: -L * 0.475, halfWidth: W * 0.35, bottom: 21, top: 49, crown: 1.5 },
-    { z: -L * 0.425, halfWidth: W * 0.45, bottom: 17, top: 56, crown: 2 },
-    { z: -L * 0.34, halfWidth: W * 0.50, bottom: 15, top: 60, crown: 2 },
-    { z: -L * 0.23, halfWidth: W * 0.50, bottom: 14, top: 61, crown: 2 },
-    { z: -L * 0.10, halfWidth: W * 0.50, bottom: 14, top: 61, crown: 2 },
-    { z: L * 0.08, halfWidth: W * 0.50, bottom: 14, top: 62, crown: 2 },
-    { z: L * 0.22, halfWidth: W * 0.495, bottom: 15, top: 61, crown: 2 },
-    { z: L * 0.32, halfWidth: W * 0.47, bottom: 17, top: 59, crown: 2 },
-    { z: L * 0.41, halfWidth: W * 0.41, bottom: 20, top: 55, crown: 1.5 },
-    { z: L * 0.475, halfWidth: W * 0.32, bottom: 23, top: 49, crown: 1 },
-    { z: L * 0.50, halfWidth: W * 0.22, bottom: 26, top: 44, crown: 1 },
-  ], materials.body));
+  const body = BODY_STATIONS.map((s) => ({ ...s, profile: BODY_PROFILE }));
+  const cabin = CABIN_STATIONS.map((s) => ({ ...s, profile: CABIN_PROFILE }));
+  chassis.add(loft(body, materials.body));
+  chassis.add(loft(cabin, materials.body));
 
-  // Separate rounded wings remain a Morris Minor cue, but are tucked into the
-  // shell instead of sitting on it as four large bubbles.
+  // Where the flank of the greenhouse is, at any point glass has to sit on it.
+  const cabinSkin = (z, y) => skinAt(stationAt(cabin, z), y);
+
+  // Height of the greenhouse's upper surface at a point, and the outward normal
+  // there, by central difference. Lifting glass along the true local normal is
+  // what stops it grazing the shell: a single offset per row leaves the outer
+  // columns exactly coplanar, which is z-fighting, which is the torn shards a
+  // windscreen turns into.
+  const cabinTop = (z, x) => topAt(stationAt(cabin, z), x);
+  const EPS = 0.8;
+  const topNormal = (z, x) => {
+    const nx = -(cabinTop(z, x + EPS) - cabinTop(z, x - EPS)) / (2 * EPS);
+    const nz = -(cabinTop(z + EPS, x) - cabinTop(z - EPS, x)) / (2 * EPS);
+    const len = Math.hypot(nx, 1, nz);
+    return [nx / len, 1 / len, nz / len];
+  };
+  const flankNormal = (z, y) => {
+    const ny = -(cabinSkin(z, y + EPS) - cabinSkin(z, y - EPS)) / (2 * EPS);
+    const nz = -(cabinSkin(z + EPS, y) - cabinSkin(z - EPS, y)) / (2 * EPS);
+    const len = Math.hypot(1, ny, nz);
+    return [1 / len, ny / len, nz / len];
+  };
+
+  // A screen laid over the front or rear slope of the greenhouse. Only the z
+  // range and the width are authored: the height at every point comes from the
+  // shell, so the windscreen's rake *is* the shell's rake and cannot drift.
+  const screen = (zFront, zRear, halfFront, halfRear) => {
+    const steps = 6;
+    const rows = [];
+    for (let i = 0; i <= steps; i += 1) {
+      const u = i / steps;
+      const z = zFront + (zRear - zFront) * u;
+      const half = halfFront + (halfRear - halfFront) * u;
+      rows.push([-half, -half * 0.5, 0, half * 0.5, half].map((x) => {
+        const n = topNormal(z, x);
+        return [
+          x + n[0] * GLASS_PROUD,
+          cabinTop(z, x) + n[1] * GLASS_PROUD,
+          z + n[2] * GLASS_PROUD,
+        ];
+      }));
+    }
+    chassis.add(sheet(rows, materials.glass));
+  };
+
+  // A side window, as a bottom and top edge run along the cabin flank. Each
+  // sample takes its lateral position from the flank, so the pane follows the
+  // tumblehome instead of cutting a chord through it.
+  const sideGlass = (corners) => {
+    const steps = 6;
+    const [frontLow, frontHigh, rearHigh, rearLow] = corners;
+    for (const sx of [-1, 1]) {
+      const rows = [[], [], []];
+      for (let i = 0; i <= steps; i += 1) {
+        const u = i / steps;
+        const lerp = (a, b) => a + (b - a) * u;
+        const low = { z: lerp(frontLow.z, rearLow.z), y: lerp(frontLow.y, rearLow.y) };
+        const high = { z: lerp(frontHigh.z, rearHigh.z), y: lerp(frontHigh.y, rearHigh.y) };
+        const mid = { z: (low.z + high.z) / 2, y: (low.y + high.y) / 2 };
+        for (const [row, p] of [[0, low], [1, mid], [2, high]]) {
+          const n = flankNormal(p.z, p.y);
+          rows[row].push([
+            sx * (cabinSkin(p.z, p.y) + n[0] * GLASS_PROUD),
+            p.y + n[1] * GLASS_PROUD,
+            p.z + n[2] * GLASS_PROUD,
+          ]);
+        }
+      }
+      chassis.add(sheet(rows, materials.glass));
+    }
+  };
+
+  // Rounded wings. The front pair are the car's full width and carry the
+  // headlamps; the rear pair are low blisters on the flank. They are what makes
+  // the narrow bonnet read as a Minor rather than as a slab.
   for (const sx of [-1, 1]) {
     chassis.add(ellipsoid(
-      W * 0.205,
+      W * 0.155,
       16,
-      L * 0.16,
-      sx * W * 0.39,
-      43,
-      AXLE_FRONT - L * 0.01,
+      L * 0.155,
+      sx * W * 0.345,
+      38,
+      AXLE_FRONT - L * 0.005,
       materials.body
     ));
     chassis.add(ellipsoid(
-      W * 0.19,
-      14.5,
-      L * 0.125,
-      sx * W * 0.395,
-      42,
+      W * 0.13,
+      14,
+      L * 0.115,
+      sx * W * 0.37,
+      36,
       AXLE_REAR,
       materials.body
     ));
   }
 
-  // A subtle crown, not a separate bonnet lump.
-  chassis.add(ellipsoid(
-    W * 0.29,
-    4.5,
-    L * 0.19,
-    0,
-    58,
-    -L * 0.325,
-    materials.body
-  ));
+  // Windscreen, then the two side windows, then the rear screen. The shell
+  // between them is what the eye reads as the A, B and C pillars — they are not
+  // separate meshes, which is why they can never float free of the roof.
+  screen(-L * 0.156, -L * 0.092, CABIN_HW * 0.68, CABIN_HW * 0.64);
 
-  // One body-colour cabin shell gives the roof, pillars and glass surround a
-  // single rounded silhouette. Windows are inset panels rather than a second
-  // dark loft with a cap placed over it.
-  chassis.add(loft([
-    { z: -L * 0.19, halfWidth: W * 0.28, bottom: 58, top: 64, crown: 1 },
-    { z: -L * 0.145, halfWidth: W * 0.36, bottom: 58, top: 76, crown: 2 },
-    { z: -L * 0.085, halfWidth: W * 0.41, bottom: 58, top: 85, crown: 3 },
-    { z: L * 0.015, halfWidth: W * 0.435, bottom: 58, top: 88, crown: 3 },
-    { z: L * 0.14, halfWidth: W * 0.43, bottom: 58, top: 87, crown: 3 },
-    { z: L * 0.245, halfWidth: W * 0.39, bottom: 58, top: 82, crown: 2.5 },
-    { z: L * 0.32, halfWidth: W * 0.32, bottom: 58, top: 72, crown: 1.5 },
-    { z: L * 0.355, halfWidth: W * 0.25, bottom: 57, top: 64, crown: 1 },
-  ], materials.body));
+  sideGlass([
+    { z: -L * 0.132, y: BELT },
+    { z: -L * 0.102, y: 78 },
+    { z: L * 0.026, y: 81 },
+    { z: L * 0.026, y: BELT },
+  ]);
+  sideGlass([
+    { z: L * 0.082, y: BELT },
+    { z: L * 0.082, y: 81 },
+    { z: L * 0.196, y: 78 },
+    { z: L * 0.208, y: BELT - 1 },
+  ]);
 
-  // Side glass follows the low belt line. The two-panel split and broad rear
-  // window preserve the four-door Minor character from the chase camera.
+  screen(L * 0.248, L * 0.304, CABIN_HW * 0.68, CABIN_HW * 0.62);
+
+  // Trim and lamps keep their established colours and identity details. Each is
+  // hung off the shell it belongs to rather than a remembered coordinate.
+  chassis.add(buildBumper(W * 0.90, -L * 0.505, 28, materials.chrome));
+  chassis.add(buildBumper(W * 0.90, L * 0.505, 28, materials.chrome));
   for (const sx of [-1, 1]) {
-    const x = sx * W * 0.414;
-    chassis.add(panel([
-      [x, 63, -L * 0.125],
-      [x, 80, -L * 0.095],
-      [x, 82, L * 0.025],
-      [x, 63, L * 0.025],
-    ], materials.glass));
-    chassis.add(panel([
-      [x, 63, L * 0.065],
-      [x, 82, L * 0.065],
-      [x, 77, L * 0.245],
-      [x, 62, L * 0.255],
-    ], materials.glass));
+    chassis.add(box(5, 12, 5, sx * W * 0.26, 32, -L * 0.498, materials.chrome));
+    chassis.add(box(5, 12, 5, sx * W * 0.26, 32, L * 0.498, materials.chrome));
   }
 
-  const windscreen = box(W * 0.62, 17, 3.5, 0, 72, -L * 0.145, materials.glass);
-  windscreen.rotation.x = -0.43;
-  chassis.add(windscreen);
+  // Headlamps. Domes bulging out of the upper front of each wing, not discs cut
+  // into it: the wings are rounded, so a flat lens either sinks inside or floats
+  // clear of them, and the real car's lamps stand proud anyway.
+  for (const sx of [-1, 1]) {
+    chassis.add(ellipsoid(9, 8.5, 10, sx * W * 0.345, 46, -L * 0.415, materials.lamp));
+  }
 
-  const rearScreen = box(W * 0.57, 16, 3.5, 0, 70, L * 0.295, materials.glass);
-  rearScreen.rotation.x = 0.48;
-  chassis.add(rearScreen);
+  // The grille: a chrome-framed panel of vertical bars between the wings, which
+  // is the Minor's face.
+  chassis.add(box(W * 0.30, 22, 4, 0, 36, -L * 0.482, materials.chrome));
+  chassis.add(box(W * 0.26, 17, 4, 0, 36, -L * 0.485, materials.grille));
+  for (const x of [-0.10, -0.05, 0, 0.05, 0.10]) {
+    chassis.add(box(2, 15, 3, W * x, 36, -L * 0.488, materials.chrome));
+  }
 
   for (const sx of [-1, 1]) {
-    const x = sx * W * 0.418;
-    const a = box(4.5, 20, 6, x, 70, -L * 0.135, materials.body);
-    a.rotation.x = -0.34;
-    chassis.add(a);
-    chassis.add(box(5, 22, 6, x, 71, L * 0.045, materials.body));
-    const c = box(4.5, 18, 6, x, 69, L * 0.27, materials.body);
-    c.rotation.x = 0.35;
-    chassis.add(c);
+    chassis.add(ellipsoid(5, 6, 5.5, sx * W * 0.30, 47, L * 0.462, materials.accent));
   }
 
-  // Trim and lamps retain their established colours and identity details.
-  chassis.add(buildBumper(W * 0.90, -L * 0.505, 27, materials.chrome));
-  chassis.add(buildBumper(W * 0.90, L * 0.505, 27, materials.chrome));
+  chassis.add(box(W * 0.25, 9, 3, 0, 36, L * 0.495, materials.plate));
+
+  // The red pinstripe along the shoulder, just under the belt line, laid on the
+  // body skin in short segments so it follows the flank as it tapers.
+  const bodySkin = (z, y) => skinAt(stationAt(body, z), y);
+  // It starts at the front door, not the bonnet: ahead of that the flank is the
+  // wing, which stands proud of the skin the stripe is laid on, and the stripe
+  // would hang in the valley between the two.
+  const STRIPE_Y = 55;
   for (const sx of [-1, 1]) {
-    chassis.add(box(6, 14, 6, sx * W * 0.29, 31, -L * 0.498, materials.chrome));
-    chassis.add(box(6, 14, 6, sx * W * 0.29, 31, L * 0.498, materials.chrome));
+    for (const z of [-L * 0.07, L * 0.04, L * 0.15, L * 0.25]) {
+      chassis.add(box(
+        1.8, 1.8, L * 0.115,
+        sx * (bodySkin(z, STRIPE_Y) + 0.5), STRIPE_Y, z,
+        materials.accent
+      ));
+    }
   }
 
-  const lampGeom = new CylinderGeometry(9.5, 9.5, 6, 16);
-  lampGeom.rotateX(Math.PI / 2);
-  for (const sx of [-1, 1]) {
-    const lamp = new Mesh(lampGeom, materials.lamp);
-    lamp.position.set(sx * W * 0.37, 50, -L * 0.452);
-    chassis.add(lamp);
-  }
-
-  chassis.add(box(W * 0.28, 22, 4, 0, 41, -L * 0.488, materials.grille));
-  for (const x of [-0.11, -0.055, 0, 0.055, 0.11]) {
-    chassis.add(box(2, 20, 3, W * x, 41, -L * 0.491, materials.chrome));
-  }
-
-  const tailGeom = new CylinderGeometry(5.8, 5.8, 6, 14);
-  tailGeom.rotateX(Math.PI / 2);
-  for (const sx of [-1, 1]) {
-    const tail = new Mesh(tailGeom, materials.accent);
-    tail.position.set(sx * W * 0.34, 49, L * 0.472);
-    chassis.add(tail);
-  }
-
-  chassis.add(box(W * 0.25, 9, 3, 0, 38, L * 0.498, materials.plate));
-
-  for (const sx of [-1, 1]) {
-    chassis.add(box(2.4, 2.5, L * 0.56, sx * W * 0.501, 49, -L * 0.015, materials.accent));
-  }
-
-  chassis.add(box(1.8, 1.8, L * 0.29, 0, 61.5, -L * 0.33, materials.chrome));
-  chassis.add(box(W * 0.40, 1.8, 1.8, 0, 57, L * 0.405, materials.chrome));
+  // Bonnet centre strip and boot handle, seated on the body skin they run along.
+  chassis.add(box(1.6, 1.6, L * 0.24, 0, topAt(stationAt(body, -L * 0.33), 0) + 0.4, -L * 0.33, materials.chrome));
+  chassis.add(box(W * 0.30, 1.6, 1.6, 0, topAt(stationAt(body, L * 0.41), 0) + 0.4, L * 0.41, materials.chrome));
 
   const wheels = [];
   const layout = [
