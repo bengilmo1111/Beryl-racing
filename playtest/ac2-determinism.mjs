@@ -32,11 +32,12 @@ const BASELINES = {
   // Forks-to-coast route, realistic sealed/gravel split, eight gates, branch
   // roads through town and a newly filtered obstacle field. The test driver now
   // follows the primary road between sparse branch-safe gates rather than
-  // cutting straight across paddocks.
+  // cutting straight across paddocks. The fingerprint also includes the solid
+  // structures introduced on 3d-port after this branch started.
   otaki: {
     finishTimeMs: 105300,
     pos: { x: 1143.180988072, y: 8345.932976982 },
-    obstacles: '6e270ace41b2c2d7',
+    obstacles: 'f30794a984cd487e',
   },
 };
 
