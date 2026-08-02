@@ -50,20 +50,14 @@ class RaceWorld {
     // Ground first, then every driveable road, each painted outward-in and
     // bottom-up: apron, road, centre line, kerbs.
     //
-    // Most courses have one road; Eastbourne has a primary route plus Marine
-    // Parade, an inland village route and two cross streets. They use the same
-    // road primitives, so intersections read naturally through overlapping
-    // ribbons rather than needing junction geometry.
+    // Most courses have one road; Eastbourne and Ōtaki have a through route plus
+    // realistic town streets. They use the same road primitives, so junctions
+    // read naturally through overlapping ribbons rather than special geometry.
     this.terrain = scene.terrain;
     this.scene3d.add(buildGround(this.terrain));
-    // Branch roads get bare tarmac — no apron, kerb or centre line.
-    //
-    // Those three are highway markings, and drawing them on every street turned
-    // Eastbourne's village into a paved yard: five roads converge there, so ten
-    // painted kerb lines, ten run-off bands and five lines of dashes all crossed
-    // each other at the junctions. A side street that is simply sealed tarmac
-    // joining the main road reads as a street, and it is also what those streets
-    // actually look like.
+    // Branch roads get bare tarmac — no apron, kerb or centre line. Drawing all
+    // three on every town street creates a knot of overlapping markings at each
+    // junction; ordinary sealed tarmac reads more naturally and stays legible.
     const roads = scene.track.roads || [scene.track];
     for (const road of roads) {
       const through = road === roads[0];
@@ -79,11 +73,12 @@ class RaceWorld {
       }
     }
 
-    // Eastbourne is meant to be recognised from its road geometry, shoreline,
-    // houses and hills rather than floating labels. It therefore has neither a
-    // START gantry nor generated roadside / finish signs.
+    // Eastbourne and Ōtaki are recognised from geography, road layout and
+    // architecture rather than generated race furniture. Neither gets a start
+    // gantry, route boards, arrows or a labelled finish.
+    const geographyLed = scene.def.theme === 'eastbourne' || scene.def.theme === 'otaki';
     if (scene.def.theme === 'manfield') this.scene3d.add(buildStartLine(scene.track));
-    else if (scene.def.theme !== 'eastbourne') this.scene3d.add(buildStartGantry(scene.track, 'START'));
+    else if (!geographyLed) this.scene3d.add(buildStartGantry(scene.track, 'START'));
 
     // Theme setpieces sit under the trees and signage.
     if (scene.def.theme === 'eastbourne') {
@@ -95,7 +90,7 @@ class RaceWorld {
     }
 
     this.scene3d.add(buildTrees(scene.scenery.trees, this.terrain));
-    if (scene.def.theme !== 'eastbourne') {
+    if (!geographyLed) {
       this.scene3d.add(buildSigns(scene.track, scene.def, this.terrain));
     }
 
