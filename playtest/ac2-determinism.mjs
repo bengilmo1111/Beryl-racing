@@ -5,73 +5,22 @@ import { chromium } from 'playwright';
 import { createServer } from 'vite';
 import { TRACKS } from '../src/tracks.js';
 
-// Recorded simulation baselines. Run-to-run equality alone cannot catch a
-// physics-affecting regression — three identical wrong runs still pass — so the
-// values are pinned here as well. `finishTimeMs`/`pos` come from the AC2 record
-// in progress.md; `obstacles` is a SHA-256 over the scene's collision circles,
-// which is the fastest way to detect a change in the seeded scenery placement
-// that seeds them (see src/scenery.js).
-//
-// These change only when gameplay is deliberately changed. If a code change
-// moves them, fix the change — do not re-record without saying so explicitly.
-//
-// Recorded 2026-08-01 against 8bf33c6. They supersede the numbers in
-// progress.md's 2026-07-28 entry, which were never refreshed after 8bf33c6
-// ("Longer/faster courses, bigger Beryl sprite") scaled every route ×2 and
-// Beryl's speed ×1.5 — so those were already stale on main before this branch.
-//
-// Re-recorded again when elevation landed. Eastbourne, Remutaka and Ōtaki now
-// have height profiles and gravity along the slope; Manfield is deliberately
-// flat, and its numbers being unchanged to the last digit is the check that the
-// `grade !== 0` guard in Car.update really does cost a flat course nothing.
-// Remutaka is much slower than its flat version (the climb); Eastbourne and
-// Ōtaki are slightly faster than theirs (net descents).
-//
-// Re-recorded once more when Beryl was given more pep — SPEED_SCALE 1.5 -> 1.8
-// plus a dedicated ACCEL_SCALE — which took roughly 18% off every course.
-// Every course re-baselined when roadWidth doubled to two lanes. That change
-// reaches the simulation three ways: the on-track test (`dist <= track.half`)
-// covers twice the width, so the grass speed penalty applies far less often;
-// tree placement rejects anything within `roadWidth / 2 + 90`, moving the whole
-// obstacle field outward and changing every fingerprint; and the terrain road-
-// pinning radius grows with it. The bots therefore drive visibly better rather
-// than merely differently — Remutaka nearly halved, from 168.7s to 92.0s,
-// because the waypoint bot stops falling off the switchbacks.
-//
-// The widths are capped per course, not simply doubled. track.js offsets the
-// centreline by ±half along its own normal, so once half exceeds a corner's
-// radius the road folds through itself. Ceilings: Eastbourne 602, Manfield 339,
-// Remutaka 260, Otaki 299.
+// Recorded simulation baselines. Run-to-run equality catches nondeterminism;
+// these pinned values also catch three identical but wrong runs. Re-record only
+// when gameplay deliberately changes, and say why.
 const BASELINES = {
-  // Re-recorded on 2026-08-02 for the complete Eastbourne route replacement:
-  // longer Ferry Road, a new coastal alignment, seven checkpoints, a branching
-  // village road network and a different inland-only obstacle field. The other
-  // three courses stayed identical, confirming the change remained isolated.
-  // Re-recorded when Eastbourne was rebuilt around the real coastal road
-  // network: a much longer route from 28 Ferry Road, a branch road network
-  // through the village, seven gates placed by `checkpointFractions` instead of
-  // even spacing, and a larger world. Manfeild, Remutaka and Otaki did not move,
-  // which is the check that adding branch roads left the scenery RNG draw order
-  // alone.
+  // Complete Eastbourne route replacement: longer coast run, branch network,
+  // seven gates and a different obstacle field.
   'eastbourne-dash': {
     finishTimeMs: 108133.333333,
     pos: { x: 2670.485515835, y: 13879.714365457 },
     obstacles: '9404101c358ce680',
   },
-  // Re-recorded when the circuit stopped being an invented oval and became the
-  // real Manfeild layout (see docs/tracks/MANFEILD-LAYOUT.md), then again when
-  // trees were cleared out of a closed circuit's infield. A different
-  // centreline, road width, checkpoint count and tree scatter necessarily move
-  // all three values; the other courses did not shift either time, which is the
-  // check that the scenery RNG draw order was left alone.
+  // Real Manfeild layout, enlarged so its broad road fits the tightest radius;
+  // no trees or collision circles on the race venue.
   manfield: {
     finishTimeMs: 34883.333333,
     pos: { x: 8271.057258642, y: 6535.478402139 },
-    // Empty: the SHA-256 of `[]`. Manfeild's art pass removed its trees, and
-    // with them every collision circle on the circuit — deliberately, so a track
-    // you are meant to drive flat out has nothing invisible to hit. Its finish
-    // time and position did not move, which is the check that the trees the bot
-    // was passing were never ones it touched.
     obstacles: '4f53cda18c2baa0c',
   },
   remutaka: {
@@ -79,24 +28,18 @@ const BASELINES = {
     pos: { x: 9392.104197495, y: 1526.952446061 },
     obstacles: '1bb1e8cc66ce86a7',
   },
-  // Ōtaki alone moved when the 2D renderer came out, and the reason is worth
-  // knowing. Phaser's Text constructor keys its canvas texture with a UUID built
-  // from Math.random, so every text object silently consumed draws from the
-  // seeded stream. Ōtaki's crossbuck label was the only one created *before*
-  // tree placement, so deleting it shifted that course's scenery and, with it,
-  // the collision circles the run bumps into.
-  //
-  // This class of fragility is now gone rather than papered over: scatterScenery
-  // runs at the top of RaceScene.create(), before any text or HUD exists, so UI
-  // churn can no longer perturb gameplay placement.
+  // Re-recorded 2026-08-02 for the complete Ōtaki replacement: a much longer
+  // Forks-to-coast route, realistic sealed/gravel split, eight gates, branch
+  // roads through town and a newly filtered obstacle field. Eastbourne,
+  // Manfeild and Remutaka stayed byte-identical.
   otaki: {
-    finishTimeMs: 81833.333333,
-    pos: { x: 1248.88744466, y: 1243.523102511 },
-    obstacles: '84952307dd7e9846',
+    finishTimeMs: 132683.333333,
+    pos: { x: 1447.921500501, y: 7976.607908423 },
+    obstacles: '6e270ace41b2c2d7',
   },
 };
 
-// Set RECORD_BASELINES=1 to print the values to paste above. Use deliberately.
+// Set RECORD_BASELINES=1 to print values for an intentional route/physics change.
 const recording = process.env.RECORD_BASELINES === '1';
 const recorded = {};
 
@@ -115,9 +58,6 @@ const server = await createServer({
 });
 await server.listen();
 
-// PLAYWRIGHT_CHROMIUM_EXECUTABLE lets a sandbox or dev box point at a Chromium
-// it already has, when that build differs from the one this Playwright version
-// would download. Unset in CI, where Playwright resolves its own browser.
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined;
 const browser = await chromium.launch({ headless: true, executablePath });
 const baseUrl = 'http://127.0.0.1:4173/?harness=1';
@@ -131,9 +71,6 @@ function comparable(state) {
   });
 }
 
-// A fingerprint of the collision circles the race was built with. Cheap to
-// compute and it fails in seconds, versus a full replay, when the seeded
-// scenery placement in src/scenery.js drifts.
 async function obstacleFingerprint(page) {
   const json = await page.evaluate(() => {
     const scene = window.__BERYL_GAME__.scene.getScene('Race');
@@ -149,8 +86,7 @@ async function newRun(courseId) {
   page.on('console', (message) => {
     if (message.type() === 'error') pageErrors.push(message.text());
   });
-  // Typography is not part of simulation determinism and CI may have no
-  // outbound network. Stub the external stylesheet so only game requests count.
+  // Typography is not part of simulation determinism and CI may be offline.
   await page.route('https://fonts.googleapis.com/**', (route) =>
     route.fulfill({ status: 200, contentType: 'text/css', body: '' })
   );
@@ -214,9 +150,11 @@ async function replay(courseId, inputs) {
 try {
   for (const course of courses) {
     const baseline = await recordInputs(course.id);
-    const results = [baseline.state];
-    results.push(await replay(course.id, baseline.inputs));
-    results.push(await replay(course.id, baseline.inputs));
+    const results = [
+      baseline.state,
+      await replay(course.id, baseline.inputs),
+      await replay(course.id, baseline.inputs),
+    ];
 
     const expected = comparable(results[0]);
     for (let i = 1; i < results.length; i++) {
@@ -226,9 +164,7 @@ try {
         `${course.id}: run ${i + 1} did not match the baseline`
       );
     }
-    // Run-to-run equality is only half of it: also hold the run against the
-    // recorded simulation baseline, so a physics-affecting change fails here
-    // rather than passing as three consistent wrong answers.
+
     const pinned = BASELINES[course.id];
     if (recording) {
       recorded[course.id] = {
@@ -252,7 +188,7 @@ try {
         assert.equal(
           baseline.fingerprint,
           pinned.obstacles,
-          `${course.id}: obstacle placement drifted — the seeded RNG draw order in src/scenery.js changed`
+          `${course.id}: obstacle placement drifted — seeded RNG draw order changed`
         );
       }
     }
@@ -287,6 +223,7 @@ try {
     assert.deepEqual(harnessErrors, [], `${course.id}: harness errors during bot matrix`);
     console.log(`D2 ${course.id}: PASS ${botNames.join(', ')}`);
   }
+
   if (recording) {
     console.log('\nRecorded baselines — paste into BASELINES:\n');
     console.log(JSON.stringify(recorded, null, 2));
