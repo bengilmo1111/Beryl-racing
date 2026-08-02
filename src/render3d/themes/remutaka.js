@@ -38,25 +38,28 @@ const COLOUR = {
   cloudShade: 0xdce6e3,
 };
 
-// A narrow surface band laid over the visual terrain. On the inboard side it
-// exposes warm rock immediately beside the road; on the outside it darkens the
-// first face of the drop so the valley edge does not read as a flat green verge.
-function addSideFace(group, track, terrain, profile, sideKey, nearOffset, farOffset, colour) {
+// A narrow surface band laid over the visual terrain. It is deliberately limited
+// to the lower sweepers: offset ribbons become ambiguous once the road folds
+// tightly back beside itself at the summit hairpins. The upper climb relies on
+// the actual terrain form, guardrail and sky opening instead of a decorative
+// strip that could appear to bridge two different-height road sections.
+function addLowerSideFace(group, track, terrain, profile, sideKey, nearOffset, farOffset, colour) {
   const positions = [];
   const normals = [];
+  const end = Math.floor(profile.length * 0.56);
 
   const push = (x, y, z) => {
     positions.push(x, y, z);
     normals.push(0, 0.72, 0.68);
   };
 
-  for (let i = Math.floor(profile.length * 0.14); i < profile.length - 1; i += 2) {
-    const j = Math.min(profile.length - 1, i + 2);
+  for (let i = Math.floor(profile.length * 0.14); i < end - 1; i += 2) {
+    const j = Math.min(end - 1, i + 2);
     const a = profile[i];
     const b = profile[j];
     const sideA = a[sideKey];
     const sideB = b[sideKey];
-    if (sideA !== sideB) continue;
+    if (sideA !== sideB || Math.hypot(b.x - a.x, b.z - a.z) > 190) continue;
 
     const an = {
       x: a.x + a.nx * sideA * nearOffset,
@@ -257,8 +260,6 @@ function addDistantRanges(root) {
   const ranges = new Group();
   ranges.name = 'remutaka-directional-ranges';
 
-  // East / summit side: tall, close and irregular. From Te Mārua the road runs
-  // toward these walls; at the upper switchbacks they loom above the cut bank.
   const east = [
     { at: W + 5600, height: 1500, colour: COLOUR.farRange, phase: 0.4, drift: 420 },
     { at: W + 3300, height: 1850, colour: COLOUR.middleRange, phase: 1.5, drift: 330 },
@@ -282,9 +283,6 @@ function addDistantRanges(root) {
     }, band.colour));
   });
 
-  // West / valley side: low aerial-perspective ridges rather than another wall.
-  // Turning back through a hairpin therefore opens a large amount of sky above
-  // the guardrail, which is the visual cue that there is a long way down.
   const west = [
     { at: -5200, height: 430, colour: COLOUR.valleyFar, phase: 0.8 },
     { at: -2500, height: 680, colour: COLOUR.valleyNear, phase: 2.1 },
@@ -303,8 +301,6 @@ function addDistantRanges(root) {
     }, band.colour));
   });
 
-  // Low end caps keep the terrain skirt from becoming the horizon without
-  // enclosing the road in four equally high generic walls.
   ranges.add(ridge({
     along: 'x', at: -2600, start: -W * 0.25, end: W * 1.25, segments: 52,
     bottom: -1500,
@@ -341,11 +337,8 @@ export function buildRemutaka(track, def, terrain) {
   group.name = 'remutaka-cliff-road-environment';
   const profile = remutakaRoadProfile(track);
 
-  // The terrain mesh carries the large cross-section. These overlays give its
-  // two sides different material language without adding standalone boulders
-  // that Beryl could visibly pass through.
-  addSideFace(group, track, terrain, profile, 'inside', track.half + 150, track.half + 520, COLOUR.rock);
-  addSideFace(group, track, terrain, profile, 'outside', track.half + 165, track.half + 760, COLOUR.dropFace);
+  addLowerSideFace(group, track, terrain, profile, 'inside', track.half + 150, track.half + 520, COLOUR.rock);
+  addLowerSideFace(group, track, terrain, profile, 'outside', track.half + 165, track.half + 760, COLOUR.dropFace);
   addGuardrail(group, track, terrain, profile);
   addHairpinChevrons(group, track, terrain, profile);
   addDistantRanges(group);
