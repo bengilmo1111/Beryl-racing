@@ -1246,3 +1246,47 @@ less like a Morris Minor than the model it replaces. The height figure itself is
 sound (91/217.6 = 0.418 against the real car's 1.55/3.73 = 0.416; the current 106
 is 0.487, genuinely too tall), so a future pass should keep the lower body and
 *raise the glass into it* rather than shrinking the cabin with the roof.
+
+### PR #27, second time: merged
+
+The finding above was acted on, and it turned out the derivation fix alone was
+never going to be enough — the art problem it left behind had a structural
+cause, not a tuning one.
+
+**One cross-section profile cannot describe both a body and a greenhouse.** The
+loft built every station from the same rounded ring, whose widest point sits at
+39% of the section height. That is right for a body: it is what gives the wings
+and the boot their bulge. On the cabin it means the shell reaches full width down
+at the belt and has already turned over by the time the glass gets there, so the
+windows can only ever be a shallow band cut into a dome. There are now two
+profiles, and the greenhouse's carries its width high with gentle tumblehome.
+
+**Two more shape faults, both from the same reading of the reference photo.** The
+cabin narrowed towards the front as well as dropping, leaving the windscreen
+sitting on a ridge with nothing wide enough underneath it to be a scuttle; and
+the bonnet was as wide as the body, when on a Minor the width at the front comes
+from faired wings either side of a distinctly narrow bonnet.
+
+**A flat quad spanning a curved shell sinks inside it.** This is the same class
+of bug as the fixed coordinate, one level down: even glass whose *corners* are
+derived correctly disappears, because the chord between them passes under the
+surface. Measured at the windscreen, the shell stood 5.2 units above the chord at
+its midpoint. Glass is now built with `sheet()`, a quad grid that samples the
+shell along its whole span.
+
+**And a derived pane that grazes the shell z-fights into shards.** Offsetting a
+whole row along one normal leaves the outer columns exactly coplanar. Each vertex
+is now lifted along the true local surface normal, obtained by central difference
+of `topAt`/`skinAt`.
+
+**No pillar meshes at all.** The shell left between the windows is what the eye
+reads as the A, B and C pillars. This is the actual fix for the recurring bug:
+not deriving the pillar's coordinates more carefully, but deleting the thing that
+had coordinates to get wrong.
+
+The queries the trim hangs off — `skinAt` (flank at a height), `topAt` (upper
+surface above a lateral offset) and `stationAt` (interpolate between authored
+stations) — are the ones to reach for next time anything is added to this model.
+
+Render-only: all four courses match their pinned finish times, positions and
+obstacle fingerprints.
