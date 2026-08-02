@@ -35,7 +35,7 @@ export class RaceScene extends Phaser.Scene {
 
     // The height field. Flat courses build nothing and answer 0, so they take no
     // extra work and — critically — no extra arithmetic in the physics step.
-    this.terrain = new Terrain(this.track, WORLD);
+    this.terrain = new Terrain(this.track, WORLD, this.def);
 
     // Solid scenery Beryl bumps into: each is a {x, y, r} collision circle.
     //

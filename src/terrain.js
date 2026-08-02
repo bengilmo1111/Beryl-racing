@@ -4,7 +4,6 @@
 // placement, skid decals and the ground mesh all read `heightAt()` from here.
 // The road network is the landform's skeleton: primary and branch roads are all
 // pinned into the same field so alternate streets neither float nor disappear.
-import { getSelectedTrack } from './tracks.js';
 import { remutakaRoadProfile, remutakaVisualHeight } from './remutakaTerrain.js';
 
 const CELL = 120;
@@ -12,7 +11,7 @@ const BLUR_PASSES = 3;
 const ROAD_PIN_FACTOR = 1.15;
 
 export class Terrain {
-  constructor(track, world) {
+  constructor(track, world, def = null) {
     const roads = track.roads || [track];
     this.flat = !roads.some((road) => road.heights);
     if (this.flat) return;
@@ -44,7 +43,10 @@ export class Terrain {
       }
     }
 
-    const def = getSelectedTrack();
+    // The course is passed in rather than looked up. Terrain reaching into
+    // tracks.js for the *selected* course would be a hidden global dependency —
+    // and a wrong one the moment anything builds a Terrain for a course that is
+    // not the selected one, which the harness is entitled to do.
     const remutaka = def?.theme === 'remutaka';
     const nearestSample = remutaka ? new Int32Array(this.cols * this.rows) : null;
     const grid = new Float32Array(this.cols * this.rows);

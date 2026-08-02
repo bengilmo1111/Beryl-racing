@@ -1171,3 +1171,44 @@ that threw at scene creation.
 
 Ōtaki's fingerprint moved; its finish time and position did not, which is how we
 know the bot was touching neither set. Matrix 16/16.
+
+## 2026-08-02 — Remutaka becomes a cliff road (PR #28)
+
+The climb now reads as the real thing: a steep inboard rock cut on one side, a
+guarded drop into the valley on the other, continuous silver guardrail with
+red/white reflectors, chevron boards into the tight bends, and Tararua-style
+ranges close in at the summit with much paler ridges across the valley.
+
+### The interesting decision: two height fields
+
+Remutaka now has a **visual** terrain grid distinct from the **physics** one.
+`heightAt()` returns the visual field and `gradeAlong()` reads `physicsGrid`, so
+the cliffs are geography while Beryl still climbs the exact profile the recorded
+baselines were taken against.
+
+That is normally the failure mode this codebase keeps stamping out — see-but-
+don't-hit. It is safe here because the split is drawn in the right place:
+**everything visual reads one grid consistently**, including Beryl's own height
+and the chase camera, so she sits on the ground you can see; and the *only*
+simulation consumer of terrain is `gradeAlong`, which reads the other. Road cells
+are pinned in both, so the two agree exactly where the car actually drives. All
+four baselines are unchanged, which is the proof.
+
+Worth being explicit that this is a narrow licence, not a general one: it works
+because a single, named function is the entire simulation surface. If anything
+else in the simulation ever reads terrain height, the two fields have to be
+reconciled first.
+
+### Fixed on merge
+
+**`Terrain` was reaching into `tracks.js` for `getSelectedTrack()`** to decide
+whether to build the cliff field. That is a hidden global dependency, and a wrong
+one the moment anything constructs a `Terrain` for a course that is not the
+selected one — which the harness is entitled to do. The course definition is
+passed in from `RaceScene` now, which already has it.
+
+**`themes/horizon.js` is deleted.** The generic four-sided bush ridge added two
+days ago existed only because Remutaka and Ōtaki had no distant scenery; both now
+have bespoke layers, so it had no callers left.
+
+Determinism unchanged on all four courses, matrix 16/16.
