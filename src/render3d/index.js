@@ -16,7 +16,7 @@ import { buildEastbourne } from './themes/eastbourne.js';
 import { buildOtaki } from './themes/otaki.js';
 import { buildOtakiParallax, updateOtakiParallax } from './themes/otakiParallax.js';
 import { buildManfeild } from './themes/manfeild.js';
-import { buildHorizonRanges } from './themes/horizon.js';
+import { buildRemutaka } from './themes/remutaka.js';
 import { SkidRibbon } from './fx/skid.js';
 import { PuffPool } from './fx/puffs.js';
 import { ChaseCamera } from './chaseCamera.js';
@@ -98,10 +98,11 @@ class RaceWorld {
     if (scene.def.theme === 'manfield') {
       this.scene3d.add(buildManfeild(scene.track, scene.def, this.terrain));
     }
-    // Keep the generic summer-haze horizon for Remutaka only. Ōtaki replaces it
-    // with the direction-aware coast/Forks contrast above.
     if (scene.def.theme === 'remutaka') {
-      this.scene3d.add(buildHorizonRanges());
+      // Remutaka is not a generic mountain backdrop. The road sits between a
+      // near-vertical inboard cut and a guarded drop into an open valley; its
+      // bespoke theme uses the same side profile as the visual terrain grid.
+      this.scene3d.add(buildRemutaka(scene.track, scene.def, this.terrain));
     }
 
     this.scene3d.add(buildTrees(scene.scenery.trees, this.terrain));
