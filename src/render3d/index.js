@@ -1,8 +1,5 @@
-// The 3D view of a race.
-//
-// Phaser still owns the simulation, the HUD, input, audio and the playtest
-// harness. This module owns everything the player sees of the world: it reads
-// car and track state and draws it, and never writes back.
+// The 3D view of a race. Phaser owns simulation/input/HUD; this module only
+// reads scene state and renders it.
 import Phaser from 'phaser';
 import { Scene, HemisphereLight, DirectionalLight } from 'three';
 import { C, makeFog } from './palette.js';
@@ -14,6 +11,7 @@ import { buildTrees } from './trees.js';
 import { buildSigns } from './signs.js';
 import { buildEastbourne } from './themes/eastbourne.js';
 import { buildOtaki } from './themes/otaki.js';
+import { buildOtakiParallax, updateOtakiParallax } from './themes/otakiParallax.js';
 import { buildManfeild } from './themes/manfeild.js';
 import { buildHorizonRanges } from './themes/horizon.js';
 import { SkidRibbon } from './fx/skid.js';
@@ -32,46 +30,25 @@ class RaceWorld {
     this.scene3d.background = C.sky.clone();
     this.scene3d.fog = makeFog();
 
-    // Soft and restrained, per docs/ART-DIRECTION.md, and deliberately bright.
-    //
-    // The rig is tuned so a vertical surface still reads close to its authored
-    // colour. A hemisphere light gives a horizontal normal the midpoint of its
-    // sky and ground colours, so a dim rig with a deep-grass ground colour left
-    // Beryl's turquoise rear reading as a muddy teal — the one face the player
-    // looks at all race. Bright sky, pale warm ground bounce, and a gentle sun
-    // that models form without carving out dark sides.
-    //
-    // No shadow maps: they cost, SwiftShader in CI is happier without them, and
-    // flat contact-shadow discs read fine at this scale.
+    // Bright, soft low-poly lighting. No shadow maps: contact discs do the job
+    // at this scale and SwiftShader/landscape phones are happier without them.
     this.scene3d.add(new HemisphereLight(0xdfefff, 0xa9c69a, 1.35));
     const sun = new DirectionalLight(0xfff3d0, 0.55);
     sun.position.set(-1, 2, -0.6);
     this.scene3d.add(sun);
 
-    // Ground first, then every driveable road, each painted outward-in and
-    // bottom-up: apron, road, centre line, kerbs.
-    //
-    // Most courses have one road; Eastbourne has a primary route plus Marine
-    // Parade, an inland village route and two cross streets. They use the same
-    // road primitives, so intersections read naturally through overlapping
-    // ribbons rather than needing junction geometry.
     this.terrain = scene.terrain;
+    this.otakiParallax = null;
     this.scene3d.add(buildGround(this.terrain));
-    // Branch roads get bare tarmac — no apron, kerb or centre line.
-    //
-    // Those three are highway markings, and drawing them on every street turned
-    // Eastbourne's village into a paved yard: five roads converge there, so ten
-    // painted kerb lines, ten run-off bands and five lines of dashes all crossed
-    // each other at the junctions. A side street that is simply sealed tarmac
-    // joining the main road reads as a street, and it is also what those streets
-    // actually look like.
+
+    // Branch streets are deliberately bare tarmac. Giving every town street an
+    // apron, kerbs and centre line creates a knot of overlapping markings at
+    // junctions; only the primary through-road carries those treatments.
     const roads = scene.track.roads || [scene.track];
     for (const road of roads) {
       const through = road === roads[0];
       if (through) for (const strip of buildApron(road)) this.scene3d.add(strip);
       this.scene3d.add(buildRoad(road));
-      // A race circuit has no centre line either — Manfeild gets rumble kerbs
-      // and a start/finish line, which is what actually marks a racing surface.
       if (through && scene.def.theme !== 'manfield') {
         this.scene3d.add(buildCentreLine(road));
       }
@@ -80,35 +57,35 @@ class RaceWorld {
       }
     }
 
-    // Eastbourne is meant to be recognised from its road geometry, shoreline,
-    // houses and hills rather than floating labels. It therefore has neither a
-    // START gantry nor generated roadside / finish signs.
+    // Eastbourne and Ōtaki are geography-led courses: no race gantry, route
+    // arrows, floating landmark labels or labelled finish.
+    const geographyLed = scene.def.theme === 'eastbourne' || scene.def.theme === 'otaki';
     if (scene.def.theme === 'manfield') this.scene3d.add(buildStartLine(scene.track));
-    else if (scene.def.theme !== 'eastbourne') this.scene3d.add(buildStartGantry(scene.track, 'START'));
+    else if (!geographyLed) this.scene3d.add(buildStartGantry(scene.track, 'START'));
 
-    // Theme setpieces sit under the trees and signage.
     if (scene.def.theme === 'eastbourne') {
+      // Structures are resolved by RaceScene so their visual footprints and
+      // collision footprints share the same road-clear positions.
       this.scene3d.add(
         buildEastbourne(scene.track, scene.def, this.terrain, scene.structures)
       );
     }
     if (scene.def.theme === 'otaki') {
       this.scene3d.add(buildOtaki(scene.track, scene.def, this.terrain, scene.structures));
+      this.otakiParallax = buildOtakiParallax(this.terrain.seaLevel || 0);
+      this.scene3d.add(this.otakiParallax);
     }
     if (scene.def.theme === 'manfield') {
       this.scene3d.add(buildManfeild(scene.track, scene.def, this.terrain));
     }
-    // Remutaka and Ōtaki have no bespoke parallax layer. With the haze pushed
-    // back far enough to see the whole course, they need *something* on the
-    // horizon or the terrain skirt reads as an endless flat plain.
-    if (scene.def.theme === 'remutaka' || scene.def.theme === 'otaki') {
+    // Keep the generic summer-haze horizon for Remutaka only. Ōtaki replaces it
+    // with the direction-aware coast/Forks contrast above.
+    if (scene.def.theme === 'remutaka') {
       this.scene3d.add(buildHorizonRanges());
     }
 
     this.scene3d.add(buildTrees(scene.scenery.trees, this.terrain));
-    if (scene.def.theme !== 'eastbourne') {
-      this.scene3d.add(buildSigns(scene.track, scene.def, this.terrain));
-    }
+    if (!geographyLed) this.scene3d.add(buildSigns(scene.track, scene.def, this.terrain));
 
     this.skid = new SkidRibbon(this.terrain);
     this.scene3d.add(this.skid.mesh);
@@ -120,14 +97,9 @@ class RaceWorld {
     this.chase = new ChaseCamera(isCompact(scene));
     showCanvas(true);
 
-    // The render hook.
-    //
-    // Phaser emits POST_RENDER from BOTH step() and headlessStep(); the
-    // difference is that headlessStep passes renderer = null (verified in
-    // phaser/src/core/Game.js). That argument is the clean discriminator, and
-    // the guard below is the whole reason deterministic harness runs stay
-    // draw-free. Without it every simulated frame would do a full 3D draw and
-    // the harness's frameTimesMs budget would blow up.
+    // Phaser emits POST_RENDER from both step() and headlessStep(). The latter
+    // passes renderer=null; this guard is what keeps deterministic harness runs
+    // draw-free and must not be removed as a seemingly redundant null check.
     this._onPostRender = (renderer3, time, delta) => {
       if (!renderer3) return;
       this.render(delta / 1000);
@@ -144,11 +116,6 @@ class RaceWorld {
     this.chase.shake(durationMs, amplitude);
   }
 
-  // --- FX hooks --------------------------------------------------------------
-  // RaceScene decides *when* an effect happens (inside update(), as pure data
-  // writes, so headless simulation stays draw-free) and this layer decides how
-  // it looks.
-
   addSkid(from, to) {
     this.skid.add(from, to);
   }
@@ -161,8 +128,6 @@ class RaceWorld {
     this.puffs.emit('dust', at, count);
   }
 
-  // Pull render-only state off the simulation and draw. Called once per real
-  // rendered frame, never from the simulation step.
   render(dt) {
     const car = this.scene.car;
     if (!car) return;
@@ -174,14 +139,14 @@ class RaceWorld {
     updateBeryl(this.beryl, car, this.scene.lastInput, dt, ground, grade);
     this.puffs.update(dt);
     this.chase.update(car, dt, this.terrain);
+    if (this.otakiParallax) updateOtakiParallax(this.otakiParallax, car, dt);
     this.renderer.render(this.scene3d, this.chase.camera);
   }
 
   destroy() {
     this.scene.game.events.off(Phaser.Core.Events.POST_RENDER, this._onPostRender);
     showCanvas(false);
-    // Dispose the scene graph but NOT the renderer or its context — that is a
-    // module singleton shared across races (see renderer.js).
+    // The renderer/context is a shared singleton; dispose only this scene graph.
     this.scene3d.traverse((object) => {
       if (object.geometry) object.geometry.dispose();
       const material = object.material;
@@ -196,12 +161,7 @@ export function createRaceWorld(scene) {
   return new RaceWorld(scene);
 }
 
-// Flatten both canvases into one image for playtest screenshots.
-//
-// The Phaser canvas is transparent now, so reading it alone gives HUD-on-nothing
-// — which would keep CI green while quietly making every screenshot useless.
-// Both source canvases are read in the same task as the render, so the drawing
-// buffer is still intact.
+// Flatten the 3D canvas and transparent Phaser HUD into one playtest image.
 export function compositeCanvases(phaserCanvas) {
   const three = getCanvas();
   const out = document.createElement('canvas');
