@@ -14,7 +14,7 @@ import { buildTrees } from './trees.js';
 import { buildSigns } from './signs.js';
 import { buildEastbourne } from './themes/eastbourne.js';
 import { buildOtaki } from './themes/otaki.js';
-import { buildOtakiParallax } from './themes/otakiParallax.js';
+import { buildOtakiParallax, updateOtakiParallax } from './themes/otakiParallax.js';
 import { buildManfeild } from './themes/manfeild.js';
 import { SkidRibbon } from './fx/skid.js';
 import { PuffPool } from './fx/puffs.js';
@@ -55,6 +55,7 @@ class RaceWorld {
     // realistic town streets. They use the same road primitives, so junctions
     // read naturally through overlapping ribbons rather than special geometry.
     this.terrain = scene.terrain;
+    this.otakiParallax = null;
     this.scene3d.add(buildGround(this.terrain));
     // Branch roads get bare tarmac — no apron, kerb or centre line. Drawing all
     // three on every town street creates a knot of overlapping markings at each
@@ -88,9 +89,11 @@ class RaceWorld {
     if (scene.def.theme === 'otaki') {
       this.scene3d.add(buildOtaki(scene.track, scene.def, this.terrain));
       // Fixed west/north sea bands and east-side mountain ranges give the course
-      // opposite directional horizons: open Tasman ahead at the finish, steep
-      // bush-covered ranges ahead when driving back toward the Forks.
-      this.scene3d.add(buildOtakiParallax(this.terrain.seaLevel || 0));
+      // opposite directional horizons. Their opacity is updated from position
+      // and heading each rendered frame so the sea opens ahead at the finish and
+      // the high ranges appear when the player turns back toward the Forks.
+      this.otakiParallax = buildOtakiParallax(this.terrain.seaLevel || 0);
+      this.scene3d.add(this.otakiParallax);
     }
     if (scene.def.theme === 'manfield') {
       this.scene3d.add(buildManfeild(scene.track, scene.def, this.terrain));
@@ -165,6 +168,7 @@ class RaceWorld {
     updateBeryl(this.beryl, car, this.scene.lastInput, dt, ground, grade);
     this.puffs.update(dt);
     this.chase.update(car, dt, this.terrain);
+    if (this.otakiParallax) updateOtakiParallax(this.otakiParallax, car, dt);
     this.renderer.render(this.scene3d, this.chase.camera);
   }
 
