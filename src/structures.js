@@ -164,12 +164,20 @@ function eastbourneStructures() {
 // could drive straight through and nine invisible collision blobs sitting where
 // the old pre-rebuild course used to be — the exact split this module exists to
 // prevent. Palettes stay in the theme; positions live here.
+// Positions are fractions of the world, not world units.
+//
+// They were authored as absolute coordinates against a 19,000 x 11,000 Ōtaki.
+// The moment the course was rescaled every one of them would have collapsed into
+// the bottom-left corner, miles from the road they are meant to sit beside —
+// which is the same see-it-versus-hit-it split this module exists to prevent,
+// arriving by a different route. A fraction cannot go stale when the world
+// changes size.
 const OTAKI_FARMHOUSES = [
-  { x: 14350, z: 3900, yaw: -0.18, variant: 'homestead', shed: true },
-  { x: 12400, z: 4450, yaw: Math.PI + 0.08, variant: 'gabled', shed: false },
-  { x: 10900, z: 6000, yaw: 0.18, variant: 'cottage', shed: true },
-  { x: 8200, z: 7200, yaw: Math.PI - 0.16, variant: 'two-storey', shed: false },
-  { x: 7000, z: 7550, yaw: 0.42, variant: 'homestead', shed: true },
+  { fx: 14350 / 19000, fz: 3900 / 11000, yaw: -0.18, variant: 'homestead', shed: true },
+  { fx: 12400 / 19000, fz: 4450 / 11000, yaw: Math.PI + 0.08, variant: 'gabled', shed: false },
+  { fx: 10900 / 19000, fz: 6000 / 11000, yaw: 0.18, variant: 'cottage', shed: true },
+  { fx: 8200 / 19000, fz: 7200 / 11000, yaw: Math.PI - 0.16, variant: 'two-storey', shed: false },
+  { fx: 7000 / 19000, fz: 7550 / 11000, yaw: 0.42, variant: 'homestead', shed: true },
 ];
 
 const FARMHOUSE_FOOTPRINT = {
@@ -179,8 +187,10 @@ const FARMHOUSE_FOOTPRINT = {
   'two-storey': { w: 190, d: 138 },
 };
 
-function otakiStructures() {
-  return OTAKI_FARMHOUSES.flatMap(({ x, z, yaw, variant, shed }) => {
+function otakiStructures(def) {
+  return OTAKI_FARMHOUSES.flatMap(({ fx, fz, yaw, variant, shed }) => {
+    const x = fx * def.world.width;
+    const z = fz * def.world.height;
     const out = [{ kind: 'farmhouse', variant, shed, x, z, yaw, ...FARMHOUSE_FOOTPRINT[variant] }];
     if (shed) {
       // The shed sits at local (190, 105) inside the farmhouse group.
@@ -195,14 +205,29 @@ function otakiStructures() {
   });
 }
 
-// How far along the main straight the grandstand sits, in venue-local units.
+// How far along the main straight the grandstand sits, as a fraction of the lap.
 //
 // It cannot simply stand opposite the pits. Manfeild's layout folds back on
 // itself, so the "infield" beside the start/finish line is not open ground — the
 // ess runs through it, and a stand placed straight across the track lands on the
 // racing surface. Moving it along the straight puts it against open infield
 // instead. Shared with themes/manfeild so the model and its footprint agree.
-export const MANFEILD_STAND_Z = 1750;
+//
+// A fraction rather than the 1750 world units it used to be, for the same reason
+// the farmhouses above are fractions: the venue is 3.5x the size it was tuned
+// at, and a fixed offset would have parked the stand in the first corner.
+const MANFEILD_STAND_FRACTION = 1750 / 50643;
+
+export function manfeildStandZ(track) {
+  return lapLength(track) * MANFEILD_STAND_FRACTION;
+}
+
+function lapLength(track) {
+  const c = track.centerline;
+  let total = 0;
+  for (let i = 1; i < c.length; i++) total += Math.hypot(c[i].x - c[i - 1].x, c[i].y - c[i - 1].y);
+  return total;
+}
 
 function manfeildStructures(def, track) {
   const cp = track.checkpoints[0];
@@ -233,7 +258,7 @@ function manfeildStructures(def, track) {
   // The grandstand, opposite the pits.
   out.push({
     kind: 'grandstand',
-    ...toWorld(-(track.half + 230) - 120, MANFEILD_STAND_Z),
+    ...toWorld(-(track.half + 230) - 120, manfeildStandZ(track)),
     w: 330,
     d: 900,
   });
@@ -249,7 +274,7 @@ function manfeildStructures(def, track) {
 export function buildStructures(def, track) {
   let list = [];
   if (def.theme === 'eastbourne') list = eastbourneStructures();
-  else if (def.theme === 'otaki') list = otakiStructures();
+  else if (def.theme === 'otaki') list = otakiStructures(def);
   else if (def.theme === 'manfield') list = manfeildStructures(def, track);
 
   const roads = track.roads || [track];

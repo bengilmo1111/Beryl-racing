@@ -81,7 +81,6 @@ const BRANCHES = [
   {
     id: 'rahui-mill-tasman',
     roadWidth: 270,
-    samplesPerSegment: 18,
     surfaceBands: SEALED,
     closed: false,
     anchors: [
@@ -105,7 +104,6 @@ const BRANCHES = [
   {
     id: 'aotaki-riverbank-link',
     roadWidth: 250,
-    samplesPerSegment: 14,
     surfaceBands: SEALED,
     closed: false,
     anchors: [
@@ -119,7 +117,6 @@ const BRANCHES = [
   {
     id: 'waerenga-link',
     roadWidth: 250,
-    samplesPerSegment: 14,
     surfaceBands: SEALED,
     closed: false,
     anchors: [
@@ -133,7 +130,6 @@ const BRANCHES = [
   {
     id: 'rangiuru-town-link',
     roadWidth: 245,
-    samplesPerSegment: 12,
     surfaceBands: SEALED,
     closed: false,
     anchors: [
@@ -146,7 +142,6 @@ const BRANCHES = [
   {
     id: 'beach-grid-link',
     roadWidth: 240,
-    samplesPerSegment: 14,
     surfaceBands: SEALED,
     closed: false,
     anchors: [
@@ -163,8 +158,9 @@ const BRANCHES = [
 export const OTAKI_GEOMETRY = {
   anchors: PRIMARY_ANCHORS,
   branches: BRANCHES,
-  roadWidth: 280,
-  samplesPerSegment: 20,
+  // 280 was 1.3 car lengths, capped by a 36-unit corner radius. The rescale
+  // lifts that ceiling to ~360, so the rally road is two proper lanes.
+  roadWidth: 400,
   numCheckpoints: 8,
   // Every required gate except the finish is before the town network splits.
   // Any realistic route through Ōtaki therefore remains a valid rally route.

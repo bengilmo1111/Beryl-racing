@@ -64,7 +64,7 @@ export function scatterScenery(track, def) {
       // These filters run only after the two coordinate draws above, preserving
       // the deterministic call order. The route itself is still cleared below
       // by distanceToCenterline(), which transparently sees every branch road.
-      const beach = def.layout?.zones?.beach || def.scenery?.beach;
+      const beach = def.layout?.zones?.beach;
       const town = def.layout?.zones?.town;
       if (insideRect(x, y, beach) || insideRect(x, y, town)) continue;
     }

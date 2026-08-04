@@ -16,7 +16,7 @@ import {
 import { C, basic, lambert } from '../palette.js';
 import { labelTexture } from '../textures.js';
 import { buildManfeildParallax } from './manfeildParallax.js';
-import { MANFEILD_STAND_Z } from '../../structures.js';
+import { manfeildStandZ } from '../../structures.js';
 
 const M = {
   cream: lambert(0xf3ead2),
@@ -175,7 +175,7 @@ function buildGrandstand(track) {
   board.rotation.y = Math.PI / 2;
   stand.add(board);
 
-  stand.position.set(side, 0, MANFEILD_STAND_Z);
+  stand.position.set(side, 0, manfeildStandZ(track));
   group.add(stand);
   return group;
 }

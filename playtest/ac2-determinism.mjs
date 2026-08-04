@@ -47,6 +47,18 @@ import { TRACKS } from '../src/tracks.js';
 //   driver started following the primary road between sparse gates (see
 //   primaryDriveTarget in src/harness/index.js). The latter moves every course,
 //   because the bot now corners on the road instead of aiming across country.
+// - Re-recorded 2026-08-04 for the course rescale. Every number here moves,
+//   because every course changed size and speed at once: Beryl did 104 km/h at
+//   Manfeild and 10-13 km/h everywhere else, and three of the four courses had
+//   corners tighter than half their own road width, so the tarmac folded through
+//   itself. Routes are now 2.9-4.6 km at 85-110 km/h, taking 100-162 s. See
+//   playtest/track-geometry.mjs, which asserts the fold cannot come back, and
+//   the 2026-08-04 entries in progress.md.
+//
+//   The obstacle fingerprints move for a second reason worth separating: tree
+//   placement rejects candidates within `roadWidth / 2 + 90` of a road, and both
+//   the road widths and the world dimensions the candidates are drawn from have
+//   changed. Scenery placement itself is untouched in this change.
 // - Otaki's fingerprint moved once more when its farmhouse footprints were put
 //   back under src/structures.js. The rebuild had left the theme owning its own
 //   copy of the positions, so the visible houses and their collision circles were
@@ -54,21 +66,21 @@ import { TRACKS } from '../src/tracks.js';
 //   how we know the bot was touching neither set.
 const BASELINES = {
   'eastbourne-dash': {
-    finishTimeMs: 88300,
-    pos: { x: 2747.92983493, y: 13870.297876459 },
-    obstacles: '5bbda54a9e300c32',
+    finishTimeMs: 162366.666667,
+    pos: { x: 46502.232482791, y: 243327.790437364 },
+    obstacles: 'a28dea5d4dcf9ad8',
   },
   // Manfeild has no trees, so every circle on the circuit belongs to a building:
   // pit wall, garages, timing tower, paddock sheds, grandstand and marshal huts.
   manfield: {
-    finishTimeMs: 30950,
-    pos: { x: 8270.404420269, y: 6605.160041343 },
-    obstacles: 'daa5a3d3cd8a28cb',
+    finishTimeMs: 100216.666667,
+    pos: { x: 27561.328674721, y: 23096.438482313 },
+    obstacles: 'de191f8062eae108',
   },
   remutaka: {
-    finishTimeMs: 90816.666667,
-    pos: { x: 9391.229952087, y: 1527.632240145 },
-    obstacles: '1bb1e8cc66ce86a7',
+    finishTimeMs: 124383.333333,
+    pos: { x: 119988.261239057, y: 17088.552092282 },
+    obstacles: '50da50611fc313eb',
   },
   // Re-recorded 2026-08-02 for the complete Ōtaki replacement: a much longer
   // Forks-to-coast route, realistic sealed/gravel split, eight gates, branch
@@ -77,9 +89,9 @@ const BASELINES = {
   // cutting straight across paddocks. The fingerprint also includes the solid
   // structures introduced on 3d-port after this branch started.
   otaki: {
-    finishTimeMs: 112600,
-    pos: { x: 1198.201214702, y: 8335.845253765 },
-    obstacles: '9d263852ff4450a1',
+    finishTimeMs: 140966.666667,
+    pos: { x: 10983.557161805, y: 80480.386809462 },
+    obstacles: '67e4734f4806d26a',
   },
 };
 

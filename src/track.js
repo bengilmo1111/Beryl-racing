@@ -22,9 +22,30 @@ function catmullRom(p0, p1, p2, p3, t) {
   };
 }
 
+// How far apart centreline samples should be, in world units — about a quarter
+// of a car length.
+//
+// This replaced a fixed `samplesPerSegment: 20`, which is a resolution only if
+// every anchor gap is the same length. They are not: the same 20 gave Eastbourne
+// a sample every 30 units and Manfeild one every 55, and once a route is scaled
+// up it would have given 500-unit steps, which is a visibly faceted corner and a
+// coarse on-road test. Spacing is the thing that was actually wanted, so it is
+// the thing that is authored.
+const SAMPLE_SPACING = 50;
+const MIN_STEPS = 4;
+
+// Steps for one spline segment, from the straight-line distance between its
+// anchors. The spline is longer than its chord through a corner, so this
+// slightly under-samples the tightest bends; MIN_STEPS covers the short gaps and
+// the corner-radius check in the playtest covers the rest.
+function stepsFor(p1, p2) {
+  const chord = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+  return Math.max(MIN_STEPS, Math.round(chord / SAMPLE_SPACING));
+}
+
 // Smooth Catmull-Rom through the anchors. A closed loop uses a periodic spline
 // (wrapping neighbours); an open route duplicates the endpoints instead.
-function buildCenterline(anchors, steps, closed) {
+function buildCenterline(anchors, closed) {
   const n = anchors.length;
   const centerline = [];
 
@@ -34,6 +55,7 @@ function buildCenterline(anchors, steps, closed) {
       const p1 = anchors[i];
       const p2 = anchors[(i + 1) % n];
       const p3 = anchors[(i + 2) % n];
+      const steps = stepsFor(p1, p2);
       for (let s = 0; s < steps; s++) {
         centerline.push(catmullRom(p0, p1, p2, p3, s / steps));
       }
@@ -44,6 +66,7 @@ function buildCenterline(anchors, steps, closed) {
       const p1 = anchors[i];
       const p2 = anchors[i + 1];
       const p3 = anchors[Math.min(n - 1, i + 2)];
+      const steps = stepsFor(p1, p2);
       for (let s = 0; s < steps; s++) {
         centerline.push(catmullRom(p0, p1, p2, p3, s / steps));
       }
@@ -124,8 +147,7 @@ function buildHeights(profile, count) {
 function buildRoad(spec, fallback = {}) {
   const closed = spec.closed ?? fallback.closed ?? false;
   const roadWidth = spec.roadWidth ?? fallback.roadWidth;
-  const steps = spec.samplesPerSegment ?? fallback.samplesPerSegment;
-  const centerline = buildCenterline(spec.anchors, steps, closed);
+  const centerline = buildCenterline(spec.anchors, closed);
   const { left, right, half } = buildEdges(centerline, roadWidth, closed);
   return {
     id: spec.id || fallback.id || 'primary',
@@ -202,7 +224,6 @@ export function buildTrack() {
       id: 'primary',
       anchors: TRACK.anchors,
       roadWidth: TRACK.roadWidth,
-      samplesPerSegment: TRACK.samplesPerSegment,
       closed: !!TRACK.closed,
       surfaceBands: TRACK.surfaceBands,
       elevation: TRACK.elevation,
