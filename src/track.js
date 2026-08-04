@@ -227,6 +227,14 @@ export function buildTrack() {
       configurable: true,
       enumerable: false,
     });
+    // The coarse index rides along the same way, and for the same reason: every
+    // caller already holds a centreline array, and none of them should have to
+    // learn about an index to get one.
+    Object.defineProperty(road.centerline, 'coarse', {
+      value: buildCoarse(road.centerline, road.closed),
+      configurable: true,
+      enumerable: false,
+    });
   }
 
   const checkpoints = buildCheckpoints(primary);
@@ -296,27 +304,124 @@ function sampleProfile(profile, frac) {
   return last.h;
 }
 
-// Shortest distance from (px,py) to one polyline. On a closed loop the final
-// wrap-around segment is included; on an open route it is not, so the straight
-// line from finish back to start never reads as "on-road".
-function distanceToPolyline(px, py, centerline, closed) {
+// Squared distance from (px,py) to the segment centerline[i] → centerline[i+1].
+function segmentDistanceSq(px, py, centerline, i, n) {
+  const a = centerline[i];
+  const b = centerline[(i + 1) % n];
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lenSq = dx * dx + dy * dy || 1;
+  let t = ((px - a.x) * dx + (py - a.y) * dy) / lenSq;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  const cx = a.x + t * dx;
+  const cy = a.y + t * dy;
+  return (px - cx) * (px - cx) + (py - cy) * (py - cy);
+}
+
+// Reference implementation: scan every segment. Correct, and O(samples).
+//
+// Kept, exported and tested against, because the fast path below must agree with
+// it exactly — not approximately. Both the on-track test and scenery rejection
+// compare the result against a threshold, so a result that differs in the last
+// bit is a different course.
+export function linearDistanceToPolyline(px, py, centerline, closed) {
   let best = Infinity;
   const n = centerline.length;
   const segs = closed ? n : n - 1;
   for (let i = 0; i < segs; i++) {
-    const a = centerline[i];
-    const b = centerline[(i + 1) % n];
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const lenSq = dx * dx + dy * dy || 1;
-    let t = ((px - a.x) * dx + (py - a.y) * dy) / lenSq;
-    t = t < 0 ? 0 : t > 1 ? 1 : t;
-    const cx = a.x + t * dx;
-    const cy = a.y + t * dy;
-    const d = (px - cx) * (px - cx) + (py - cy) * (py - cy);
+    const d = segmentDistanceSq(px, py, centerline, i, n);
     if (d < best) best = d;
   }
   return Math.sqrt(best);
+}
+
+// Shortest distance from (px,py) to one polyline. On a closed loop the final
+// wrap-around segment is included; on an open route it is not, so the straight
+// line from finish back to start never reads as "on-road".
+//
+// Scanning every segment is what this used to do, and at ~800 samples a course
+// that was free. The routes are an order of magnitude longer now, and this runs
+// twice a frame for the on-track test plus thousands of times at load for
+// scenery rejection, so it takes a coarse index first — see `buildCoarse`.
+function distanceToPolyline(px, py, centerline, closed) {
+  const coarse = centerline.coarse;
+  if (!coarse) return linearDistanceToPolyline(px, py, centerline, closed);
+
+  const n = centerline.length;
+  const segs = closed ? n : n - 1;
+  const { indices, stride } = coarse;
+  const cutoffSq = anchorCutoffSq(px, py, centerline, coarse);
+
+  // The segments around every anchor still in contention. Windows
+  // overlap, so `scanned` keeps the sweep linear rather than re-walking them.
+  let best = Infinity;
+  let scanned = 0;
+  for (let k = 0; k < indices.length; k++) {
+    const anchor = indices[k];
+    const p = centerline[anchor];
+    const d = (px - p.x) * (px - p.x) + (py - p.y) * (py - p.y);
+    if (d > cutoffSq) continue;
+    const lo = Math.max(scanned, anchor - stride);
+    const hi = Math.min(segs, anchor + stride);
+    for (let i = lo; i < hi; i++) {
+      const ds = segmentDistanceSq(px, py, centerline, i, n);
+      if (ds < best) best = ds;
+    }
+    if (hi > scanned) scanned = hi;
+  }
+
+  return Math.sqrt(best);
+}
+
+// How far a candidate can be from the nearest anchor and still matter.
+//
+// The nearest anchor is itself on the polyline, so the true nearest distance is
+// no larger than that. And every point on the polyline is within `span / 2` of
+// arc length of some anchor — hence at most that far in a straight line, since
+// arc length is never shorter than the chord. So nothing beyond
+// `nearestAnchor + span / 2` can win, and this bound is exact rather than a
+// tolerance: the fast path returns the same value as a full scan, bit for bit.
+function anchorCutoffSq(px, py, centerline, coarse) {
+  let best = Infinity;
+  const indices = coarse.indices;
+  for (let k = 0; k < indices.length; k++) {
+    const p = centerline[indices[k]];
+    const d = (px - p.x) * (px - p.x) + (py - p.y) * (py - p.y);
+    if (d < best) best = d;
+  }
+  const cutoff = Math.sqrt(best) + coarse.span * 0.5;
+  return cutoff * cutoff;
+}
+
+// Every Nth sample, plus the longest arc gap between consecutive anchors. The
+// gap is what makes the cutoff provable rather than a heuristic.
+const COARSE_STRIDE = 16;
+
+function buildCoarse(centerline, closed) {
+  const n = centerline.length;
+  if (n < COARSE_STRIDE * 4) return null;
+
+  const indices = [];
+  for (let i = 0; i < n; i += COARSE_STRIDE) indices.push(i);
+  if (indices[indices.length - 1] !== n - 1) indices.push(n - 1);
+
+  let span = 0;
+  let run = 0;
+  let next = 1;
+  const segs = closed ? n : n - 1;
+  for (let i = 0; i < segs; i++) {
+    const a = centerline[i];
+    const b = centerline[(i + 1) % n];
+    run += Math.hypot(b.x - a.x, b.y - a.y);
+    if (next < indices.length && i + 1 >= indices[next]) {
+      if (run > span) span = run;
+      run = 0;
+      next += 1;
+    }
+  }
+  if (run > span) span = run;
+
+  return { indices, stride: COARSE_STRIDE, span };
 }
 
 // Shortest distance from (px,py) to the road, used by the on-track test, by
@@ -353,15 +458,46 @@ export function surfaceAt(px, py, track) {
   const roads = track && track.roads ? track.roads : track ? [track] : [];
   let best = Infinity;
   let type = null;
+  // Roads in order, samples in ascending index, strict `<`: the first sample to
+  // reach the minimum wins. The coarse pass below must not disturb that, which
+  // is why its windows are swept in ascending order too.
   for (const road of roads) {
-    for (let i = 0; i < road.centerline.length; i++) {
-      const dx = road.centerline[i].x - px;
-      const dy = road.centerline[i].y - py;
-      const d = dx * dx + dy * dy;
-      if (d < best) {
-        best = d;
-        type = road.surfaces ? road.surfaces[i] : null;
+    const centerline = road.centerline;
+    const coarse = centerline.coarse;
+    const n = centerline.length;
+
+    if (!coarse) {
+      for (let i = 0; i < n; i++) {
+        const dx = centerline[i].x - px;
+        const dy = centerline[i].y - py;
+        const d = dx * dx + dy * dy;
+        if (d < best) {
+          best = d;
+          type = road.surfaces ? road.surfaces[i] : null;
+        }
       }
+      continue;
+    }
+
+    const cutoffSq = anchorCutoffSq(px, py, centerline, coarse);
+    let scanned = 0;
+    for (let k = 0; k < coarse.indices.length; k++) {
+      const anchor = coarse.indices[k];
+      const p = centerline[anchor];
+      const da = (px - p.x) * (px - p.x) + (py - p.y) * (py - p.y);
+      if (da > cutoffSq) continue;
+      const lo = Math.max(scanned, anchor - coarse.stride);
+      const hi = Math.min(n, anchor + coarse.stride + 1);
+      for (let i = lo; i < hi; i++) {
+        const dx = centerline[i].x - px;
+        const dy = centerline[i].y - py;
+        const d = dx * dx + dy * dy;
+        if (d < best) {
+          best = d;
+          type = road.surfaces ? road.surfaces[i] : null;
+        }
+      }
+      if (hi > scanned) scanned = hi;
     }
   }
   return type;

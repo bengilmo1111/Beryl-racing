@@ -22,10 +22,13 @@
 
 export const GROUND_Y = 0;
 
-// Scale note: 1 game unit = 1 Three unit. Beryl is 108.8 x 217.6 game units, so
-// the world is roughly 70 units per metre. Every dimension in render3d/ is in
-// those units.
-export const UNITS_PER_METRE = 70;
+// Scale note: 1 game unit = 1 Three unit, so every dimension in render3d/ is in
+// world units and src/scale.js is what converts them to metres. This file used
+// to carry its own `UNITS_PER_METRE = 70`, which disagreed with the ~59 quoted
+// in three other files and with the 57.9 Beryl's own mesh implies. Nothing read
+// it, so nothing was wrong on screen — but it was the kind of second opinion
+// that eventually gets believed.
+export { UNITS_PER_METRE } from '../scale.js';
 
 // Write game (x, y) at a given height into an existing THREE.Vector3.
 export function toThree(x, y, height, out) {

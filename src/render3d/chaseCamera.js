@@ -1,7 +1,7 @@
 // The chase camera: behind and above Beryl, trailing her through a drift.
 import { PerspectiveCamera, Vector3 } from 'three';
-import { CAR } from '../config.js';
-import { CAMERA_NEAR, CAMERA_FAR } from './palette.js';
+import { CAR, WORLD } from '../config.js';
+import { CAMERA_NEAR, cameraFarFor } from './palette.js';
 import { alphaFor, angleDelta, forwardXZ, yawFor } from './coords.js';
 
 // Beryl is 217.6 units long (~70 units per metre), which sets the scale of
@@ -34,7 +34,7 @@ const LOOK_SLOPE_FOLLOW = 0.45;
 
 export class ChaseCamera {
   constructor(compact) {
-    this.camera = new PerspectiveCamera(RIG.desktop.fov, 1, CAMERA_NEAR, CAMERA_FAR);
+    this.camera = new PerspectiveCamera(RIG.desktop.fov, 1, CAMERA_NEAR, cameraFarFor(WORLD));
     this.setCompact(compact);
 
     this.anchor = new Vector3();

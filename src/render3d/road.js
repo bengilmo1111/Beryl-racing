@@ -4,6 +4,7 @@
 // filled as quads.
 import { BufferGeometry, BufferAttribute, Mesh, PlaneGeometry, DoubleSide } from 'three';
 import { WORLD } from '../config.js';
+import { atLeast, worldDiagonal } from '../scale.js';
 import { C, basic, lambert } from './palette.js';
 
 // Strictly ordered so nothing z-fights: ground below the road, apron just above
@@ -13,9 +14,15 @@ import { C, basic, lambert } from './palette.js';
 // surfaces can never argue about which is on top.
 export const GROUND_Y = -8;
 // How far past the height grid the terrain's outer ring is dragged, so the
-// ground reaches the horizon instead of ending in mid-air. Comfortably beyond
-// CAMERA_FAR from anywhere on any course.
-const SKIRT = 30000;
+// ground reaches the horizon instead of ending in mid-air. Has to stay beyond
+// CAMERA_FAR from anywhere on the course, and CAMERA_FAR now scales with the
+// world, so this does too. The floor is the hand-tuned 30,000 it replaces, which
+// is larger than any current course needs — nothing changes today.
+const SKIRT_FLOOR = 30000;
+const SKIRT_SPANS = 1.8;
+function skirtFor(world) {
+  return atLeast(SKIRT_FLOOR, worldDiagonal(world) * SKIRT_SPANS);
+}
 export const ROAD_Y = 0;
 export const APRON_Y = 0.2;
 export const CENTRE_LINE_Y = 0.4;
@@ -316,6 +323,7 @@ export function buildGround(terrain) {
 // hillside rather than a flat green field.
 function buildTerrainMesh(info) {
   const { cols, rows, cell, minX, minY, grid } = info;
+  const skirt = skirtFor(WORLD);
   const positions = new Float32Array(cols * rows * 3);
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -328,8 +336,8 @@ function buildTerrainMesh(info) {
       // with sky under it reads instantly as "the ground has run out" — the same
       // failure buildGround's flat quad is oversized to avoid. Dragging the edge
       // ring outward continues the terrain to the horizon for no extra cells.
-      const edgeX = c === 0 ? -SKIRT : c === cols - 1 ? SKIRT : 0;
-      const edgeZ = r === 0 ? -SKIRT : r === rows - 1 ? SKIRT : 0;
+      const edgeX = c === 0 ? -skirt : c === cols - 1 ? skirt : 0;
+      const edgeZ = r === 0 ? -skirt : r === rows - 1 ? skirt : 0;
       positions[k] = minX + c * cell + edgeX;
       positions[k + 1] = grid[r * cols + c] + GROUND_Y;
       positions[k + 2] = minY + r * cell + edgeZ;

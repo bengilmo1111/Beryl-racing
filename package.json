@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "playtest": "node playtest/run.mjs",
     "test:determinism": "node playtest/ac2-determinism.mjs",
+    "test:road-index": "node playtest/road-index.mjs",
     "test:tree-art": "node scripts/validate-nz-tree-models.mjs"
   },
   "dependencies": {
