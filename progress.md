@@ -1458,6 +1458,26 @@ It also asserts what this stage fixed: **no sample on any road may have a corner
 radius under 1.5× that road's half-width.** A folded road still builds, still
 renders and still lets a bot finish, which is why nothing caught it for months.
 
+### The result that says the diagnosis was right
+
+The playtest driver's time off the road, before and after:
+
+| course | before | after |
+|---|---:|---:|
+| eastbourne-dash | 1% | **0%** |
+| manfield | 4% | **0%** |
+| remutaka | 62% | **0%** |
+| otaki | 31% | **0%** |
+
+Nothing about the bot changed. It steers at a look-ahead point on the
+centreline, exactly as before. Remutaka spent 62% of its run on the grass because
+its corners were tighter than its road was wide — the road turned faster than
+anything following it could, so the racing line left the tarmac at every
+switchback and the bot spent the climb bouncing along the verge. That was
+visible in every screenshot for months and read as "the bot is bad at hairpins."
+
+It was not the bot. Matrix 16/16, no softlocks, no out-of-bounds events.
+
 ### The route data files were half-scaled
 
 Scaling the anchors is not scaling the course. `eastbourneRoute.js` and
