@@ -4,6 +4,11 @@
 import Phaser from 'phaser';
 import { CAR, WORLD } from '../config.js';
 
+// Fraction of top speed above which a sideways slide counts as a drift. Matched
+// to the `CAR.maxSpeed * 0.3` gate applyFx already uses for handbrake skids, so
+// the two ways of laying a skid mark now agree with each other.
+const DRIFT_SPEED = 0.3;
+
 function approach(value, target, maxDelta) {
   if (value < target) return Math.min(value + maxDelta, target);
   if (value > target) return Math.max(value - maxDelta, target);
@@ -170,7 +175,19 @@ export class Car {
     }
 
     this.lateral = vLateral;
-    this.drifting = Math.abs(vLateral) > CAR.driftLateral && Math.abs(vForward) > 140;
+    // Fast enough for a slide to read as a slide, expressed against this
+    // course's top speed rather than as a fixed number of units per second.
+    //
+    // It used to be a hard-coded 140, which is 88% of Eastbourne's top speed,
+    // 78% of Remutaka's, 68% of Ōtaki's — and 8% of Manfeild's. So drifting was
+    // unreachable on three courses and permanent on the fourth, and since this
+    // flag is what gates skid marks and tyre smoke, three of the four courses
+    // silently had no drift FX at all.
+    //
+    // Read only by applyFx (see RaceScene): nothing here feeds back into the
+    // simulation, which is why this can be corrected without moving a baseline.
+    this.drifting =
+      Math.abs(vLateral) > CAR.driftLateral && Math.abs(vForward) > CAR.maxSpeed * DRIFT_SPEED;
 
     this.sync();
   }

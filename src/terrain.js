@@ -6,9 +6,35 @@
 // pinned into the same field so alternate streets neither float nor disappear.
 import { remutakaRoadProfile, remutakaVisualHeight } from './remutakaTerrain.js';
 
-const CELL = 120;
+// Grid resolution, in world units per cell.
+//
+// This used to be a flat 120, which is right at the course sizes it was tuned
+// against and quietly fatal once a route gets longer: the grid is sized from the
+// world, so a route ten times longer at a fixed cell size is a hundred times the
+// cells, three blur passes deep. Capping the *cell count* instead keeps the
+// terrain the same relative resolution at any course size.
+//
+// The floor reproduces the old value exactly at today's world sizes — the
+// largest is Ōtaki at 19,000 units, well under CELL_FLOOR * MAX_CELLS — so
+// adopting this changes no terrain and moves no baseline.
+const CELL_FLOOR = 120;
+const MAX_CELLS = 300;
 const BLUR_PASSES = 3;
 const ROAD_PIN_FACTOR = 1.15;
+
+function cellSizeFor(world) {
+  return Math.max(CELL_FLOOR, Math.max(world.width, world.height) / MAX_CELLS);
+}
+
+// How far either side of Beryl the slope is measured, in world units — about a
+// metre at 57.9 units/metre.
+//
+// This was `CELL * 0.5`, which was fine while the cell size was fixed and is a
+// trap now that it is not: how steep a hill feels would have started depending
+// on how big the course is. Grade is a property of the car on the road, so it is
+// sampled at a car-sized distance. The value is what `CELL * 0.5` already came
+// to, so no course changes today.
+const GRADE_STEP = 60;
 
 export class Terrain {
   constructor(track, world, def = null) {
@@ -16,6 +42,8 @@ export class Terrain {
     this.flat = !roads.some((road) => road.heights);
     if (this.flat) return;
 
+    const CELL = cellSizeFor(world);
+    this.cell = CELL;
     const pad = CELL * 8;
     this.minX = -pad;
     this.minY = -pad;
@@ -174,8 +202,8 @@ export class Terrain {
   }
 
   #sample(grid, x, y) {
-    const fx = (x - this.minX) / CELL;
-    const fy = (y - this.minY) / CELL;
+    const fx = (x - this.minX) / this.cell;
+    const fy = (y - this.minY) / this.cell;
     const c0 = Math.floor(fx);
     const r0 = Math.floor(fy);
     const tx = fx - c0;
@@ -199,7 +227,7 @@ export class Terrain {
     return this.#sample(this.physicsGrid, x, y);
   }
 
-  gradeAlong(x, y, fwdX, fwdY, step = CELL * 0.5) {
+  gradeAlong(x, y, fwdX, fwdY, step = GRADE_STEP) {
     if (this.flat) return 0;
     // Grade is intentionally sampled from the original field, not Remutaka's
     // exaggerated render terrain. The cliffs are visual geography; Beryl still
@@ -214,7 +242,7 @@ export class Terrain {
       flat: this.flat,
       cols: this.cols,
       rows: this.rows,
-      cell: CELL,
+      cell: this.cell,
       minX: this.minX,
       minY: this.minY,
       grid: this.grid,

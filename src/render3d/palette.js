@@ -7,6 +7,7 @@
 // docs/ART-DIRECTION.md asks for.
 import { Color, Fog, MeshLambertMaterial, MeshBasicMaterial } from 'three';
 import { COLORS, FOG } from '../config.js';
+import { atLeast, worldDiagonal } from '../scale.js';
 
 export const C = {
   sky: new Color(COLORS.sky),
@@ -57,7 +58,14 @@ export const CAMERA_NEAR = 50;
 // near at 50, moving far from 3600 to 24000 changes the resolution by well under
 // a percent — and nothing extra is really shaded, since anything past the fog
 // band resolves to sky colour anyway.
-export const CAMERA_FAR = 24000;
+// Scaled from the world rather than pinned, so a longer course does not clip its
+// own background bands. The floor is the 24,000 this replaces — chosen for
+// Manfeild's 16,511-unit diagonal — so no current course sees a change.
+const CAMERA_FAR_FLOOR = 24000;
+const CAMERA_FAR_SPANS = 1.5;
+export function cameraFarFor(world) {
+  return atLeast(CAMERA_FAR_FLOOR, worldDiagonal(world) * CAMERA_FAR_SPANS);
+}
 
 export function makeFog() {
   return new Fog(C.haze.getHex(), FOG.near, FOG.far);

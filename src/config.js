@@ -6,6 +6,8 @@
 // these objects/bindings (Car.js, track.js, RaceScene, TitleScene) always read
 // the active course without needing to know which one it is.
 
+import { atLeast, worldDiagonal } from './scale.js';
+
 export const DESIGN = {
   // Landscape design resolution; the Scale Manager fits this to any screen.
   width: 1280,
@@ -64,7 +66,7 @@ export function applyTrack(def) {
   Object.assign(CAR, def.physics);
   for (const k of Object.keys(TRACK)) delete TRACK[k];
   Object.assign(TRACK, def.geometry);
-  Object.assign(FOG, DEFAULT_FOG, def.fog || {});
+  Object.assign(FOG, fogFor(def.world), def.fog || {});
   STORAGE_KEY = def.storageKey;
 }
 
@@ -82,8 +84,22 @@ export function applyTrack(def) {
 //
 // Per-course because "how far should the player see" is a property of the place.
 // See the note on Manfeild's `fog` in tracks.js.
+// Scaled from the world so "how far can you see" stays the same *fraction* of a
+// course however long the course gets. The floors are the hand-tuned numbers
+// they replace, and every current world is small enough to sit on them, so
+// nothing changes today.
+const FOG_NEAR_SPANS = 0.3;
+const FOG_FAR_SPANS = 0.9;
 const DEFAULT_FOG = { near: 5000, far: 15000 };
 export const FOG = { ...DEFAULT_FOG };
+
+function fogFor(world) {
+  const span = worldDiagonal(world);
+  return {
+    near: atLeast(DEFAULT_FOG.near, span * FOG_NEAR_SPANS),
+    far: atLeast(DEFAULT_FOG.far, span * FOG_FAR_SPANS),
+  };
+}
 
 // Gilmore Games house palette (see gilmore-directory/docs/ART-DIRECTION.md).
 export const COLORS = {

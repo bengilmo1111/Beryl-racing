@@ -1290,3 +1290,92 @@ stations) — are the ones to reach for next time anything is added to this mode
 
 Render-only: all four courses match their pinned finish times, positions and
 obstacle fingerprints.
+
+## 2026-08-04 — Stage 1: making the engine scale-proof
+
+Groundwork for the rescale, and deliberately a no-op: **all four courses finish
+on exactly their pinned times, positions and obstacle fingerprints.** That was
+the acceptance criterion, because everything here is preparation for a change
+that will move every number, and a preparation step that moves numbers of its own
+cannot be told apart from a regression later.
+
+### What the measurements said
+
+Beryl does **104 km/h at Manfeild and 10–13 km/h everywhere else**. Manfeild's
+`maxSpeed` is 940 units/s against Eastbourne's 88, Remutaka's 100 and Ōtaki's
+115, and its world is authored at 16.7 units/metre against the others' ~58. Both
+gaps compound, and the result is that one course is a car and three are a brisk
+jog.
+
+The same authoring is why three of the four courses have **corners tighter than
+half their own road width**, so the tarmac folds through itself where the edges
+cross: Eastbourne min radius 45 against a half-width of 180, Remutaka 62 against
+120 on 6% of its samples, Ōtaki 36 against 140. Manfeild is the only clean one
+(238 against 225) and the only one that feels right. That is not a coincidence.
+
+### The road index
+
+`distanceToCenterline` and `surfaceAt` were linear scans over every sample of
+every road, run twice a frame plus 1,200 times at load for scenery rejection.
+That is free at 800 samples and is about to stop being free.
+
+Both now take a coarse pass first: every 16th sample, plus the longest arc gap
+between consecutive anchors. The anchors are on the polyline, so the nearest one
+bounds the true answer from above; every point on the polyline is within half a
+gap of arc length — hence at most that far in a straight line — of some anchor.
+So nothing beyond `nearestAnchor + span / 2` can win.
+
+**That bound is exact, not a tolerance**, which matters more than the speed:
+both callers compare the result against a threshold, so a value differing in the
+last bit is a different course and a different baseline. `npm run test:road-index`
+checks 120,000 points per course — out in the world, hard against the
+carriageway, and exactly on samples where ties decide which surface wins —
+against the full scan, which is kept and exported for exactly that purpose.
+2.6–7.8× today, and the margin grows with route length because the coarse pass is
+O(n/16) and the refine pass is O(stride).
+
+### Constants that were secretly per-course
+
+Four view and grid distances were absolute world units, which is a trap rather
+than a bug: correct at the size they were tuned for, silently wrong at any other.
+The terrain grid is the sharp one — it is sized from the world, so a route ten
+times longer at a fixed 120-unit cell is a hundred times the cells, three blur
+passes deep.
+
+Each now derives from the world with a **floor set to the value it replaces**, so
+every current course reproduces its old number exactly. Only Ōtaki changed at
+all, and only its fog: its 21,932-unit diagonal finally earns more than the
+15,000 every course was getting regardless of size. Fog feeds nothing in the
+simulation, so no baseline moved.
+
+`gradeAlong`'s sample step was `CELL * 0.5`. Fine while the cell size was fixed;
+a trap the moment it is not, because how steep a hill feels would have started
+depending on how big the course is. Grade is a property of the car on the road,
+so it is a car-sized distance now — and the value is what `CELL * 0.5` already
+came to, so no course changed.
+
+`src/scale.js` is the one statement of how big the world is. `coords.js` claimed
+70 units/metre, prose in three other files claimed 59, and Beryl's own mesh says
+57.9. Nothing read the 70, so nothing was wrong on screen — but it was the kind
+of second opinion that eventually gets believed.
+
+### Three courses had no drift FX at all
+
+`Car.js` gated drifting on `|vForward| > 140`, hard-coded. That is 88% of
+Eastbourne's top speed, 78% of Remutaka's, 68% of Ōtaki's — and **8% of
+Manfeild's**. So drift was unreachable on three courses and permanent on the
+fourth, and since the flag is what gates skid marks and tyre smoke, three
+quarters of the game silently had none.
+
+It is a fraction of top speed now, matched to the `maxSpeed * 0.3` gate `applyFx`
+already used for handbrake skids, so the two ways of laying a skid mark agree.
+The flag is written at the end of `Car.update` and read only by `applyFx`, which
+does render-side writes — it never feeds back into the simulation, which is why
+a real behaviour fix still moved no baseline.
+
+### Deferred to Stage 2, deliberately
+
+Per-course top speed in km/h, `samplesPerSegment` becoming a target sample
+spacing, and the playtest driver's `FOLLOW_ROAD_ABOVE`. All three only bite once
+the routes actually change, all three move baselines, and all three want tuning
+against the new geometry rather than the old.
