@@ -90,7 +90,6 @@ const BRANCHES = [
   {
     id: 'marine-parade',
     roadWidth: 310,
-    samplesPerSegment: 18,
     closed: false,
     anchors: [
       { x: 2040, y: 10940 },
@@ -105,7 +104,6 @@ const BRANCHES = [
   {
     id: 'village-inland',
     roadWidth: 300,
-    samplesPerSegment: 18,
     closed: false,
     anchors: [
       { x: 2370, y: 11520 },
@@ -121,7 +119,6 @@ const BRANCHES = [
   {
     id: 'rata-street-link',
     roadWidth: 270,
-    samplesPerSegment: 12,
     closed: false,
     anchors: [
       { x: 1510, y: 11860 },
@@ -133,7 +130,6 @@ const BRANCHES = [
   {
     id: 'school-link',
     roadWidth: 270,
-    samplesPerSegment: 12,
     closed: false,
     anchors: [
       { x: 1540, y: 13100 },
@@ -151,7 +147,6 @@ export const EASTBOURNE_GEOMETRY = {
   // buildEdges in track.js describes — this route's tightest bend is the Ferry
   // Road hairpin onto the coast, which still clears 360 with room.
   roadWidth: 360,
-  samplesPerSegment: 20,
   numCheckpoints: 7,
   // All required gates except the finish sit before the road network splits.
   // Players may therefore choose any village route without being pulled back

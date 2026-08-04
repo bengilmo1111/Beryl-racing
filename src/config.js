@@ -29,7 +29,6 @@ export const TRACK = {
     { x: 1280, y: 4740 },
   ],
   roadWidth: 360,
-  samplesPerSegment: 20,
   numCheckpoints: 2,
   closed: false,
 };

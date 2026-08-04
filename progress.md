@@ -1379,3 +1379,109 @@ Per-course top speed in km/h, `samplesPerSegment` becoming a target sample
 spacing, and the playtest driver's `FOLLOW_ROAD_ABOVE`. All three only bite once
 the routes actually change, all three move baselines, and all three want tuning
 against the new geometry rather than the old.
+
+## 2026-08-04 — Stage 2: the rescale
+
+The world was authored roughly ten times too small for the car driving through
+it, and that one fault produced three separate complaints. Fixing it moves every
+recorded number, deliberately.
+
+| course | route | top speed | run | min corner radius |
+|---|---:|---:|---:|---:|
+| eastbourne-dash | 15,589 u → **265,022 u (4.58 km)** | 158 u/s → **100 km/h** | 88 s → **162 s** | 0.25× half → **3.79×** |
+| manfield | 50,643 u → **177,254 u (3.06 km)** | 104 → **110 km/h** | 31 s → **100 s** | 1.06× → **3.70×** |
+| remutaka | 13,551 u → **169,437 u (2.93 km)** | 180 u/s → **85 km/h** | 0.52× → **3.50×** |
+| otaki | 21,953 u → **219,557 u (3.79 km)** | 207 u/s → **95 km/h** | 113 s → **141 s** | 0.26× → **2.41×** |
+
+Manfeild is 3.06 km against the real circuit's 3.03. It was 875 m.
+
+### Why one fault produced three complaints
+
+**Pace.** Perceived speed is car lengths per second, and nothing else. Beryl is
+217.6 units long, so 158 units/s is 0.73 car lengths per second — about 10 km/h.
+Manfeild's 1,692 was 7.8, or 104 km/h. Same car, same screen, ten times the pace.
+
+**Layout.** `buildEdges` offsets the centreline by ±half along its normal, which
+holds only while half is under the local corner radius. Three courses were over
+that line, so the edges crossed and the tarmac passed through itself. You cannot
+fix that by narrowing the road — it was already 1.1 car lengths on Remutaka, a
+single-track goat road on a state highway. Corner radius scales with the route
+and road width does not, so scaling up is the only lever, and it lifted
+Remutaka's ceiling from 240 to about 930. It is now an ordinary two-lane road at
+420, and Ōtaki's rally road is 400.
+
+**Density.** Not fixed here — it gets worse here, and is Stage 4's problem. But
+the space to fill is the same space the pace needed.
+
+### Two numbers per course, both checkable against the real place
+
+`topSpeedKmh` and `lengthScale`. That replaces three global multipliers
+(`LENGTH_SCALE` 2, `SPEED_SCALE` 1.8, `ACCEL_SCALE` 1.3), a `preScaled` flag that
+made two of the four courses skip the geometry pass entirely, and top speeds
+written directly in units per second.
+
+The layering is what hid the bug. No single line was wrong. `maxSpeed: 940` and
+`maxSpeed: 88` sat in the same file, in the same shape, four courses apart — and
+they are 104 km/h and 10 km/h. Nothing in the codebase could compare them,
+because the thing they needed to be compared against, the size of the world, was
+stated in three different files as 70, 59 and 57.9 units per metre.
+
+Everything else about the car is now a multiple of its top speed, so each course
+keeps its own character — Manfeild still reaches top speed in 0.8 s against the
+others' 1.5 — while the pace is set by one legible number.
+
+### `samplesPerSegment` was never a resolution
+
+It was 20 on every course, which is only a resolution if every anchor gap is the
+same length. They are not: the same 20 gave Eastbourne a sample every 30 units
+and Manfeild one every 55, and after the rescale it would have given 500-unit
+steps — a visibly faceted corner and an on-road test that steps across the kerb
+between samples. Spacing was the thing actually wanted, so it is the thing
+authored: 50 units, about a quarter of a car length.
+
+That also fixed the playtest driver's look-ahead for free. `primaryDriveTarget`
+aims 18 samples ahead and its comment claims "about half a second of road" — true
+only on Manfeild, and 3.4 seconds on Eastbourne. With spacing pinned it is 0.5 to
+0.66 s everywhere, which is what it always said it was.
+
+### The bug this project keeps rediscovering
+
+`otakiStructures()` lost its `def` argument in this change. `node --check`
+passed. `vite build` passed — Vite does not resolve free variables. The first
+thing to notice was a browser run several minutes later, which is exactly how the
+same bug behaved when `buildOtaki` lost its `structures` parameter.
+
+`npm run test:track-geometry` now builds the track, terrain and structure list
+for every course in Node. It costs nothing and it fails in a second.
+
+It also asserts what this stage fixed: **no sample on any road may have a corner
+radius under 1.5× that road's half-width.** A folded road still builds, still
+renders and still lets a bot finish, which is why nothing caught it for months.
+
+### The route data files were half-scaled
+
+Scaling the anchors is not scaling the course. `eastbourneRoute.js` and
+`otakiRoute.js` also carry a shoreline polyline, the offset of the coast, and
+named places — the doctor's, the shops, the school, the RSA, the Forks, the
+railway — that the village buildings and the farm structures are hung off. All
+world coordinates, none of them anchors.
+
+Left alone they would have stayed at a seventeenth of the distance: the village
+bunched into a knot in one corner while the road it belongs to ran past two
+kilometres away. The layout is scaled in place rather than copied, because
+`structures.js` and `render3d/themes/eastbourne.js` both import it directly and
+must agree to the unit — one places the collision footprints and the other places
+the buildings you see.
+
+The check that it worked: after the fix, only Eastbourne's obstacle fingerprint
+moved, and its finish time and final position did not change by a digit. The
+village moved; the bot never touched it.
+
+### Positions that were secretly pinned to one course size
+
+`OTAKI_FARMHOUSES` were absolute coordinates against a 19,000-unit world, and
+`MANFEILD_STAND_Z` was 1,750 units along the main straight. At ten and 3.5 times
+the size, the farmhouses would have collapsed into a corner miles from their road
+and the grandstand would have stood in the first corner. Both are fractions now —
+of the world and of the lap. This is the same see-it-versus-hit-it split that
+`structures.js` exists to prevent, arriving by a different route.

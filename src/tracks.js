@@ -4,6 +4,7 @@
 // the shared config objects when a course becomes active.
 
 import { applyTrack } from './config.js';
+import { kmhToUnits } from './scale.js';
 import { EASTBOURNE_GEOMETRY, EASTBOURNE_LAYOUT } from './eastbourneRoute.js';
 import { OTAKI_GEOMETRY, OTAKI_LAYOUT } from './otakiRoute.js';
 
@@ -15,29 +16,29 @@ export const TRACKS = [
     mode: 'sprint',
     theme: 'eastbourne',
     world: { ...EASTBOURNE_LAYOUT.world },
-    // Authored at final world scale. The route file is data only: tracks.js
-    // remains the authoritative definition and nothing is patched at apply time.
-    preScaled: true,
+    // Days Bay round to Eastbourne and up to the RSA: about 3.8 km of coast
+    // road once scaled, which is roughly the real run.
+    lengthScale: 17,
     geometry: EASTBOURNE_GEOMETRY,
     layout: EASTBOURNE_LAYOUT,
     physics: {
-      maxSpeed: 88,
-      accel: 46,
-      brakeDecel: 82,
-      reverseAccel: 40,
-      maxReverse: 34,
-      coastDrag: 8,
-      overspeedDrag: 90,
+      topSpeedKmh: 100,
+      accel: 0.6795,
+      brakeDecel: 1.2114,
+      reverseAccel: 0.4545,
+      maxReverse: 0.3864,
+      coastDrag: 0.0909,
+      overspeedDrag: 1.0227,
+      grassDrag: 1.1364,
+      driftLateral: 0.1591,
+      gravity: 3.4091,
       turnRate: 3.1,
       lowSpeedTurn: 0.55,
-      gripNormal: 5.4,
-      gripDrift: 2.4,
-      gripGrass: 3.4,
+      gripNormal: 7.56,
+      gripDrift: 3.36,
+      gripGrass: 4.76,
       driftTurnBoost: 1.5,
       grassMaxSpeedFactor: 0.5,
-      grassDrag: 100,
-      driftLateral: 14,
-      gravity: 300,
       maxClimbPenalty: 0.78,
       downhillOverspeed: 0.18,
     },
@@ -57,9 +58,12 @@ export const TRACKS = [
     mode: 'circuit',
     theme: 'manfield',
     world: { width: 3540, height: 1920 },
-    // The true corner sequence is preserved, but the whole venue is enlarged so
-    // a broad drift road fits inside the real layout's tightest radius.
-    lengthScale: 2.05,
+    // The true corner sequence at its true size: 4.1 was chosen only so a
+    // 450-wide road would fit inside the traced layout's tightest radius, which
+    // left the venue 875 m round — 29% of the real lap, and close enough to see
+    // the far side of the circuit from the main straight. 14.35 makes it the
+    // real 3.03 km, and the radius problem goes away on its own.
+    lengthScale: 14.35,
     geometry: {
       anchors: [
         { x: 1883, y: 1609 },
@@ -110,27 +114,26 @@ export const TRACKS = [
         { x: 2249, y: 1611 },
       ],
       roadWidth: 450,
-      samplesPerSegment: 20,
       numCheckpoints: 18,
       closed: true,
     },
     physics: {
-      maxSpeed: 940,
-      accel: 900,
-      brakeDecel: 1600,
-      reverseAccel: 340,
-      maxReverse: 240,
-      coastDrag: 150,
-      overspeedDrag: 700,
+      topSpeedKmh: 110,
+      accel: 1.2447,
+      brakeDecel: 2.2128,
+      reverseAccel: 0.3617,
+      maxReverse: 0.2553,
+      coastDrag: 0.1596,
+      overspeedDrag: 0.7447,
+      grassDrag: 0.9574,
+      driftLateral: 0.0745,
       turnRate: 3.3,
       lowSpeedTurn: 0.5,
-      gripNormal: 9.0,
-      gripDrift: 2.4,
-      gripGrass: 4.0,
+      gripNormal: 12.6,
+      gripDrift: 3.36,
+      gripGrass: 5.6,
       driftTurnBoost: 1.5,
       grassMaxSpeedFactor: 0.5,
-      grassDrag: 900,
-      driftLateral: 70,
     },
     fog: { near: 3200, far: 9000 },
     storageKey: 'beryl-racing-3d.manfield.bestLapMs.v1',
@@ -154,6 +157,9 @@ export const TRACKS = [
     mode: 'sprint',
     theme: 'remutaka',
     world: { width: 5200, height: 3200 },
+    // The real hill road climbs ~10 km; this is 3.5 km of it, caricatured as
+    // docs/ART-DIRECTION.md asks rather than reproduced.
+    lengthScale: 25,
     geometry: {
       anchors: [
         { x: 360, y: 2000 },
@@ -173,9 +179,10 @@ export const TRACKS = [
         { x: 4380, y: 780 },
         { x: 4820, y: 680 },
       ],
-      // The switchbacks cap the width; wider offset edges fold through themselves.
-      roadWidth: 240,
-      samplesPerSegment: 20,
+      // 240 was all the old switchback radius allowed — 1.1 car lengths, a
+      // single-track goat road on a state highway. The rescale lifts the
+      // ceiling to ~930, so this is now an ordinary two-lane road.
+      roadWidth: 420,
       numCheckpoints: 11,
       closed: false,
       elevation: {
@@ -189,25 +196,23 @@ export const TRACKS = [
       },
     },
     physics: {
-      maxSpeed: 100,
-      accel: 54,
-      brakeDecel: 92,
-      reverseAccel: 42,
-      maxReverse: 36,
-      coastDrag: 9,
-      overspeedDrag: 100,
+      topSpeedKmh: 85,
+      accel: 0.702,
+      brakeDecel: 1.196,
+      reverseAccel: 0.42,
+      maxReverse: 0.36,
+      coastDrag: 0.09,
+      overspeedDrag: 1.0,
+      grassDrag: 1.1,
+      driftLateral: 0.14,
+      gravity: 2.0,
       turnRate: 3.3,
       lowSpeedTurn: 0.6,
-      gripNormal: 5.8,
-      gripDrift: 2.6,
-      gripGrass: 3.4,
+      gripNormal: 8.12,
+      gripDrift: 3.64,
+      gripGrass: 4.76,
       driftTurnBoost: 1.5,
       grassMaxSpeedFactor: 0.5,
-      grassDrag: 110,
-      driftLateral: 14,
-      // Kept deliberately low so lifting mid-hairpin cannot stall the car at
-      // zero speed on the steepest part of the climb.
-      gravity: 200,
       maxClimbPenalty: 0.78,
       downhillOverspeed: 0.12,
     },
@@ -238,30 +243,29 @@ export const TRACKS = [
     mode: 'sprint',
     theme: 'otaki',
     world: { ...OTAKI_LAYOUT.world },
-    // Like rebuilt Eastbourne, the final-scale road data is large enough to
-    // warrant a data file while the course definition remains here.
-    preScaled: true,
+    // The Forks down to the beach is ~15 km in reality; 4.2 km here.
+    lengthScale: 10,
     geometry: OTAKI_GEOMETRY,
     layout: OTAKI_LAYOUT,
     physics: {
-      maxSpeed: 115,
-      accel: 62,
-      brakeDecel: 100,
-      reverseAccel: 46,
-      maxReverse: 38,
-      coastDrag: 9,
-      overspeedDrag: 110,
+      topSpeedKmh: 95,
+      accel: 0.7009,
+      brakeDecel: 1.1304,
+      reverseAccel: 0.4,
+      maxReverse: 0.3304,
+      coastDrag: 0.0783,
+      overspeedDrag: 0.9565,
+      grassDrag: 0.9565,
+      driftLateral: 0.1217,
+      gravity: 2.6087,
       turnRate: 3.4,
       lowSpeedTurn: 0.6,
-      gripNormal: 6.0,
-      gripGravel: 4.2,
-      gripDrift: 2.6,
-      gripGrass: 3.2,
+      gripNormal: 8.4,
+      gripGravel: 5.88,
+      gripDrift: 3.64,
+      gripGrass: 4.48,
       driftTurnBoost: 1.5,
       grassMaxSpeedFactor: 0.5,
-      grassDrag: 110,
-      driftLateral: 14,
-      gravity: 300,
       maxClimbPenalty: 0.78,
       downhillOverspeed: 0.15,
     },
@@ -275,39 +279,53 @@ export const TRACKS = [
     },
     // Recognition comes from the gorge, river, rail corridor, old-town grid and
     // beach rather than generated labels or arrows.
+    // Checkpoint indices, not coordinates: the river and the level crossing are
+    // built where the route happens to cross them. The beach rectangle used to
+    // be copied in here as well and is not any more — it lives in
+    // `layout.zones`, and two copies of one rectangle scaled by two different
+    // code paths is the shape of the bug that put Ōtaki's farmhouses thousands
+    // of units from their own collision circles.
     scenery: {
       riverCp: 6,
       railwayCp: 5,
-      beach: { ...OTAKI_LAYOUT.zones.beach },
     },
   },
 ];
 
-// --- Global feel tuning ----------------------------------------------------
-// Length scaling applies to legacy course coordinates; rebuilt Eastbourne and
-// Ōtaki are authored at final scale and opt out with `preScaled`. Physics
-// scaling still applies to every course.
-const LENGTH_SCALE = 2;
-const SPEED_SCALE = 1.8;
-const ACCEL_SCALE = 1.3;
-const GRIP_SCALE = 1.4;
-
-const SPEED_FIELDS = [
-  'maxSpeed', 'accel', 'brakeDecel', 'reverseAccel', 'maxReverse',
+// --- Scaling ---------------------------------------------------------------
+//
+// Two numbers per course, and both of them mean something you can check against
+// the real place: `topSpeedKmh`, and `lengthScale` — how much bigger the course
+// is than its authored coordinates.
+//
+// This replaces three global multipliers (LENGTH_SCALE 2, SPEED_SCALE 1.8,
+// ACCEL_SCALE 1.3), a `preScaled` flag that made two of the four courses skip
+// the geometry pass entirely, and per-course top speeds written directly in
+// units per second. Under that arrangement Manfeild ran at 940 and Eastbourne at
+// 88 — which look equally plausible on the page and are 104 km/h and 10 km/h.
+// The layering is what hid it: no single line was wrong, and no two of them were
+// comparable.
+//
+// Everything else about the car is expressed as a multiple of its top speed, so
+// changing that number keeps the character — time to top speed, braking distance
+// in car lengths — and only changes the pace.
+const SPEED_RATIO_FIELDS = [
+  'accel', 'brakeDecel', 'reverseAccel', 'maxReverse',
   'coastDrag', 'overspeedDrag', 'grassDrag', 'driftLateral', 'gravity',
 ];
-const GRIP_FIELDS = ['gripNormal', 'gripGravel', 'gripDrift', 'gripGrass'];
 
 function scaleCourse(def) {
-  if (def.preScaled) return scalePhysics(def);
-
-  const L = LENGTH_SCALE * (def.lengthScale ?? 1);
+  const L = def.lengthScale;
   def.world = {
     width: Math.round(def.world.width * L),
     height: Math.round(def.world.height * L),
   };
   const g = def.geometry;
-  g.anchors = g.anchors.map((a) => ({ x: a.x * L, y: a.y * L }));
+  const scaleAnchors = (anchors) => anchors.map((a) => ({ x: a.x * L, y: a.y * L }));
+  g.anchors = scaleAnchors(g.anchors);
+  if (g.branches) {
+    g.branches = g.branches.map((b) => ({ ...b, anchors: scaleAnchors(b.anchors) }));
+  }
 
   // Elevation scales with length so the grade remains unchanged.
   if (g.elevation) {
@@ -335,24 +353,66 @@ function scaleCourse(def) {
     }
   }
 
-  // roadWidth intentionally does not scale: it is constrained by local radius.
+  // roadWidth deliberately does not scale. It is a real-world width — about two
+  // car lengths for a two-lane road — and the whole point of scaling the route
+  // is that the road stops being wide relative to its own corners.
   if (def.landmarks) def.landmarks = def.landmarks.map(([x, y, t]) => [x * L, y * L, t]);
   if (def.arrows) def.arrows = def.arrows.map((a) => ({ ...a, x: a.x * L, y: a.y * L }));
-  if (def.scenery && def.scenery.beach) {
-    const b = def.scenery.beach;
-    def.scenery.beach = { x: b.x * L, y: b.y * L, w: b.w * L, h: b.h * L };
-  }
+  if (def.scenery) scaleZones(def.scenery, L);
+  if (def.layout) scaleLayout(def.layout, L);
   return scalePhysics(def);
 }
 
-function scalePhysics(def) {
-  for (const field of SPEED_FIELDS) {
-    if (def.physics[field] != null) def.physics[field] *= SPEED_SCALE;
+// Rect zones, in place. Anything without a numeric `w` is left alone, which is
+// what keeps `riverCp` and `railwayCp` — checkpoint indices, not coordinates —
+// from being multiplied into nonsense.
+function scaleZones(zones, L) {
+  for (const key of Object.keys(zones)) {
+    const r = zones[key];
+    if (!r || typeof r !== 'object' || typeof r.w !== 'number') continue;
+    zones[key] = { x: r.x * L, y: r.y * L, w: r.w * L, h: r.h * L };
   }
-  def.physics.accel *= ACCEL_SCALE;
-  if (def.physics.brakeDecel != null) def.physics.brakeDecel *= ACCEL_SCALE;
-  for (const field of GRIP_FIELDS) {
-    if (def.physics[field] != null) def.physics[field] *= GRIP_SCALE;
+}
+
+// The route data files carry more than anchors: a shoreline polyline, named
+// places the village and the farm buildings are hung off, and the offset of the
+// coast. Every one of them is a world coordinate, and every one of them would
+// have stayed at 1/17th scale in a corner of the map — the village bunched into
+// a knot, the beach nowhere near the road — if only the anchors had been scaled.
+//
+// Written out field by field rather than walked generically, because a generic
+// walk would happily scale `yaw`, `level` and the 0-1 fractions in an elevation
+// profile too.
+//
+// Scaled in place, like the geometry above. `structures.js` and
+// `render3d/themes/eastbourne.js` both import the layout module directly, and
+// they must agree to the unit — one places the village's collision footprints
+// and the other places the buildings you see. Handing back a scaled copy would
+// leave whichever of them still read the original placing houses at a
+// seventeenth of the distance, which is precisely the see-it-versus-hit-it split
+// structures.js exists to prevent.
+function scaleLayout(layout, L) {
+  const point = (p) => ({ ...p, x: p.x * L, z: p.z * L });
+  layout.world = {
+    width: Math.round(layout.world.width * L),
+    height: Math.round(layout.world.height * L),
+  };
+  if (layout.shoreX != null) layout.shoreX *= L;
+  if (layout.coastX != null) layout.coastX *= L;
+  if (layout.shoreline) layout.shoreline = layout.shoreline.map(point);
+  if (layout.places) {
+    for (const [name, v] of Object.entries(layout.places)) {
+      layout.places[name] = typeof v === 'number' ? v * L : point(v);
+    }
+  }
+  if (layout.zones) scaleZones(layout.zones, L);
+}
+
+function scalePhysics(def) {
+  const top = kmhToUnits(def.physics.topSpeedKmh);
+  def.physics.maxSpeed = top;
+  for (const field of SPEED_RATIO_FIELDS) {
+    if (def.physics[field] != null) def.physics[field] *= top;
   }
   return def;
 }

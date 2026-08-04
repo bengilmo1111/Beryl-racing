@@ -3,8 +3,16 @@ function clamp(value, min, max) {
 }
 
 // Beyond this range to the next gate, steer by the road instead of at the gate.
-// Roughly seven car lengths — closer than the gate spacing on any course whose
-// gates are dense enough to navigate by directly.
+// Roughly seven car lengths, and deliberately measured against the car rather
+// than the course: it is the distance at which aiming straight at something
+// stops being a safe way to arrive at it.
+//
+// Since the rescale the gates are far enough apart that this is nearly always
+// true, so the bot follows the road almost all the time. That used to break
+// Remutaka — a fixed look-ahead is a chord across a hairpin, and the bot cut the
+// switchbacks and never finished. It no longer does, because the hairpins are no
+// longer tighter than the road is wide: the tightest corner on any course is now
+// 2.4x the road's half-width, where three of the four were under 0.6x.
 const FOLLOW_ROAD_ABOVE = 1600;
 
 function wrapAngle(angle) {
