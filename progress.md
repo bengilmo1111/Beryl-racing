@@ -1591,3 +1591,60 @@ Eastbourne ended up with a closed pōhutukawa tunnel over a seaside village.
 fingerprints. Finish times and final positions are identical to the digit on all
 four courses — a tenfold increase in roadside objects, none of it in the racing
 line.
+
+### Beryl has an engine again
+
+She was never silent. `src/audio/EngineSound.js` has been a procedural Morris
+Minor synth since July, wired up and running. It was driven by one input — road
+speed — and that is the one thing that cannot produce this engine's character.
+Road speed rises once, smoothly, across a whole course, so the note slid upward
+for two minutes and told you nothing.
+
+A 948cc A-series **revs hard and does not go fast**. It is always busy and you
+hear every change. So the synth models crankshaft speed instead: a four-speed
+box, revs sweeping 800 to 4,800 through each gear and dropping when it shifts,
+with hysteresis so a car sitting on a shift point does not chatter.
+
+```
+   0% of top   gear 1    800 rpm
+  21% of top   gear 1  4,686 rpm
+  29% of top   gear 2  1,374 rpm   <- shift
+  42% of top   gear 2  4,800 rpm
+  51% of top   gear 3  1,366 rpm   <- shift
+  68% of top   gear 3  4,800 rpm
+  77% of top   gear 4  1,199 rpm   <- shift
+  99% of top   gear 4  4,673 rpm
+```
+
+At maximum speed she sits near 4,700 rpm. Busy, which is the point.
+
+**Load is separate from speed**, and is the other half of it. Throttle *and*
+gradient both count, so she sounds like she is struggling up the Remutaka climb
+at a steady speed — the most characterful thing this car does.
+`docs/tracks/REMUTAKA-ART-BRIEF.md` has assumed this worked for months; `grade`
+was already computed every frame for the physics and simply never reached the
+audio.
+
+Silent audio was also undiagnosable: with no `AudioContext` the constructor set
+`ok = false` and every update afterwards was a no-op with nothing anywhere saying
+so. It records why now, warns once, and `window.__berylAudio()` reports gear,
+revs, context state and mute.
+
+### A test for the path the harness never runs
+
+`?harness=1` disables audio outright, so nothing in `test:determinism` or the
+playtest matrix ever constructs an `EngineSound` or draws a sign over real
+terrain. `npm run test:audio` loads the game the way a person does and asserts
+all four gears appear, revs reach the redline, and they **drop on every shift**.
+
+Getting it to pass took two wrong measurements, both worth recording because
+both looked like product bugs:
+
+1. Sampling with `update(); sleep(320); update()` made the clutch dip look
+   permanent. It is not how the game calls it — once per frame — and the second
+   call landed inside the dip the first had armed.
+2. Probing the *scene's own* engine meant two callers driving one gearbox: the
+   scene feeding it the parked car's speed, the probe feeding it a sweep. The
+   gear flipped every frame and re-armed the dip with it, so revs read a
+   permanent 0.62× and looked flat. The synth was fine; the measurement was
+   driving it twice.

@@ -11,7 +11,8 @@
     "test:determinism": "node playtest/ac2-determinism.mjs",
     "test:road-index": "node playtest/road-index.mjs",
     "test:tree-art": "node scripts/validate-nz-tree-models.mjs",
-    "test:track-geometry": "node playtest/track-geometry.mjs"
+    "test:track-geometry": "node playtest/track-geometry.mjs",
+    "test:audio": "node playtest/audio-check.mjs"
   },
   "dependencies": {
     "phaser": "^3.80.1",

@@ -16,7 +16,11 @@
 
 // Gear ratios as fractions of top speed. Four speeds, first is short and third
 // is long, as the real box is.
-const GEARS = [0.0, 0.17, 0.37, 0.64];
+// A Minor's box, as fractions of top speed: first runs out around 30 km/h,
+// second around 50, third around 75. Deliberately a little short of the real
+// ratios so you hear all three changes rather than spending the first half of a
+// course in top.
+const GEARS = [0.0, 0.22, 0.42, 0.68];
 const IDLE_RPM = 800;
 const REDLINE_RPM = 4800;
 // A gear is left a little past its band and picked up a little before it, so a
