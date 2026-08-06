@@ -10,6 +10,7 @@
 // Styling mirrors the 2D text exactly (see the deleted placeFinishAndLandmarks
 // at 491875f:src/scenes/RaceScene.js) so the courses still feel like themselves.
 import { Group, Mesh, PlaneGeometry, BoxGeometry, DoubleSide } from 'three';
+import { metres } from '../scale.js';
 import { C, basic, lambert } from './palette.js';
 import { labelTexture } from './textures.js';
 
@@ -78,12 +79,42 @@ function buildSign(text, style, boardHeight) {
   return group;
 }
 
+// Signs must not stack on top of each other.
+//
+// Landmarks, arrows, the finish board and the crossbuck are authored separately
+// and placed separately, so nothing stopped two of them landing within a few
+// metres — worst at the Remutaka summit, where the summit landmark, the last
+// hairpin arrow and the finish board all converge. From a chase camera they
+// overlap into an unreadable pile at exactly the moment one of them matters.
+//
+// Whatever is placed first wins, so the order signs are built in below is their
+// priority order.
+const SIGN_CLEARANCE = metres(28);
+
+function makePlacer(group) {
+  const placed = [];
+  return (sign, x, z) => {
+    for (const p of placed) {
+      if (Math.hypot(p.x - x, p.z - z) < SIGN_CLEARANCE) return false;
+    }
+    placed.push({ x, z });
+    group.add(sign);
+    return true;
+  };
+}
+
 export function buildSigns(track, def, terrain) {
   // Manfeild's marshal numbers ride on the huts themselves, so it has no
   // freestanding boards to build here.
   if (def.theme === 'manfield') return new Group();
 
   const group = new Group();
+  // Highest priority first: the finish board and the level crossing carry
+  // information the road itself does not, so they are placed before the
+  // landmarks and arrows that might otherwise crowd them out.
+  const place = makePlacer(group);
+  placeFinish(place, track, def, terrain);
+  placeCrossbuck(place, track, def, terrain);
 
   // Landmark names: cream on the house ink blue.
   for (const [x, y, text] of def.landmarks || []) {
@@ -97,7 +128,7 @@ export function buildSigns(track, def, terrain) {
     const aim = facingTraffic(x, y, track);
     sign.position.set(x, terrain.heightAt(x, y), y);
     sign.rotation.y = aim.yaw;
-    group.add(sign);
+    place(sign, x, y);
   }
 
   // Advance arrows: cream with the chunky dark outline, no panel.
@@ -110,42 +141,43 @@ export function buildSigns(track, def, terrain) {
     const aim = facingTraffic(a.x, a.y, track);
     sign.position.set(a.x, terrain.heightAt(a.x, a.y), a.y);
     sign.rotation.y = aim.yaw;
-    group.add(sign);
-  }
-
-  // Finish marker, beside the last gate — sunshine yellow, the loudest sign on
-  // the course, because it is the one that matters.
-  const finish = track.checkpoints[track.checkpoints.length - 1];
-  if (finish) {
-    const sign = buildSign(
-      def.finishLabel || 'FINISH',
-      { color: '#15314b', background: '#ffd166', fontSize: 72 },
-      74
-    );
-    const n = { x: Math.cos(finish.angle + Math.PI / 2), y: Math.sin(finish.angle + Math.PI / 2) };
-    const px = finish.x + n.x * (track.half + 90);
-    const py = finish.y + n.y * (track.half + 90);
-    sign.position.set(px, terrain.heightAt(px, py), py);
-    sign.rotation.y = facingTraffic(px, py, track).yaw;
-    group.add(sign);
-  }
-
-  // Ōtaki's level-crossing crossbuck, beside the railway.
-  const sc = def.scenery || {};
-  if (def.theme === 'otaki' && sc.railwayCp != null) {
-    const cp = track.checkpoints[sc.railwayCp];
-    if (cp) {
-      const n = { x: Math.cos(cp.angle + Math.PI / 2), y: Math.sin(cp.angle + Math.PI / 2) };
-      const px = cp.x + n.x * (track.half + 60);
-      const py = cp.y + n.y * (track.half + 60);
-      const sign = buildSign('✕', {
-        color: '#fff8e7', background: null, stroke: '#15314b', strokeWidth: 10, fontSize: 76,
-      }, 70);
-      sign.position.set(px, terrain.heightAt(px, py), py);
-      sign.rotation.y = facingTraffic(px, py, track).yaw;
-      group.add(sign);
-    }
+    place(sign, a.x, a.y);
   }
 
   return group;
+}
+
+// Finish marker, beside the last gate — sunshine yellow, the loudest sign on
+// the course, because it is the one that matters.
+function placeFinish(place, track, def, terrain) {
+  const finish = track.checkpoints[track.checkpoints.length - 1];
+  if (!finish) return;
+  const sign = buildSign(
+    def.finishLabel || 'FINISH',
+    { color: '#15314b', background: '#ffd166', fontSize: 72 },
+    74
+  );
+  const n = { x: Math.cos(finish.angle + Math.PI / 2), y: Math.sin(finish.angle + Math.PI / 2) };
+  const px = finish.x + n.x * (track.half + 90);
+  const py = finish.y + n.y * (track.half + 90);
+  sign.position.set(px, terrain.heightAt(px, py), py);
+  sign.rotation.y = facingTraffic(px, py, track).yaw;
+  place(sign, px, py);
+}
+
+// Ōtaki's level-crossing crossbuck, beside the railway.
+function placeCrossbuck(place, track, def, terrain) {
+  const sc = def.scenery || {};
+  if (def.theme !== 'otaki' || sc.railwayCp == null) return;
+  const cp = track.checkpoints[sc.railwayCp];
+  if (!cp) return;
+  const n = { x: Math.cos(cp.angle + Math.PI / 2), y: Math.sin(cp.angle + Math.PI / 2) };
+  const px = cp.x + n.x * (track.half + 60);
+  const py = cp.y + n.y * (track.half + 60);
+  const sign = buildSign('✕', {
+    color: '#fff8e7', background: null, stroke: '#15314b', strokeWidth: 10, fontSize: 76,
+  }, 70);
+  sign.position.set(px, terrain.heightAt(px, py), py);
+  sign.rotation.y = facingTraffic(px, py, track).yaw;
+  place(sign, px, py);
 }
