@@ -11,6 +11,7 @@ import { buildRoad, buildKerbs, buildApron, buildGround, buildCentreLine } from 
 import { buildStartLine, buildStartGantry } from './markers.js';
 import { buildBeryl, updateBeryl } from './beryl.js';
 import { buildTrees } from './trees.js';
+import { buildProps } from './props.js';
 import { buildSigns } from './signs.js';
 import { buildEastbourne } from './themes/eastbourne.js';
 import { buildOtaki } from './themes/otaki.js';
@@ -106,6 +107,7 @@ class RaceWorld {
     }
 
     this.scene3d.add(buildTrees(scene.scenery.trees, this.terrain));
+    this.scene3d.add(buildProps(scene.scenery.props, this.terrain));
     if (!geographyLed) this.scene3d.add(buildSigns(scene.track, scene.def, this.terrain));
 
     this.skid = new SkidRibbon(this.terrain);
