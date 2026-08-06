@@ -175,10 +175,19 @@ function addNorfolkPine(group, terrain, x, z, scale = 1) {
   group.add(root);
 }
 
+// The pine positions below were authored against Eastbourne at 7,200 x 15,000.
+// It is seventeen times that now, and left alone they would stand in a huddle
+// down at the Days Bay end instead of running the length of the shore. Positions
+// map; the trees' own sizes do not.
+const AUTHORED = { width: 7200, height: 15000 };
+const px = (x) => x * (WORLD.width / AUTHORED.width);
+const pz = (z) => z * (WORLD.height / AUTHORED.height);
+
 function addCoastalPines(group, terrain) {
   // Norfolk pines punctuate the shore without becoming a continuous forest.
   const positions = [3900, 4700, 5550, 6500, 7420, 8350, 9300, 10300];
-  positions.forEach((z, i) => addNorfolkPine(group, terrain, 1380 + (i % 2) * 35, z, 0.86 + (i % 3) * 0.08));
+  positions.forEach((az, i) =>
+    addNorfolkPine(group, terrain, px(1380 + (i % 2) * 35), pz(az), 0.86 + (i % 3) * 0.08));
 }
 
 function addHills(group, terrain) {

@@ -68,6 +68,20 @@ function placeFarmhouse(group, terrain, structure, palette) {
   group.add(farmhouse);
 }
 
+// Every authored coordinate in this file was written against Ōtaki when the
+// course was 19,000 x 11,000 units. It is ten times that now, and a position
+// left alone lands a tenth of the way along the route — the town on the dunes,
+// the market gardens out at sea.
+//
+// `px`/`pz` map an authored point onto whatever size the course is. Sizes must
+// never go through them: where a market garden sits is a point on a map and
+// moves when the map is rescaled; how big a market garden is does not. Distances
+// that are really *spans* — how far out to sea the water reaches, how far apart a
+// line of dunes runs — do scale, and are marked where they occur.
+const AUTHORED = { width: 19000, height: 11000 };
+const px = (world, x) => x * (world.width / AUTHORED.width);
+const pz = (world, z) => z * (world.height / AUTHORED.height);
+
 function addRiver(group, track, def, terrain) {
   const cp = track.checkpoints[def.scenery?.riverCp ?? 0];
   if (!cp) return;
@@ -142,9 +156,15 @@ function addRailOverbridge(group, track, def) {
   }
 }
 
-function addMarketGardens(group, terrain) {
+function addMarketGardens(group, terrain, world) {
   // Long rectangular growing blocks and dark windbreak rows are the strongest
   // rural cue on the flats between the gorge and town.
+  //
+  // Positions are fractions of the world; sizes are not. Where a plot sits is a
+  // point on a map and has to move when the map is rescaled — how big a market
+  // garden is does not. These were absolute coordinates against a 19,000-unit
+  // Ōtaki, so after the rescale every one of them sat a tenth of the way along
+  // the route, out on the dunes.
   const plots = [
     [11200, 5600, 1150, 360, COLOUR.fieldA, 0.08],
     [10300, 6150, 980, 330, COLOUR.fieldC, -0.05],
@@ -152,27 +172,31 @@ function addMarketGardens(group, terrain) {
     [7900, 6750, 1000, 340, COLOUR.fieldA, -0.04],
     [7200, 7250, 930, 310, COLOUR.fieldC, 0.06],
   ];
-  for (const [x, z, width, depth, colour, yaw] of plots) {
+  for (const [ax, az, width, depth, colour, yaw] of plots) {
+    const x = px(world, ax);
+    const z = pz(world, az);
     const field = terrainPlane(width, depth, colour, x, z, terrain, 2.4);
     field.rotation.y = yaw;
     group.add(field);
   }
 
   const hedgeMat = lambert(0x365f43);
-  for (const [x, z, length, yaw] of [
+  for (const [ax, az, length, yaw] of [
     [11200, 5380, 1080, 0.08],
     [10300, 5950, 950, -0.05],
     [10800, 6670, 1000, 0.02],
     [7900, 6550, 950, -0.04],
     [7200, 7060, 900, 0.06],
   ]) {
+    const x = px(world, ax);
+    const z = pz(world, az);
     const hedge = box(length, 52, 34, x, terrain.heightAt(x, z) + 26, z, hedgeMat);
     hedge.rotation.y = yaw;
     group.add(hedge);
   }
 }
 
-function addTown(group, terrain, layout) {
+function addTown(group, terrain, layout, track, def) {
   const wallMats = [
     lambert(0xeee9de),
     lambert(0xe4e7df),
@@ -197,7 +221,9 @@ function addTown(group, terrain, layout) {
     [2050, 9350, 160, 86, 106, 0.08],
   ];
 
-  buildings.forEach(([x, z, w, d, h, yaw], index) => {
+  buildings.forEach(([ax, az, w, d, h, yaw], index) => {
+    const x = px(layout.world, ax);
+    const z = pz(layout.world, az);
     const y = terrain.heightAt(x, z);
     const root = new Group();
     root.add(box(w, h, d, 0, h / 2, 0, wallMats[index % wallMats.length]));
@@ -209,13 +235,21 @@ function addTown(group, terrain, layout) {
 
   // A modest platform/shelter beside the rail corridor, recognisable as a small
   // town station without any sign text.
+  // Placed off the rail crossing itself rather than at an authored coordinate,
+  // which is both scale-proof and what it actually means: the platform is beside
+  // the line, and the line is wherever the route crosses it.
   const station = new Group();
   station.add(box(360, 10, 72, 0, 5, 0, lambert(COLOUR.concrete)));
   station.add(box(190, 90, 70, 35, 55, 15, lambert(COLOUR.shelter)));
   station.add(box(220, 12, 96, 35, 106, 15, lambert(COLOUR.roofRed)));
-  station.position.set(8640, terrain.heightAt(8640, 6900) - 12, 6900);
-  station.rotation.y = 0.1;
-  group.add(station);
+  const rail = track.checkpoints[def.scenery?.railwayCp ?? 0];
+  if (rail) {
+    const sx = rail.x + Math.cos(rail.angle) * 620;
+    const sz = rail.y + Math.sin(rail.angle) * 620;
+    station.position.set(sx, terrain.heightAt(sx, sz) - 12, sz);
+    station.rotation.y = 0.1;
+    group.add(station);
+  }
 
   // Keep layout used: it documents the authored core and avoids a second set of
   // magic bounds diverging from the route data.
@@ -231,37 +265,48 @@ function addBeach(group, terrain, layout) {
   sand.position.set(beach.x + beach.w / 2, seaLevel + 3, beach.y + beach.h / 2);
   group.add(sand);
 
+  // The water is a span, not an object: it has to reach the horizon, so its
+  // extent scales with the course even though a dune or a bach does not.
+  const world = layout.world;
   const sea = new Mesh(
-    new PlaneGeometry(4200, beach.h + 3600),
+    new PlaneGeometry(px(world, 4200), beach.h + pz(world, 3600)),
     basic(C.river, { fog: true })
   );
   sea.geometry.rotateX(-Math.PI / 2);
-  sea.position.set(-1550, seaLevel + 1, beach.y + beach.h / 2);
+  sea.position.set(px(world, -1550), seaLevel + 1, beach.y + beach.h / 2);
   group.add(sea);
 
   // Low dune ridges and a line of wind-shaped pines/baches separate Marine
   // Parade from the open Tasman coast.
+  //
+  // The run and the step both scale, so the same authored rhythm covers the
+  // whole of the now much longer beach. That leaves them sparser than they read
+  // before — spacing along the coast is Stage 4's job, not a mapping question.
   const duneMat = lambert(COLOUR.dune);
-  for (let z = 7150; z <= 10400; z += 520) {
-    const dune = box(180, 26, 330, 760, seaLevel + 13, z, duneMat);
-    dune.rotation.y = 0.08 * Math.sin(z * 0.01);
+  for (let az = 7150; az <= 10400; az += 520) {
+    const z = pz(world, az);
+    const dune = box(180, 26, 330, px(world, 760), seaLevel + 13, z, duneMat);
+    dune.rotation.y = 0.08 * Math.sin(az * 0.01);
     group.add(dune);
   }
 
   const pineMat = lambert(COLOUR.pine);
   const trunkMat = lambert(COLOUR.pineTrunk);
-  for (let z = 7200; z <= 10300; z += 620) {
+  for (let az = 7200; az <= 10300; az += 620) {
+    const z = pz(world, az);
+    const x = px(world, 910);
     const trunk = new Mesh(new CylinderGeometry(12, 17, 115, 6), trunkMat);
-    trunk.position.set(910, seaLevel + 58, z);
+    trunk.position.set(x, seaLevel + 58, z);
     group.add(trunk);
     const crown = new Mesh(new ConeGeometry(90, 210, 7), pineMat);
-    crown.position.set(910, seaLevel + 192, z);
+    crown.position.set(x, seaLevel + 192, z);
     group.add(crown);
   }
 
   const bachWalls = [0xf1ece0, 0xdce5e3, 0xe8d7c2];
-  for (const [index, z] of [7450, 8250, 9050, 9850].entries()) {
-    const x = 1370 + (index % 2) * 130;
+  for (const [index, az] of [7450, 8250, 9050, 9850].entries()) {
+    const z = pz(world, az);
+    const x = px(world, 1370 + (index % 2) * 130);
     const y = terrain.heightAt(x, z);
     const bach = new Group();
     bach.add(box(210, 92, 135, 0, 46, 0, lambert(bachWalls[index % bachWalls.length])));
@@ -305,9 +350,9 @@ export function buildOtaki(track, def, terrain, structures = []) {
   addBeach(group, terrain, layout);
   addRiver(group, track, def, terrain);
   addRailOverbridge(group, track, def);
-  addMarketGardens(group, terrain);
+  addMarketGardens(group, terrain, layout.world);
   addFarmhouses(group, terrain, structures);
-  addTown(group, terrain, layout);
+  addTown(group, terrain, layout, track, def);
 
   return group;
 }
