@@ -1505,3 +1505,146 @@ the size, the farmhouses would have collapsed into a corner miles from their roa
 and the grandstand would have stood in the first corner. Both are fractions now —
 of the world and of the lap. This is the same see-it-versus-hit-it split that
 `structures.js` exists to prevent, arriving by a different route.
+
+## 2026-08-04 — Stage 3 (part) and Stage 4: putting things where they belong
+
+### The themes were still on the old map
+
+The rescale moved the route data and `structures.js`, but each render theme
+carries its own authored coordinate lists, and those still assumed the world size
+they were written against. Ōtaki's town sat out on the dunes, its market gardens
+and windbreaks at sea, its station nowhere near the railway; Eastbourne's Norfolk
+pines huddled at the Days Bay end instead of running the length of the shore.
+
+Each file now states the size it was authored against once and maps positions
+through a pair of helpers. Sizes deliberately do not go through them, which is
+the whole distinction, and it is worth stating plainly because this is the fourth
+time it has come up:
+
+> A number that is a **point on a map** scales with the map.
+> A number that is the **size of a thing** does not.
+> A number that is a **span** — how far out to sea the water reaches — scales too.
+
+Two placements stopped being coordinates at all. The station hangs off the rail
+crossing checkpoint, because that is what it means: the platform is beside the
+line, and the line is wherever the route crosses it.
+
+### Ground with a shape
+
+Terrain away from an authored elevation profile was a single flat facet from
+verge to horizon. Three octaves of value noise, off a positional hash rather than
+`Math.random` — the global stream is seeded and its draw order is the determinism
+contract.
+
+Visual grid only: `heightAt` is read exclusively by `render3d/`, and the
+simulation's only terrain reader is `gradeAlong` on `physicsGrid`. Baselines
+unchanged, which is the proof.
+
+Two findings. The ramp fading relief out near the road was first set at 35–260 m,
+which put full effect beyond the fog and left **every metre of ground the player
+can see** flat — the entire visible verge sat inside the fade. And wavelength has
+a floor set by the grid: cells derive from world size and reach ~15 m, so
+anything under about 70 m aliases into noise rather than resolving as a shape.
+
+Amplitude reads as far less than it sounds: 9 m invisible, 30 m turned the Kāpiti
+plain into downland, 18 m is a 5° slope at the longest wavelength.
+
+### Scenery follows the route now, not the world
+
+It was 90 candidates thrown uniformly at the whole map and rejected if they hit a
+road. A reasonable thing to write and a bad thing to look at: a course is a thin
+ribbon in a large rectangle, so nearly every tree landed where the player never
+goes and the roadside got the leftovers. After the rescale, ~100× the area and
+the same 90 trees.
+
+Placement now walks the centreline by arc length into bands either side, authored
+per kilometre of road — the unit that actually matters, and one that does not
+change meaning when a course is resized.
+
+| course | before | after |
+|---|---:|---:|
+| eastbourne-dash | 90 trees | **804 trees, 99 props** |
+| manfield | 0 | **0** (deliberately — bare venue) |
+| remutaka | 90 | **3,542 trees** |
+| otaki | 90 | **803 trees, 408 props** |
+
+**And the trees were the wrong size all along.** A tree was `128 × scale` units
+across — 90 to 180 units, which at 57.9 units/metre is a **1.5 to 3 metre
+shrub**. Every one of them. A too-small world hid it; at the rescaled size they
+read as pin-pricks. Canopy width is a real per-species figure now, and the
+collision circle is the **trunk**: the old radius was `displayWidth * 0.3`, which
+at a realistic canopy would have put a six-metre bumper around every pōhutukawa.
+
+New roadside furniture — post-and-wire fences, power poles, macrocarpa shelter
+belts — is deliberately **off the RNG**. Fences and poles are regular by nature,
+so they need no draws, and keeping them off the stream means tuning them cannot
+move a recorded finish. Neither is solid: a continuous fence either side of a road
+is realistic and turns every course into a corridor with no way back once you
+leave it. Leaving the road has to stay survivable.
+
+`clustersPerKm` is named for what the loop does, not what it produces — each
+attempt places 0..`clusterMax` per side, so the tree count lands near four times
+it. The first set of numbers was tuned as though it meant trees, which is how
+Eastbourne ended up with a closed pōhutukawa tunnel over a seaside village.
+
+**The check that it landed right:** re-recording moved only the obstacle
+fingerprints. Finish times and final positions are identical to the digit on all
+four courses — a tenfold increase in roadside objects, none of it in the racing
+line.
+
+### Beryl has an engine again
+
+She was never silent. `src/audio/EngineSound.js` has been a procedural Morris
+Minor synth since July, wired up and running. It was driven by one input — road
+speed — and that is the one thing that cannot produce this engine's character.
+Road speed rises once, smoothly, across a whole course, so the note slid upward
+for two minutes and told you nothing.
+
+A 948cc A-series **revs hard and does not go fast**. It is always busy and you
+hear every change. So the synth models crankshaft speed instead: a four-speed
+box, revs sweeping 800 to 4,800 through each gear and dropping when it shifts,
+with hysteresis so a car sitting on a shift point does not chatter.
+
+```
+   0% of top   gear 1    800 rpm
+  21% of top   gear 1  4,686 rpm
+  29% of top   gear 2  1,374 rpm   <- shift
+  42% of top   gear 2  4,800 rpm
+  51% of top   gear 3  1,366 rpm   <- shift
+  68% of top   gear 3  4,800 rpm
+  77% of top   gear 4  1,199 rpm   <- shift
+  99% of top   gear 4  4,673 rpm
+```
+
+At maximum speed she sits near 4,700 rpm. Busy, which is the point.
+
+**Load is separate from speed**, and is the other half of it. Throttle *and*
+gradient both count, so she sounds like she is struggling up the Remutaka climb
+at a steady speed — the most characterful thing this car does.
+`docs/tracks/REMUTAKA-ART-BRIEF.md` has assumed this worked for months; `grade`
+was already computed every frame for the physics and simply never reached the
+audio.
+
+Silent audio was also undiagnosable: with no `AudioContext` the constructor set
+`ok = false` and every update afterwards was a no-op with nothing anywhere saying
+so. It records why now, warns once, and `window.__berylAudio()` reports gear,
+revs, context state and mute.
+
+### A test for the path the harness never runs
+
+`?harness=1` disables audio outright, so nothing in `test:determinism` or the
+playtest matrix ever constructs an `EngineSound` or draws a sign over real
+terrain. `npm run test:audio` loads the game the way a person does and asserts
+all four gears appear, revs reach the redline, and they **drop on every shift**.
+
+Getting it to pass took two wrong measurements, both worth recording because
+both looked like product bugs:
+
+1. Sampling with `update(); sleep(320); update()` made the clutch dip look
+   permanent. It is not how the game calls it — once per frame — and the second
+   call landed inside the dip the first had armed.
+2. Probing the *scene's own* engine meant two callers driving one gearbox: the
+   scene feeding it the parked car's speed, the probe feeding it a sweep. The
+   gear flipped every frame and re-armed the dip with it, so revs read a
+   permanent 0.62× and looked flat. The synth was fine; the measurement was
+   driving it twice.

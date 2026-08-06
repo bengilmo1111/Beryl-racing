@@ -6,7 +6,8 @@
 //
 // The 2D build drew these as top-down canopy PNGs, which are unusable from a
 // chase camera (you would be looking at a flat cut-out of a treetop). They are
-// low-poly meshes now, instanced so 90 trees cost a handful of draw calls.
+// low-poly meshes now, instanced so a thousand trees cost a handful of draw
+// calls.
 import {
   InstancedMesh,
   CylinderGeometry,
@@ -88,10 +89,11 @@ export function buildTrees(trees, terrain) {
 
     list.forEach((tree, i) => {
       const ground = terrain.heightAt(tree.x, tree.y);
-      // Canopy diameter tracks the sprite width the collision radius is derived
-      // from, so the trunk and lower canopy sit inside the circle you bump into —
-      // what you hit is what you see.
-      const width = tree.displayWidth;
+      // Canopy width is a real size now, authored per species in src/scenery.js,
+      // and the collision circle is the trunk rather than a fraction of the
+      // canopy. So what you hit is the trunk you can see standing under it,
+      // instead of a bumper the width of the branches.
+      const width = tree.canopyWidth;
       const height = width * spec.heightFactor;
       const yaw = hashAngle(tree.x, tree.y);
 

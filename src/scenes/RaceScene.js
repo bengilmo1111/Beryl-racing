@@ -98,6 +98,14 @@ export class RaceScene extends Phaser.Scene {
     }
     this.engine = harnessed ? null : new EngineSound(this.sound);
     this.events.once('shutdown', () => this.engine && this.engine.stop());
+    // Silent audio used to be undiagnosable: EngineSound would find no
+    // AudioContext, set ok = false, and every update after that was a no-op with
+    // nothing anywhere saying so. Now it says so, and `window.__berylAudio()`
+    // reports gear, revs and the context state from the console.
+    if (this.engine) {
+      if (!this.engine.ok) console.warn(`Beryl engine sound off: ${this.engine.status}`);
+      window.__berylAudio = () => ({ ...this.engine.describe(), muted: isMuted(this) });
+    }
 
     // Lap state.
     this.lapNumber = 1;
@@ -242,8 +250,11 @@ export class RaceScene extends Phaser.Scene {
     this.applyFx(onTrack, input, surface);
 
     if (this.engine) {
+      // Grade goes in as well as speed and throttle. It is computed above for
+      // the physics anyway, and it is what lets her sound like she is labouring
+      // up the Remutaka climb at a steady speed — see the note in EngineSound.
       const speedRatio = Math.abs(this.car.speed) / CAR.maxSpeed;
-      this.engine.update(speedRatio, input.throttle, isMuted(this));
+      this.engine.update(speedRatio, input.throttle, isMuted(this), grade);
     }
 
     if (this.timing) {
