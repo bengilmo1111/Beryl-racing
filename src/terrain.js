@@ -5,6 +5,7 @@
 // The road network is the landform's skeleton: primary and branch roads are all
 // pinned into the same field so alternate streets neither float nor disappear.
 import { remutakaRoadProfile, remutakaVisualHeight } from './remutakaTerrain.js';
+import { metres } from './scale.js';
 
 // Grid resolution, in world units per cell.
 //
@@ -35,6 +36,81 @@ function cellSizeFor(world) {
 // sampled at a car-sized distance. The value is what `CELL * 0.5` already came
 // to, so no course changes today.
 const GRADE_STEP = 60;
+
+// Rolling relief, in metres of real-world size converted once. Deliberately
+// gentle: this is the land between the road and the horizon having a shape, not
+// dunes. Anything larger starts to read as terrain the car ought to be climbing,
+// and it is not — the physics grid never sees it.
+// 18 m peak-to-trough over a few hundred metres. Sounds like a lot on paper and
+// reads as almost nothing: a 340 m wavelength at this height is a 5 degree
+// slope, and a flat-lit green surface tilted 5 degrees barely shades at all. 9 m
+// was genuinely invisible; 30 m turned the Kapiti plain into downland.
+//
+// The point of it is not the ground. It is that a hedgerow, a fence line or a
+// row of trees standing on ground that has a shape reads as countryside, and the
+// same objects on a plane read as objects on a plane. The horizon stops being a
+// ruled line, which is most of the benefit.
+const RELIEF_HEIGHT = metres(18);
+// The ramp has to clear the carriageway and then get on with it. Tuned at 35 m
+// to 260 m first, which put full effect beyond the fog and left every metre of
+// ground the player can actually see perfectly flat — the whole visible verge
+// sat inside the fade. The road is ~4 m of half-width and the height field pins
+// about 8 m either side of it, so 10 m is already clear of the tarmac.
+const RELIEF_START = metres(10);
+const RELIEF_FULL = metres(80);
+const RELIEF_SHORE_CLEAR = metres(12); // and none of it at the waterline
+
+function smoothstep(edge0, edge1, x) {
+  if (edge1 <= edge0) return x >= edge1 ? 1 : 0;
+  let t = (x - edge0) / (edge1 - edge0);
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return t * t * (3 - 2 * t);
+}
+
+// Value noise off a positional hash — never Math.random. The global stream is
+// seeded by the playtest harness and its draw order is part of the determinism
+// contract, so scenery placement would move if this drew from it. Same reasoning
+// as `hashAngle` in render3d/trees.js.
+function hash2(x, y) {
+  const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+function valueNoise(x, y) {
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const xf = x - xi;
+  const yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf);
+  const v = yf * yf * (3 - 2 * yf);
+  const a = hash2(xi, yi);
+  const b = hash2(xi + 1, yi);
+  const c = hash2(xi, yi + 1);
+  const d = hash2(xi + 1, yi + 1);
+  const top = a + (b - a) * u;
+  const bottom = c + (d - c) * u;
+  return top + (bottom - top) * v;
+}
+
+// Three octaves, returning roughly -1..1. The longest wavelength does the work;
+// the shorter two stop the hillsides reading as smooth blobs.
+// Wavelengths have a floor set by the grid: cells are world-size derived and
+// reach ~15 m on the longest course, so anything under about 70 m aliases into
+// noise rather than resolving as a shape.
+const OCTAVES = [
+  { wavelength: metres(340), weight: 1.0 },
+  { wavelength: metres(150), weight: 0.45 },
+  { wavelength: metres(75), weight: 0.18 },
+];
+const OCTAVE_TOTAL = OCTAVES.reduce((sum, o) => sum + o.weight, 0);
+
+function fbm(x, y) {
+  let sum = 0;
+  for (const { wavelength, weight } of OCTAVES) {
+    sum += (valueNoise(x / wavelength, y / wavelength) - 0.5) * 2 * weight;
+  }
+  return sum / OCTAVE_TOTAL;
+}
 
 export class Terrain {
   constructor(track, world, def = null) {
@@ -79,6 +155,9 @@ export class Terrain {
     const nearestSample = remutaka ? new Int32Array(this.cols * this.rows) : null;
     const grid = new Float32Array(this.cols * this.rows);
     const pinned = new Uint8Array(this.cols * this.rows);
+    // How far each cell is from the nearest road sample. Only the relief pass
+    // uses it, and only to fade itself out as it approaches the carriageway.
+    const roadDistance = new Float32Array(this.cols * this.rows);
     const seas = (track.sea || []).map((s) => (
       s.angle != null
         ? { cx: s.cx, cy: s.cy, angle: s.angle, halfW: s.halfW, halfL: s.halfL, level: s.level }
@@ -115,6 +194,7 @@ export class Terrain {
         grid[k] = bestSample ? bestSample.h : 0;
         if (nearestSample) nearestSample[k] = bestSampleIndex;
         if (bestSample && best <= bestSample.pinRadiusSq) pinned[k] = 1;
+        roadDistance[k] = Math.sqrt(best);
 
         // Water stays flat, but never overwrites a road or bridge cell.
         if (!pinned[k]) {
@@ -160,6 +240,48 @@ export class Terrain {
       // remain restored to their exact original heights by #blur.
       this.grid = this.#blur(visual, pinned, 1);
     }
+
+    this.grid = this.#addRelief(this.grid, pinned, roadDistance);
+  }
+
+  // Gentle rolling relief, away from the road.
+  //
+  // The height field is built from the nearest road sample and then blurred, so
+  // anywhere the course did not author a profile is dead flat — a single green
+  // facet from the verge to the horizon. That was survivable when a world was
+  // 15,000 units across and is not now they are ten times that.
+  //
+  // Visual only. `heightAt` reads this grid and every one of its callers is in
+  // render3d/; the simulation's only reader of terrain is `gradeAlong`, which
+  // reads `physicsGrid`. So this cannot change how a hill drives, and the
+  // determinism baselines are what prove it — exactly the split the Remutaka
+  // cliff treatment above already relies on.
+  #addRelief(grid, pinned, roadDistance) {
+    const out = Float32Array.from(grid);
+    const sea = this.seaLevel || 0;
+    for (let r = 0; r < this.rows; r++) {
+      const wy = this.minY + r * this.cell;
+      for (let c = 0; c < this.cols; c++) {
+        const k = r * this.cols + c;
+        if (pinned[k]) continue;
+        const wx = this.minX + c * this.cell;
+
+        // Nothing at the kerb, full effect a couple of hundred metres out, so
+        // the carriageway stays exactly where `heights[]` puts it and the verge
+        // does not step.
+        const ramp = smoothstep(RELIEF_START, RELIEF_FULL, roadDistance[k]);
+        if (ramp <= 0) continue;
+
+        // And nothing at the waterline: relief that lifts a shore cell above
+        // sea level shows green through the water plane drawn over it.
+        const shore = smoothstep(sea, sea + RELIEF_SHORE_CLEAR, grid[k]);
+        if (shore <= 0) continue;
+
+        out[k] = grid[k] + fbm(wx, wy) * RELIEF_HEIGHT * ramp * shore;
+      }
+    }
+    // One pass to take the corners off the cell-sized steps the noise leaves.
+    return this.#blur(out, pinned, 1);
   }
 
   #blur(grid, pinned, passes = BLUR_PASSES) {
