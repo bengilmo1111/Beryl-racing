@@ -64,6 +64,11 @@ import { TRACKS } from '../src/tracks.js';
 //   to the digit on all four courses, which is the check that a tenfold increase
 //   in roadside objects went beside the racing line rather than into it.
 //   Manfeild's fingerprint is unchanged, because it still has no trees at all.
+// - Re-recorded 2026-08-04 again for a second density pass: a near band that
+//   collides and a far band that does not, plus scrub, bales, rocks, gates and
+//   letterboxes. Object counts roughly tripled while obstacle counts fell on two
+//   of the three courses, because only what is close enough to hit is solid.
+//   Finish times and positions are again identical to the digit.
 // - Otaki's fingerprint moved once more when its farmhouse footprints were put
 //   back under src/structures.js. The rebuild had left the theme owning its own
 //   copy of the positions, so the visible houses and their collision circles were
@@ -73,7 +78,7 @@ const BASELINES = {
   'eastbourne-dash': {
     finishTimeMs: 162366.666667,
     pos: { x: 46502.232482791, y: 243327.790437364 },
-    obstacles: '40ac9548876590a4',
+    obstacles: '5db4e880244427b0',
   },
   // Manfeild has no trees, so every circle on the circuit belongs to a building:
   // pit wall, garages, timing tower, paddock sheds, grandstand and marshal huts.
@@ -85,7 +90,7 @@ const BASELINES = {
   remutaka: {
     finishTimeMs: 124383.333333,
     pos: { x: 119988.261239057, y: 17088.552092282 },
-    obstacles: '7eb028ac10d1c5e2',
+    obstacles: '618c12d304463fb4',
   },
   // Re-recorded 2026-08-02 for the complete Ōtaki replacement: a much longer
   // Forks-to-coast route, realistic sealed/gravel split, eight gates, branch
@@ -96,7 +101,7 @@ const BASELINES = {
   otaki: {
     finishTimeMs: 140966.666667,
     pos: { x: 10983.557161805, y: 80480.386809462 },
-    obstacles: '1069eca756ed5157',
+    obstacles: '00b1971685c21f26',
   },
 };
 

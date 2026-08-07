@@ -12,6 +12,7 @@ import {
   BoxGeometry,
   CylinderGeometry,
   ConeGeometry,
+  IcosahedronGeometry,
   InstancedMesh,
   Object3D,
   Group,
@@ -20,6 +21,14 @@ import { lambert } from './palette.js';
 import { metres } from '../scale.js';
 
 const COLOUR = {
+  scrub: 0x4a7a48,
+  scrubDry: 0x8a9152,
+  rock: 0x8d8a83,
+  bale: 0xd9c98a,
+  baleEnd: 0xc4b06d,
+  gateRail: 0xb9bcb4,
+  boxPost: 0x7d6448,
+  box: 0xd6584f,
   post: 0x7d6448,
   wire: 0x9aa0a2,
   pole: 0x6f5a44,
@@ -61,6 +70,14 @@ function countBelt(props) {
     trees += Math.max(2, Math.round(p.length / BELT_SPACING));
   }
   return trees;
+}
+
+// One instanced mesh per kind, built from whatever is in the list. Returns null
+// when the course has none of them, so a theme that wants no bales pays nothing.
+function instanced(props, kind, geometry, material, count = 1) {
+  const list = props.filter((p) => p.kind === kind);
+  if (!list.length) return null;
+  return { list, mesh: new InstancedMesh(geometry, material, list.length * count) };
 }
 
 export function buildProps(props, terrain) {
@@ -186,6 +203,112 @@ export function buildProps(props, terrain) {
       }
     }
     for (const mesh of [trunks, crowns]) {
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.frustumCulled = false;
+      group.add(mesh);
+    }
+  }
+
+  // --- low cover: flax, tussock, gorse --------------------------------------
+  //
+  // A squashed icosahedron is a poor flax bush up close and an excellent one at
+  // forty metres, which is the only distance it is ever seen from. This is the
+  // thing that stops the ground between the trees reading as mown lawn.
+  const scrub = instanced(
+    props, 'scrub',
+    new IcosahedronGeometry(metres(1.15), 0),
+    lambert(COLOUR.scrub)
+  );
+  if (scrub) {
+    scrub.list.forEach((p, i) => {
+      const y = ground(p.x, p.y);
+      dummy.position.set(p.x, y + metres(0.55) * p.size, p.y);
+      dummy.rotation.set(0, p.yaw, 0);
+      dummy.scale.set(p.size, p.size * 0.75, p.size);
+      dummy.updateMatrix();
+      scrub.mesh.setMatrixAt(i, dummy.matrix);
+    });
+    scrub.mesh.instanceMatrix.needsUpdate = true;
+    scrub.mesh.frustumCulled = false;
+    group.add(scrub.mesh);
+  }
+
+  // --- boulders and slip debris ---------------------------------------------
+  const rocks = instanced(
+    props, 'rock',
+    new IcosahedronGeometry(metres(0.9), 0),
+    lambert(COLOUR.rock)
+  );
+  if (rocks) {
+    rocks.list.forEach((p, i) => {
+      const y = ground(p.x, p.y);
+      dummy.position.set(p.x, y + metres(0.3) * p.size, p.y);
+      dummy.rotation.set(p.yaw * 0.3, p.yaw, p.yaw * 0.2);
+      dummy.scale.set(p.size, p.size * 0.7, p.size * 0.85);
+      dummy.updateMatrix();
+      rocks.mesh.setMatrixAt(i, dummy.matrix);
+    });
+    rocks.mesh.instanceMatrix.needsUpdate = true;
+    rocks.mesh.frustumCulled = false;
+    group.add(rocks.mesh);
+  }
+
+  // --- round bales ----------------------------------------------------------
+  const baleGeom = new CylinderGeometry(metres(0.75), metres(0.75), metres(1.2), 10);
+  baleGeom.rotateZ(Math.PI / 2);
+  const bales = instanced(props, 'bale', baleGeom, lambert(COLOUR.bale));
+  if (bales) {
+    bales.list.forEach((p, i) => {
+      dummy.position.set(p.x, ground(p.x, p.y) + metres(0.75), p.y);
+      dummy.rotation.set(0, p.yaw, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      bales.mesh.setMatrixAt(i, dummy.matrix);
+    });
+    bales.mesh.instanceMatrix.needsUpdate = true;
+    bales.mesh.frustumCulled = false;
+    group.add(bales.mesh);
+  }
+
+  // --- farm gates and letterboxes -------------------------------------------
+  //
+  // Three meshes to a gate: the rails, the post the box sits on, and the box.
+  // A gap in a fence is just a gap; a gate and a letterbox beside it is somebody
+  // living there.
+  const gateProps = props.filter((p) => p.kind === 'gate');
+  if (gateProps.length) {
+    const railGeom = new BoxGeometry(metres(3.6), metres(0.09), metres(0.09));
+    const rails = new InstancedMesh(railGeom, lambert(COLOUR.gateRail), gateProps.length * 3);
+    const postGeom = new CylinderGeometry(metres(0.07), metres(0.07), metres(1.1), 5);
+    postGeom.translate(0, metres(0.55), 0);
+    const boxPosts = new InstancedMesh(postGeom, lambert(COLOUR.boxPost), gateProps.length);
+    const boxGeom = new BoxGeometry(metres(0.42), metres(0.28), metres(0.3));
+    const boxes = new InstancedMesh(boxGeom, lambert(COLOUR.box), gateProps.length);
+
+    let r = 0;
+    gateProps.forEach((p, i) => {
+      const y = ground(p.x, p.y);
+      for (let k = 0; k < 3; k++) {
+        dummy.position.set(p.x, y + metres(0.35 + k * 0.32), p.y);
+        dummy.rotation.set(0, -p.yaw, 0);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        rails.setMatrixAt(r++, dummy.matrix);
+      }
+      // The box stands just to one side of the gate, on the road edge.
+      const bx = p.x + Math.cos(p.yaw) * metres(2.6);
+      const bz = p.y + Math.sin(p.yaw) * metres(2.6);
+      const by = ground(bx, bz);
+      dummy.position.set(bx, by, bz);
+      dummy.rotation.set(0, 0, 0);
+      dummy.updateMatrix();
+      boxPosts.setMatrixAt(i, dummy.matrix);
+      dummy.position.set(bx, by + metres(1.2), bz);
+      dummy.rotation.set(0, -p.yaw, 0);
+      dummy.updateMatrix();
+      boxes.setMatrixAt(i, dummy.matrix);
+    });
+    for (const mesh of [rails, boxPosts, boxes]) {
       mesh.instanceMatrix.needsUpdate = true;
       mesh.frustumCulled = false;
       group.add(mesh);

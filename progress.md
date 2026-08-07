@@ -1673,3 +1673,50 @@ not just where it is placed.
 
 Render-side throughout, and the baselines confirm it: unchanged on all four
 courses. Props are deliberately off the RNG, so filtering them consumes no draws.
+
+## 2026-08-04 — More roadside density
+
+Object counts roughly tripled again, and **obstacle counts fell on two of the
+three courses**.
+
+| course | objects before | objects after | solid before | solid after |
+|---|---:|---:|---:|---:|
+| eastbourne-dash | 903 | **4,316** | 4,920 | 5,050 |
+| remutaka | 3,542 | **10,239** | 3,542 | **2,547** |
+| otaki | 1,211 | **3,070** | 814 | 1,089 |
+
+### Only what is close enough to hit is solid
+
+Every solid tree is another entry in `resolveObstacles()`' per-frame sweep, and
+that sweep is O(n). A tree three hundred metres off the road is scenery: it
+exists to fill the middle distance, and paying for it on every frame of every
+race buys nothing. So placement is two bands — a near band that collides and a
+far band that does not — and the object count can multiply while the collision
+cost stays flat or falls. Remutaka's went *down* by a thousand while its object
+count nearly tripled.
+
+### New kinds of thing
+
+Scrub and tussock (clumped, not sprinkled — undergrowth grows in patches, and
+weighted towards the verge where it is seen), boulders and slip debris on the
+hill road, round bales in the paddocks, and farm gates with a letterbox beside
+them. A gap in a fence is just a gap; a gate and a red letterbox is somebody
+living there.
+
+### Density is a per-course decision, not a global one
+
+The first pass raised everything at once and made all three courses look
+identical — dense forest to the horizon. That is right for Remutaka, which is a
+hill road through a forest park, and wrong for the other two.
+
+- **Ōtaki** is market gardens and grazing. A 105 m near band filled the paddocks
+  solid, and the market garden plots and shelter belts — the things that say
+  Kāpiti farmland — ended up behind a wall of canopies. The near band is 42 m
+  now, so trees hug the fence line and stop, and the depth comes from shelter
+  belts (38 of them) and bales instead.
+- **Eastbourne** is a settlement on a harbour. A far field as tight as the verge
+  hid the water, which is the entire reason the road is where it is.
+
+Determinism re-recorded: **only the fingerprints moved.** Finish times and final
+positions are identical to the digit on all four courses, for the second density
+pass running — the new scenery is all beside the racing line, none of it in it.
