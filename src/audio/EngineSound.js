@@ -35,6 +35,41 @@ const SHIFT_HYSTERESIS = 0.02;
 // How long the note dips while the clutch is out.
 const SHIFT_SECONDS = 0.28;
 
+// Getting hold of a usable AudioContext, which is harder than it looks on a
+// phone, and is why this was silent on Android while the music played fine.
+//
+// Two independent things go wrong, and both produce exactly that symptom:
+//
+//  1. Phaser picks its sound manager at boot and may land on
+//     HTML5AudioSoundManager or NoAudioSoundManager, neither of which has a
+//     `.context` at all. An mp3 still plays — that is an <audio> element — but
+//     a synth has nothing to build on. Borrowing Phaser's context therefore
+//     cannot be the only route to one.
+//  2. Even with the WebAudio manager, mobile browsers start the context
+//     *suspended* and only a user gesture may resume it. Phaser handles its own
+//     unlocking internally, so the music comes good on the first touch; a
+//     one-shot `resume()` at construction time runs before any touch has
+//     happened, is rejected, and nothing ever tries again.
+//
+// So: take Phaser's context if it has one, make our own if it does not, and keep
+// trying to resume on every gesture until it is actually running.
+function acquireContext(soundManager) {
+  if (soundManager && soundManager.context) {
+    return { ctx: soundManager.context, owned: false };
+  }
+  const Ctor = typeof window !== 'undefined'
+    && (window.AudioContext || window.webkitAudioContext);
+  if (!Ctor) return { ctx: null, owned: false };
+  try {
+    return { ctx: new Ctor(), owned: true };
+  } catch (error) {
+    void error;
+    return { ctx: null, owned: false };
+  }
+}
+
+const GESTURES = ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'keydown', 'click'];
+
 export class EngineSound {
   constructor(soundManager, engine = null) {
     this.engine = { ...DEFAULT_ENGINE, ...(engine || {}) };
@@ -44,16 +79,21 @@ export class EngineSound {
     // intake thrash, so the mix shifts with the engine rather than being tuned
     // once for the A-series and left.
     this.bigEngine = this.engine.cylinders > 6;
-    this.ctx = soundManager && soundManager.context ? soundManager.context : null;
+
+    const acquired = acquireContext(soundManager);
+    this.ctx = acquired.ctx;
+    this.ownsContext = acquired.owned;
     this.ok = !!this.ctx;
     // Why it is silent, if it is, in a form a human can read. This used to fail
     // completely silently: no context meant every update was a no-op with
     // nothing anywhere saying so.
-    this.status = this.ok ? 'ready' : 'no AudioContext — Phaser has no WebAudio manager';
+    this.status = this.ok
+      ? (acquired.owned ? 'ready (own context — Phaser has no WebAudio manager)' : 'ready')
+      : 'no AudioContext available in this browser';
     if (!this.ok) return;
 
     const ctx = this.ctx;
-    if (ctx.state === 'suspended') ctx.resume();
+    this.#keepTryingToResume();
 
     this.gear = 0;
     this.rpm = this.engine.idle;
@@ -98,6 +138,55 @@ export class EngineSound {
     this.body.start();
     this.bark.start();
     this.whine.start();
+  }
+
+  // Resume now, and again on every gesture until it takes.
+  //
+  // `resume()` on a suspended context is a promise that a mobile browser will
+  // reject unless it is called from inside a user gesture, so the listeners are
+  // the mechanism, not the fallback. They remove themselves once the context is
+  // running so there is nothing left attached to the document afterwards.
+  //
+  // On `window` in the **capture** phase, not on the canvas and not bubbling.
+  // Every touch on this game lands on a Phaser canvas that has its own input
+  // handling, and a bubble-phase listener is one `stopPropagation()` away from
+  // never being called. Capture runs top-down before the target sees the event,
+  // so nothing underneath can take the gesture away from us — which matters, as
+  // on a phone the gesture is the only chance there is.
+  #keepTryingToResume() {
+    if (!this.ctx) return;
+    const tryResume = () => {
+      if (!this.ctx || this.ctx.state === 'running') {
+        this.#stopListening();
+        return;
+      }
+      const attempt = this.ctx.resume();
+      if (attempt && attempt.then) attempt.then(() => this.#stopListening(), () => {});
+    };
+    this._resumeHandler = tryResume;
+    for (const target of this.#gestureTargets()) {
+      for (const type of GESTURES) {
+        target.addEventListener(type, tryResume, { passive: true, capture: true });
+      }
+    }
+    tryResume();
+  }
+
+  #gestureTargets() {
+    const targets = [];
+    if (typeof window !== 'undefined') targets.push(window);
+    if (typeof document !== 'undefined') targets.push(document);
+    return targets;
+  }
+
+  #stopListening() {
+    if (!this._resumeHandler) return;
+    for (const target of this.#gestureTargets()) {
+      for (const type of GESTURES) {
+        target.removeEventListener(type, this._resumeHandler, { capture: true });
+      }
+    }
+    this._resumeHandler = null;
   }
 
   // Crankshaft speed from road speed, by working out which gear she must be in.
@@ -176,6 +265,8 @@ export class EngineSound {
       status: this.status,
       cylinders: this.engine ? this.engine.cylinders : 0,
       contextState: this.ctx ? this.ctx.state : 'none',
+      ownsContext: !!this.ownsContext,
+      waitingForGesture: !!this._resumeHandler,
       gear: this.gear + 1,
       rpm: Math.round(this.rpm),
     };
@@ -183,6 +274,7 @@ export class EngineSound {
 
   stop() {
     if (!this.ok) return;
+    this.#stopListening();
     for (const osc of [this.body, this.bark, this.whine]) {
       try {
         osc.stop();
@@ -194,6 +286,15 @@ export class EngineSound {
       this.out.disconnect();
     } catch (error) {
       void error;
+    }
+    // Only close a context we made. Phaser's belongs to Phaser, and the music is
+    // still playing through it.
+    if (this.ownsContext && this.ctx && this.ctx.close) {
+      try {
+        this.ctx.close();
+      } catch (error) {
+        void error;
+      }
     }
     this.ok = false;
   }

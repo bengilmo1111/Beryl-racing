@@ -77,11 +77,22 @@ import { TRACKS } from '../src/tracks.js';
 //   copy of the positions, so the visible houses and their collision circles were
 //   thousands of units apart. Its finish time and position did not move, which is
 //   how we know the bot was touching neither set.
+// - Re-recorded 2026-08-07 for housing density. Eastbourne's villas had been a
+//   hand-written list of seventeen coordinates authored before the rescale, so
+//   every one of them stood about 900 m from the nearest road — a suburb in a
+//   paddock. They are now generated along the route, and Ōtaki gained a town:
+//   a four-shop row with houses either side of it. Eastbourne goes from 17
+//   buildings to 275 and Ōtaki from 8 to 86, so both fingerprints move.
+//   Ōtaki's moved a second time within the same change, when the houses on the
+//   shop row's footpath were dropped — the shops own that frontage.
+//   Manfeild and Remutaka are untouched, and all four finish times and final
+//   positions are identical to the digit — the houses went beside the road,
+//   which is exactly the claim being made.
 const BASELINES = {
   'eastbourne-dash': {
     finishTimeMs: 162366.666667,
     pos: { x: 46502.232482791, y: 243327.790437364 },
-    obstacles: '5db4e880244427b0',
+    obstacles: 'ac872823a5163a54',
   },
   // Manfeild has no trees, so every circle on the circuit belongs to a building:
   // pit wall, garages, timing tower, paddock sheds, grandstand and marshal huts.
@@ -104,7 +115,7 @@ const BASELINES = {
   otaki: {
     finishTimeMs: 140966.666667,
     pos: { x: 10983.557161805, y: 80480.386809462 },
-    obstacles: '00b1971685c21f26',
+    obstacles: 'a8afa6b26c777baf',
   },
 };
 

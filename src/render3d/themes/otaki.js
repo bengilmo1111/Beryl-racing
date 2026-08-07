@@ -15,7 +15,8 @@ import {
 } from 'three';
 import { WORLD } from '../../config.js';
 import { C, basic, lambert } from './../palette.js';
-import { buildOtakiFarmhouse } from '../houses.js';
+import { buildOtakiFarmhouse, buildEastbourneVilla, villaPalette } from '../houses.js';
+import { bakeStatic } from '../bake.js';
 
 const COLOUR = {
   bank: 0xcfc19a,
@@ -196,42 +197,57 @@ function addMarketGardens(group, terrain, world) {
   }
 }
 
-function addTown(group, terrain, layout, track, def) {
-  const wallMats = [
-    lambert(0xeee9de),
-    lambert(0xe4e7df),
-    lambert(0xe8dcc7),
-    lambert(0xd9e2df),
-  ];
+function addTown(group, terrain, layout, track, def, structures) {
+  // The town is drawn from src/structures.js now, not from a list in here.
+  //
+  // It used to be eleven boxes authored in this file: render-only, so you could
+  // drive straight through the town, and authored against the pre-rescale world,
+  // so after the rescale they sat out on the dunes. Both faults are the same
+  // fault — a building whose position lives in the render layer is a building
+  // the simulation has never heard of.
   const roofMats = [lambert(COLOUR.roof), lambert(COLOUR.roofRed)];
+  const town = new Group();
 
-  // Two loose ribbons of compact buildings imply the old highway / old-town
-  // centre and the beach settlement without turning the route into a city.
-  const buildings = [
-    [8500, 8460, 220, 105, 155, 0.05],
-    [8050, 8480, 180, 95, 130, -0.03],
-    [7350, 8950, 240, 115, 150, 0.02],
-    [6800, 9150, 210, 100, 145, -0.08],
-    [6100, 9250, 250, 120, 165, 0.03],
-    [5350, 9400, 215, 105, 140, -0.06],
-    [4300, 8450, 185, 95, 125, 0.12],
-    [3500, 8100, 170, 90, 118, -0.04],
-    [2780, 8500, 155, 82, 108, 0.03],
-    [2440, 9000, 170, 88, 112, -0.05],
-    [2050, 9350, 160, 86, 106, 0.08],
-  ];
-
-  buildings.forEach(([ax, az, w, d, h, yaw], index) => {
-    const x = px(layout.world, ax);
-    const z = pz(layout.world, az);
-    const y = terrain.heightAt(x, z);
+  // Shop blocks: a flat parapet frontage on the main street, which is what a
+  // small town's shop row is — a continuous facade, not separate houses.
+  const shopWall = [lambert(0xe6ddc9), lambert(0xdfe3dc), lambert(0xe9d9c2), lambert(0xd8e0dd)];
+  structures.filter((st) => st.kind === 'shops').forEach((st, index) => {
+    const y = terrain.heightAt(st.x, st.z);
+    const height = 250;
     const root = new Group();
-    root.add(box(w, h, d, 0, h / 2, 0, wallMats[index % wallMats.length]));
-    root.add(box(w + 18, 12, d + 18, 0, h + 6, 0, roofMats[index % roofMats.length]));
-    root.position.set(x, y + 1, z);
-    root.rotation.y = yaw;
-    group.add(root);
+    root.add(box(st.w, height, st.d, 0, height / 2, 0, shopWall[index % shopWall.length]));
+    // Parapet and verandah, the two things that make a box read as a shop row
+    // rather than a shed. A small-town main street is a continuous frontage with
+    // a footpath under a verandah, and the verandah is most of the silhouette.
+    root.add(box(st.w + 16, 34, st.d + 12, 0, height + 12, 0, roofMats[index % roofMats.length]));
+    const verandah = st.d / 2 + 74;
+    root.add(box(st.w, 10, 150, 0, height * 0.66, verandah - 60, shopWall[(index + 1) % shopWall.length]));
+    for (const t of [-0.36, 0, 0.36]) {
+      root.add(box(12, height * 0.66, 12, st.w * t, height * 0.33, verandah - 10, roofMats[1]));
+    }
+    // Shopfront glazing under the verandah.
+    root.add(box(st.w * 0.86, height * 0.38, 8, 0, height * 0.30, st.d / 2 + 5, lambert(0x37474f)));
+    root.position.set(st.x, y + 1, st.z);
+    root.rotation.y = st.yaw;
+    town.add(root);
   });
+
+  // Houses, using the same villa models Eastbourne's street does — and the same
+  // palette resolver, which is the point: this used to pass the structure's
+  // colour *names* straight to THREE.Color, so the whole town came out white.
+  structures.filter((st) => st.kind === 'villa').forEach((st) => {
+    const house = buildEastbourneVilla({
+      variant: st.variant,
+      palette: villaPalette(st.palette),
+    });
+    house.position.set(st.x, terrain.heightAt(st.x, st.z) + 1, st.z);
+    house.rotation.y = st.yaw;
+    town.add(house);
+  });
+
+  // Ninety-odd villas and four shop blocks, none of which ever move: one mesh.
+  const baked = bakeStatic(town);
+  group.add(baked || town);
 
   // A modest platform/shelter beside the rail corridor, recognisable as a small
   // town station without any sign text.
@@ -352,7 +368,7 @@ export function buildOtaki(track, def, terrain, structures = []) {
   addRailOverbridge(group, track, def);
   addMarketGardens(group, terrain, layout.world);
   addFarmhouses(group, terrain, structures);
-  addTown(group, terrain, layout, track, def);
+  addTown(group, terrain, layout, track, def, structures);
 
   return group;
 }

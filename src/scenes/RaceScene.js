@@ -105,6 +105,16 @@ export class RaceScene extends Phaser.Scene {
     if (this.engine) {
       if (!this.engine.ok) console.warn(`Beryl engine sound off: ${this.engine.status}`);
       window.__berylAudio = () => ({ ...this.engine.describe(), muted: isMuted(this) });
+      // ...and `?audio=debug` puts the same readout on the screen, because a
+      // console is not a thing you have on a phone, and every report of silence
+      // so far has had to be diagnosed by guessing at which of several things
+      // went wrong. Off unless asked for, so it costs the player nothing.
+      if (new URLSearchParams(window.location.search).get('audio') === 'debug') {
+        this.audioReadout = this.add.text(12, this.scale.height - 26, '', {
+          fontFamily: 'monospace', fontSize: '13px', color: '#ffe08a',
+          backgroundColor: '#00000099', padding: { x: 6, y: 3 },
+        }).setScrollFactor(0).setDepth(1000);
+      }
     }
 
     // Lap state.
@@ -286,6 +296,14 @@ export class RaceScene extends Phaser.Scene {
       // up the Remutaka climb at a steady speed — see the note in EngineSound.
       const speedRatio = Math.abs(this.car.speed) / CAR.maxSpeed;
       this.engine.update(speedRatio, input.throttle, isMuted(this), grade);
+      if (this.audioReadout) {
+        const d = this.engine.describe();
+        this.audioReadout.setText(
+          `${d.status} | ctx ${d.contextState}${d.waitingForGesture ? ' (waiting for a touch)' : ''}`
+          + ` | ${d.cylinders}cyl gear ${d.gear} ${d.rpm}rpm${isMuted(this) ? ' | MUTED' : ''}`
+        );
+        this.audioReadout.setY(this.scale.height - 26);
+      }
     }
 
     if (this.timing) {

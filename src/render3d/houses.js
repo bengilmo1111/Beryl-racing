@@ -179,6 +179,34 @@ function addWeatherboardBase(group, w, d, m) {
   group.add(box(w + 6, 12, d + 6, 0, 6, 0, m.trim));
 }
 
+// The named palette `structures.js` hands out, resolved to colours.
+//
+// It hands out *names* — 'warmWhite', 'roofRed' — because a structure is
+// simulation data and has no business knowing hex. Eastbourne resolved them
+// against its own theme table; Ōtaki passed them straight to THREE.Color, which
+// has never heard of "warmWhite", so it warned to a console nobody was reading
+// and left every house in the town plain white with a plain white roof. One
+// table, used by both, is the fix.
+export const VILLA_COLOURS = {
+  white: 0xf6f2e8,
+  warmWhite: 0xeee6d5,
+  paleBlue: 0xdce8ea,
+  roofDark: 0x4d585d,
+  roofGreen: 0x536f60,
+  roofRed: 0x8f554a,
+};
+
+export function villaPalette(named) {
+  return {
+    wall: VILLA_COLOURS[named.wall] ?? VILLA_COLOURS.white,
+    trim: VILLA_COLOURS.white,
+    roof: VILLA_COLOURS[named.roof] ?? VILLA_COLOURS.roofDark,
+    // Doors are authored as hex already — they are the one bit of a NZ house
+    // that is not off a standard chart.
+    door: named.door,
+  };
+}
+
 export function buildEastbourneVilla({ variant = 'villa', palette }) {
   const group = new Group();
   const m = materials(palette);

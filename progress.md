@@ -1752,3 +1752,152 @@ Only Manfeild moved in the baselines, and its obstacle fingerprint did not move
 at all, because it still has no scenery. `npm run test:audio` now asserts both
 engines — four firings per rev on the road courses, eight on the circuit — since
 the joke only works if the two sound different.
+
+## 2026-08-07 — Somewhere to live, and an engine you can hear on a phone
+
+Two things reported: the houses had gone from Eastbourne and Ōtaki, and there
+was still no engine on Android even though the music played.
+
+### The houses were never gone. They were nine hundred metres up a paddock.
+
+Eastbourne's villas were a hand-written list of seventeen coordinates in
+`structures.js`, authored against the world as it was before the rescale. The
+rescale moved the route; it did not move that list, because a literal in a source
+file has no idea what it is a literal *of*. So every villa was still faithfully
+where it had always been, and the road was somewhere else entirely — the nearest
+one stood about 900 m from any tarmac. A suburb in a paddock, invisible from the
+car, and correctly reported by the fingerprint as "buildings: 17".
+
+This is the same lesson a fourth time — *a number that is a point on a map scales
+with the map* — and the fourth time it has arrived by a different door, so the
+fix this time removes the door. **Houses are no longer placed; they are grown
+along the route.** `housesAlong(track, {from, to, ...})` walks the centreline by
+arc length and sets villas back from it at a 22 m frontage, alternating sides,
+stepping back a second row where the settlement is dense. There is no coordinate
+to go stale, because there are no coordinates.
+
+| course | buildings before | after |
+|---|---|---|
+| eastbourne-dash | 17 | **275** |
+| otaki | 8 | **86** |
+
+### Ōtaki gets a town
+
+Ōtaki's shops existed only in the theme file — eleven boxes drawn straight into
+the scene, which is why they were solid to look at and thin air to drive into.
+They are structures now, so the thing you can see and the thing you can hit are
+the same object by construction.
+
+The row is four shops with their long frontage **along** the street (the first
+attempt had them end-on, which read as a row of sheds), a parapet above the
+verandah, posts down to the footpath and dark glazing at ground level. Houses run
+either side of it and thin out towards the dunes, which is what the drive from
+the Forks to the beach actually looks like.
+
+Two generators aimed at the same piece of street, and nothing de-overlaps
+buildings against each other — only against the road — so the first pass put
+villas through the front of the shops. Emptying that stretch of houses outright
+took 28 of them out of the middle of the town, which is the one place a town
+should be dense. The shops take the *footpath* rows only; the back row stands
+where it always did, behind them, which is what a main street actually looks
+like.
+
+### Two things the measurement found that guessing would not have
+
+**Six thousand draw calls.** Putting 258 houses back is not free: a villa is
+about twenty little boxes, each its own geometry and its own material, and at 270
+of them Eastbourne went from roughly 1,200 draw calls a frame to **6,228**,
+measured off `renderer.info` rather than estimated. That is invisible on a laptop
+and ruinous on the phone this game is mostly played on — and it would have
+shipped as "the houses are back" with nobody connecting the two.
+
+Nothing about a house moves, so none of that per-mesh flexibility was buying
+anything. `render3d/bake.js` flattens a finished group into one indexed mesh with
+the colours moved into a vertex attribute — which is how the road and terrain
+already draw, so it is the existing idiom rather than a new one.
+
+| | before | after |
+|---|---:|---:|
+| draw calls | 6,228 | **305** |
+| geometries | 6,222 | **299** |
+| materials | 2,186 | **166** |
+| triangles | 576,882 | 573,344 |
+
+Triangles are unchanged, which is the check that this is a batching change and
+not a quiet reduction in what you can see.
+
+**Ōtaki's whole town was white.** `structures.js` hands out colour *names* —
+`warmWhite`, `roofRed` — because a structure is simulation data and has no
+business knowing hex. Eastbourne resolved them against its theme table. Ōtaki
+passed them straight to `THREE.Color`, which has never heard of "warmWhite", so
+it warned to a console nobody was reading and left every house plain white with a
+plain white roof. One resolver, `villaPalette()`, used by both.
+
+Neither of these was in the report. Both were found by measuring the thing that
+had just been changed rather than by looking at it and calling it done.
+
+### The Android silence: two bugs with one symptom
+
+"Music works, engine doesn't" is a more useful report than it sounds, because it
+rules out everything the two have in common — not muted, not volume, not the
+device. It leaves only what they do differently, and an mp3 and a synth differ in
+exactly one way: **the mp3 does not need an AudioContext.** It is an `<audio>`
+element. So the fault had to be in getting hold of a context, and there were two
+independent ways to fail at it, either of which produces silence:
+
+1. **Phaser may have no context to lend.** It picks a sound manager at boot and
+   can land on `HTML5AudioSoundManager` or `NoAudioSoundManager`, neither of
+   which has a `.context` at all. The music plays regardless. The synth had
+   nothing to build on and gave up. It now makes its own context when Phaser
+   cannot supply one — and closes only that one on `stop()`, never Phaser's,
+   which is still playing the music.
+2. **A mobile context starts suspended.** Only a user gesture may resume it, and
+   the old code called `resume()` once, at construction, before any touch had
+   happened. It was rejected and nothing tried again. Resuming is now driven by
+   gesture listeners on the document that keep trying until the context is
+   actually running, then remove themselves.
+
+Both were silent failures in the literal sense: nothing anywhere said why. There
+is a `status` string now — *"ready"*, *"ready (own context — Phaser has no
+WebAudio manager)"*, or *"no AudioContext available in this browser"* — and
+`test:audio` constructs an `EngineSound` against a sound manager with no context
+and asserts it still comes up.
+
+There is a third thing, which is not a bug but is why the first two took two
+reports to find: the gesture listeners are on `window` in the **capture** phase.
+Every touch on this game lands on a Phaser canvas with its own input handling,
+and a bubble-phase listener is one `stopPropagation()` away from never running.
+On a phone the gesture is the only chance there is.
+
+And because a console is not a thing you have on a phone, **`?audio=debug`** puts
+the readout on the screen: status, context state, whether it is still waiting for
+a touch, cylinders, gear and revs. Off unless asked for. Two rounds of diagnosing
+this by reasoning about what Phaser might have done is two too many.
+
+### Baselines
+
+Eastbourne's and Ōtaki's obstacle fingerprints moved, which they must when one
+course gains 258 buildings and the other 78. **Manfeild's and Remutaka's did
+not, and all four finish times and final positions are identical to the digit**
+— the houses went beside the road rather than into it, which is the whole
+claim. Matrix 16/16, waypoint bot 100% of gates and 0% off-road on all three
+road courses.
+
+### Written down, finally
+
+`docs/architecture/WORLD-SCALE.md`. Four occurrences of one mistake is enough to
+suggest it will happen a fifth time, and the honest conclusion from the four is
+that no test catches it — every one was found by looking at a screenshot. So the
+document says the rule (*a point on a map scales, a size does not, a span does*),
+lists the four doors it came in by, and gives the order of preference that makes
+it structurally impossible: route-relative first, world-relative second, an
+authored list with a declared `AUTHORED` size only when the shape really is hand
+drawn.
+
+It gets one more entry, found while wiring the bake in. `buildTrack()` takes
+**no arguments** — it reads a module-level `TRACK` that `applyTrack(def)` sets.
+Every throwaway `buildTrack(def)` written to count buildings therefore silently
+measured whichever course happened to be selected last, which is how "Ōtaki has
+97 houses" got reported when the real figure was 74. The counts above come from
+the running game instead. A function that ignores its argument and answers
+confidently is a worse failure mode than one that throws.

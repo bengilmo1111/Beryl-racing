@@ -14,6 +14,7 @@
 // building cannot perturb the seeded scenery placement in scenery.js — only the
 // obstacle list itself changes.
 import { EASTBOURNE_LAYOUT } from './eastbourneRoute.js';
+import { metres } from './scale.js';
 
 // Clear air between the kerb and the nearest corner of a building.
 const SHOULDER = 70;
@@ -110,32 +111,126 @@ function villa({ x, z, yaw, variant, wall, roof, door }) {
   };
 }
 
-function eastbourneStructures() {
+// Walking the route to place buildings along it.
+//
+// Hand-placed coordinates are what the seventeen Eastbourne villas were, and
+// after the rescale every one of them sat about 900 metres from the road it was
+// meant to line — a village in a corner of an empty map. Positions that follow
+// the route cannot go stale that way, and they also give the density a
+// settlement actually has, which seventeen houses over four and a half
+// kilometres does not.
+//
+// Deliberately hash-driven rather than seeded-random: this module must not touch
+// the global RNG (see the header), because scenery.js draws from it afterwards
+// and every tree on the course would move.
+function hashUnit(a, b) {
+  const n = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+function routeWalker(track) {
+  const line = track.centerline;
+  const cumulative = new Float64Array(line.length);
+  for (let i = 1; i < line.length; i++) {
+    cumulative[i] = cumulative[i - 1]
+      + Math.hypot(line[i].x - line[i - 1].x, line[i].y - line[i - 1].y);
+  }
+  const total = cumulative[cumulative.length - 1];
+  return {
+    total,
+    at(distance) {
+      let lo = 0;
+      let hi = line.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (cumulative[mid] < distance) lo = mid + 1;
+        else hi = mid;
+      }
+      const i = Math.max(1, lo);
+      const a = line[i - 1];
+      const b = line[i];
+      const span = cumulative[i] - cumulative[i - 1] || 1;
+      const t = (distance - cumulative[i - 1]) / span;
+      const tx = (b.x - a.x) / span;
+      const ty = (b.y - a.y) / span;
+      return {
+        x: a.x + (b.x - a.x) * t,
+        z: a.y + (b.y - a.y) * t,
+        nx: -ty,
+        nz: tx,
+        yaw: Math.atan2(tx, ty),
+      };
+    },
+  };
+}
+
+// Roughly 22 metres of street frontage a section, which is what a row of NZ
+// villas actually measures.
+const FRONTAGE = metres(22);
+const WALLS = ['white', 'warmWhite', 'paleBlue', 'white', 'warmWhite'];
+const ROOFS = ['roofRed', 'roofDark', 'roofGreen'];
+const DOORS = [0x58736a, 0x4f7180, 0x86514b, 0x446c76, 0x6c5b48, 0x77524c, 0x506b5c];
+const HOUSE_VARIANTS = ['villa', 'bungalow', 'cottage', 'villa', 'bungalow', 'two-storey'];
+
+// A ribbon of houses along the route, a couple of plots deep, thickening as
+// `settledAt` says the settlement does.
+//
+// `frontTaken` is a stretch of route where something else already owns the
+// frontage — the shop row, at Ōtaki. Nothing de-overlaps buildings against each
+// other, only against the road, so two generators aimed at the same piece of
+// street will happily put a villa through the front of a shop.
+//
+// It clears the *front* rows only. Emptying the stretch outright took 28 houses
+// out of the middle of the town, which is the one place a town should be dense;
+// the back rows sit at `depth0 + rowDepth`, well behind the shops' back wall, so
+// they can stay. Houses behind the shops is also what a main street looks like.
+function housesAlong(
+  track,
+  { from, to, settledAt, sides = [0, 1], depth0 = 150, rowDepth = 470, frontTaken = null }
+) {
+  const walk = routeWalker(track);
+  const half = track.half;
+  const out = [];
+  for (let s = FRONTAGE; s < walk.total - FRONTAGE; s += FRONTAGE) {
+    const fraction = s / walk.total;
+    if (fraction < from || fraction > to) continue;
+    const shopFront = !!frontTaken && fraction > frontTaken[0] && fraction < frontTaken[1];
+    const at = walk.at(s);
+    const settled = settledAt(fraction);
+    for (const row of sides) {
+      // Rows 0 and 2 are the ones on the footpath; 1 and 3 stand a plot back.
+      if (shopFront && row % 2 === 0) continue;
+      const pick = hashUnit(at.x * 0.013 + row * 7.7, at.z * 0.017);
+      if (pick > settled) continue;
+      const spread = hashUnit(at.z * 0.021 + row * 3.1, at.x * 0.011);
+      const side = row >= 2 ? -1 : 1;
+      const depth = half + depth0 + (row % 2) * rowDepth + spread * 190;
+      out.push(villa({
+        x: at.x + at.nx * depth * side,
+        z: at.z + at.nz * depth * side,
+        // Facing the street, with a little slack so the row is not a ruler.
+        yaw: at.yaw + Math.PI / 2 + (spread - 0.5) * 0.22,
+        variant: HOUSE_VARIANTS[Math.floor(pick * 997) % HOUSE_VARIANTS.length],
+        wall: WALLS[Math.floor(spread * 733) % WALLS.length],
+        roof: ROOFS[Math.floor(pick * 577) % ROOFS.length],
+        door: DOORS[Math.floor(spread * 311) % DOORS.length],
+      }));
+    }
+  }
+  return out;
+}
+
+function eastbourneStructures(def, track) {
   const places = EASTBOURNE_LAYOUT.places;
 
-  // Houses run for most of the coast, thickening toward the village. Colour is
-  // carried by roofs and doors rather than by a rainbow of walls.
-  const houses = [
-    [2340, 3600, Math.PI / 2, 'cottage', 'white', 'roofGreen', 0x58736a],
-    [2260, 4300, Math.PI / 2 + 0.08, 'bungalow', 'warmWhite', 'roofDark', 0x4f7180],
-    [2420, 5000, Math.PI / 2 - 0.06, 'villa', 'white', 'roofRed', 0x86514b],
-    [2380, 5850, Math.PI / 2 + 0.05, 'cottage', 'paleBlue', 'roofDark', 0x446c76],
-    [2470, 6700, Math.PI / 2 - 0.08, 'bungalow', 'white', 'roofGreen', 0x6c5b48],
-    [2380, 7600, Math.PI / 2 + 0.03, 'villa', 'warmWhite', 'roofRed', 0x77524c],
-    [2600, 8450, Math.PI / 2 - 0.04, 'cottage', 'white', 'roofDark', 0x506b5c],
-    [2550, 9300, Math.PI / 2 + 0.06, 'bungalow', 'white', 'roofGreen', 0x4b6e79],
-    [2820, 10050, Math.PI / 2 - 0.05, 'two-storey', 'warmWhite', 'roofDark', 0x7d5149],
-    [3020, 10800, Math.PI / 2 + 0.04, 'villa', 'white', 'roofRed', 0x557468],
-    [3850, 11250, -Math.PI / 2, 'cottage', 'white', 'roofGreen', 0x4e7180],
-    [4050, 11850, -Math.PI / 2 + 0.06, 'bungalow', 'warmWhite', 'roofDark', 0x76544b],
-    [4010, 13000, -Math.PI / 2 - 0.04, 'villa', 'white', 'roofRed', 0x496d62],
-    [3600, 13700, Math.PI, 'cottage', 'white', 'roofGreen', 0x5a7080],
-    [2450, 13450, 0, 'bungalow', 'warmWhite', 'roofDark', 0x77514d],
-    [2050, 12600, Math.PI / 2, 'cottage', 'white', 'roofGreen', 0x466d79],
-    [2050, 11800, Math.PI / 2, 'villa', 'white', 'roofRed', 0x765048],
-  ].map(([x, z, yaw, variant, wall, roof, door]) =>
-    villa({ x, z, yaw, variant, wall, roof, door })
-  );
+  // Bush and bays at the Days Bay end, a solid street by the time the village
+  // arrives. Seaward is beach and harbour, so the houses are inland only.
+  const houses = housesAlong(track, {
+    from: 0.10,
+    to: 0.99,
+    settledAt: (f) => 0.30 + Math.min(1, Math.max(0, (f - 0.12) / 0.5)) * 0.62,
+    sides: [0, 1],
+  });
 
   return [
     ...houses,
@@ -187,8 +282,62 @@ const FARMHOUSE_FOOTPRINT = {
   'two-storey': { w: 190, d: 138 },
 };
 
-function otakiStructures(def) {
-  return OTAKI_FARMHOUSES.flatMap(({ fx, fz, yaw, variant, shed }) => {
+// Ōtaki's old town: a shop row on the main street, and houses either side of it.
+//
+// The town buildings used to be eleven boxes in themes/otaki.js — render-only,
+// so nothing could hit them, and authored against the pre-rescale world so they
+// sat out on the dunes. Anything you can see and cannot hit is the exact split
+// this module exists to prevent.
+// `w` runs along the street and `d` is the depth back from it, which is the
+// way a shop row is actually shaped: a long continuous frontage, one block deep.
+const SHOP_ROW = [
+  { at: 0.735, side: 1, w: 620, d: 210, kind: 'shops' },
+  { at: 0.762, side: 1, w: 540, d: 210, kind: 'shops' },
+  { at: 0.752, side: -1, w: 480, d: 200, kind: 'shops' },
+  { at: 0.779, side: -1, w: 430, d: 200, kind: 'shops' },
+];
+
+function otakiTown(track) {
+  const walk = routeWalker(track);
+  const half = track.half;
+  const out = [];
+
+  for (const shop of SHOP_ROW) {
+    const at = walk.at(shop.at * walk.total);
+    // Shops front the footpath, so they sit much closer in than a house does.
+    const depth = half + 120;
+    out.push({
+      kind: shop.kind,
+      x: at.x + at.nx * depth * shop.side,
+      z: at.z + at.nz * depth * shop.side,
+      w: shop.w,
+      d: shop.d,
+      yaw: at.yaw + Math.PI / 2,
+    });
+  }
+
+  // Housing either side of the shops, thinning out toward the paddocks at one
+  // end and the dunes at the other.
+  out.push(...housesAlong(track, {
+    from: 0.62,
+    to: 0.93,
+    settledAt: (f) => {
+      const centred = 1 - Math.min(1, Math.abs(f - 0.77) / 0.16);
+      return 0.12 + centred * 0.66;
+    },
+    sides: [0, 1, 2, 3],
+    depth0: 210,
+    rowDepth: 430,
+    // The shops own the frontage from about 0.733 to 0.780 — each block is up to
+    // 620 units of it — so no villa stands on the footpath there. The back row
+    // still does, which is the right answer: houses behind the shops.
+    frontTaken: [0.728, 0.786],
+  }));
+  return out;
+}
+
+function otakiStructures(def, track) {
+  const farms = OTAKI_FARMHOUSES.flatMap(({ fx, fz, yaw, variant, shed }) => {
     const x = fx * def.world.width;
     const z = fz * def.world.height;
     const out = [{ kind: 'farmhouse', variant, shed, x, z, yaw, ...FARMHOUSE_FOOTPRINT[variant] }];
@@ -203,6 +352,7 @@ function otakiStructures(def) {
     }
     return out;
   });
+  return [...farms, ...otakiTown(track)];
 }
 
 // How far along the main straight the grandstand sits, as a fraction of the lap.
@@ -273,8 +423,8 @@ function manfeildStructures(def, track) {
 // Every solid building on a course, already pushed clear of the roads.
 export function buildStructures(def, track) {
   let list = [];
-  if (def.theme === 'eastbourne') list = eastbourneStructures();
-  else if (def.theme === 'otaki') list = otakiStructures(def);
+  if (def.theme === 'eastbourne') list = eastbourneStructures(def, track);
+  else if (def.theme === 'otaki') list = otakiStructures(def, track);
   else if (def.theme === 'manfield') list = manfeildStructures(def, track);
 
   const roads = track.roads || [track];

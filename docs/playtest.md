@@ -47,6 +47,28 @@ The determinism acceptance check remains separately available:
 npm run test:determinism
 ```
 
+## Just look at it
+
+The full matrix takes about 26 minutes. Most art and placement questions — *are
+the houses beside the road yet?* — are answered by two pictures, so there is a
+narrow version:
+
+```powershell
+npm run shots
+npm run shots -- otaki:5600,6400 eastbourne-dash:8000
+```
+
+`course:frame,frame`. It serves from `src/` through Vite, so it needs no build
+and cannot invalidate a matrix running against `dist/` at the same time. It also
+prints each course's building and obstacle counts from the running game, and any
+console errors *or warnings* — THREE warns rather than throws on a colour it
+cannot parse, which is how an entire town once rendered white with nothing
+failing.
+
+This is not a nicety. Every scale and placement bug this project has had was
+found by looking at one of these images and by nothing else; see
+`docs/architecture/WORLD-SCALE.md`.
+
 ## Outputs
 
 Every run recreates `playtest-out/`:

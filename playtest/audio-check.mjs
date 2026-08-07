@@ -72,6 +72,25 @@ const drive = await page.evaluate(async () => {
   engine.stop();
   return out;
 });
+// The Android failure, reproduced.
+//
+// Music played and the engine did not, which narrows it to two things — Phaser
+// landing on a sound manager that has no AudioContext at all (an mp3 is an
+// <audio> element and needs none), or a context that starts suspended on mobile
+// and is never resumed because the one resume attempt happens before any touch.
+// Both must be survivable, so both are checked here rather than reasoned about.
+const fallback = await page.evaluate(async () => {
+  const { EngineSound } = await import('/src/audio/EngineSound.js');
+  // A manager with no `.context`, which is what HTML5AudioSoundManager and
+  // NoAudioSoundManager both look like from the outside.
+  const engine = new EngineSound({ }, null);
+  const out = { ok: engine.ok, owns: engine.ownsContext, status: engine.status };
+  engine.stop();
+  return out;
+});
+assert.ok(fallback.ok, `no context without Phaser's: ${fallback.status}`);
+assert.ok(fallback.owns, 'should have made its own context when Phaser had none');
+
 // And the other engine. Manfeild's joke only works if you can hear it: a V8
 // fires four times per crankshaft revolution where the A-series fires twice, so
 // the two courses must not sound the same.
@@ -139,5 +158,6 @@ assert.ok(v8.redline > peak, 'the V8 should rev past where the A-series gives up
 assert.ok(v8.intro, 'Manfeild needs an intro line, or the joke goes unexplained');
 
 console.log(`audio-check: PASS — four gears, revs to ${peak}, dropping on every shift`);
+console.log(`audio-check: PASS — survives a sound manager with no AudioContext (${fallback.status})`);
 console.log(`audio-check: PASS — Manfeild V8, ${v8.firingsPerRev} firings/rev to ${v8.redline}, "${v8.intro}"`);
 

@@ -16,7 +16,8 @@ import {
 import { WORLD } from '../../config.js';
 import { EASTBOURNE_LAYOUT } from '../../eastbourneRoute.js';
 import { basic, lambert } from '../palette.js';
-import { buildEastbourneVilla } from '../houses.js';
+import { buildEastbourneVilla, villaPalette } from '../houses.js';
+import { bakeStatic } from '../bake.js';
 import { buildEastbourneParallax } from './eastbourneParallax.js';
 
 const COLOUR = {
@@ -214,22 +215,24 @@ function addHills(group, terrain) {
 // positions: those footprints are what the car collides with, and they have
 // already been pushed clear of the roads, so placing a model anywhere else would
 // put the visible house and its solid footprint in different places.
+//
+// Baked into one mesh at the end. A villa is about twenty boxes and there are
+// 270 of them along Marine Drive, which is 5,400 draw calls a frame for a street
+// that never moves — see render3d/bake.js.
 function addHouses(group, terrain, structures) {
+  const street = new Group();
   for (const s of structures) {
     if (s.kind !== 'villa') continue;
     const house = buildEastbourneVilla({
       variant: s.variant,
-      palette: {
-        wall: COLOUR[s.palette.wall],
-        trim: COLOUR.white,
-        roof: COLOUR[s.palette.roof],
-        door: s.palette.door,
-      },
+      palette: villaPalette(s.palette),
     });
     placeAtGround(house, terrain, s.x, s.z, 1);
     house.rotation.y = s.yaw;
-    group.add(house);
+    street.add(house);
   }
+  const baked = bakeStatic(street);
+  group.add(baked || street);
 }
 
 function simpleGableBuilding(width, depth, wallHeight, wallColour, roofColour) {
