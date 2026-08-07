@@ -117,8 +117,19 @@ export const TRACKS = [
       numCheckpoints: 18,
       closed: true,
     },
+    // The joke, and the reason it is allowed to be one.
+    //
+    // Every other course is a Morris Minor doing what a Morris Minor does. This
+    // one is a race circuit, so the only honest way for Beryl to be on it is if
+    // somebody has done something unwise to the engine. At the real 3.03 km a
+    // 110 km/h lap took 100 seconds, which is a long time to spend on a circuit;
+    // 220 halves it and buys the gag at the same time.
+    intro: 'BERYL HAS A V8 IN FOR TRACK DAY',
+    // Eight cylinders, so four firings per crankshaft revolution instead of two,
+    // and it revs past where the A-series gives up. See src/audio/EngineSound.js.
+    engine: { cylinders: 8, redline: 6200, idle: 950 },
     physics: {
-      topSpeedKmh: 110,
+      topSpeedKmh: 220,
       accel: 1.2447,
       brakeDecel: 2.2128,
       reverseAccel: 0.3617,

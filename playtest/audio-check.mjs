@@ -72,6 +72,26 @@ const drive = await page.evaluate(async () => {
   engine.stop();
   return out;
 });
+// And the other engine. Manfeild's joke only works if you can hear it: a V8
+// fires four times per crankshaft revolution where the A-series fires twice, so
+// the two courses must not sound the same.
+const v8 = await page.evaluate(async () => {
+  const { EngineSound } = await import('/src/audio/EngineSound.js');
+  const { TRACKS } = await import('/src/tracks.js');
+  const race = window.__BERYL_GAME__.scene.getScene('Race');
+  const def = TRACKS.find((t) => t.id === 'manfield');
+  const engine = new EngineSound(race.sound, def.engine);
+  engine.update(0.9, 1, true, 0);
+  const out = {
+    intro: def.intro,
+    cylinders: engine.engine.cylinders,
+    firingsPerRev: engine.firingsPerRev,
+    redline: engine.engine.redline,
+  };
+  engine.stop();
+  return out;
+});
+
 console.log('accelerating from rest, one update per frame:');
 let last = null;
 for (const d of drive) {
@@ -112,5 +132,12 @@ for (let i = 1; i < drive.length; i++) {
     `revs did not drop on the ${drive[i - 1].gear}->${drive[i].gear} shift`
   );
 }
-console.log('audio-check: PASS — four gears, revs to ' + peak + ', dropping on every shift');
+
+assert.equal(v8.cylinders, 8, 'Manfeild should have the V8');
+assert.equal(v8.firingsPerRev, 4, 'a V8 fires four times per crankshaft revolution');
+assert.ok(v8.redline > peak, 'the V8 should rev past where the A-series gives up');
+assert.ok(v8.intro, 'Manfeild needs an intro line, or the joke goes unexplained');
+
+console.log(`audio-check: PASS — four gears, revs to ${peak}, dropping on every shift`);
+console.log(`audio-check: PASS — Manfeild V8, ${v8.firingsPerRev} firings/rev to ${v8.redline}, "${v8.intro}"`);
 
