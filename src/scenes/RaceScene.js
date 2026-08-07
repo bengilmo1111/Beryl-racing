@@ -96,7 +96,7 @@ export class RaceScene extends Phaser.Scene {
       unlockAudio(this);
       startMusic(this);
     }
-    this.engine = harnessed ? null : new EngineSound(this.sound);
+    this.engine = harnessed ? null : new EngineSound(this.sound, this.def.engine);
     this.events.once('shutdown', () => this.engine && this.engine.stop());
     // Silent audio used to be undiagnosable: EngineSound would find no
     // AudioContext, set ok = false, and every update after that was a no-op with
@@ -182,6 +182,37 @@ export class RaceScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(1200);
+
+    // A course can say something about itself before the flag drops. Manfeild
+    // uses it to explain why a 1959 Morris Minor is about to do 220 km/h, which
+    // is a question the player would otherwise reasonably ask.
+    //
+    // It sits above the count rather than replacing it, and fades with it, so
+    // nobody has to read it twice.
+    if (this.def.intro) {
+      const intro = this.add
+        .text(w / 2, h * 0.26, this.def.intro, {
+          fontFamily: FONT,
+          fontSize: `${Math.round(34 * s)}px`,
+          fontStyle: '700',
+          color: '#fff8e7',
+          stroke: '#15314b',
+          strokeThickness: Math.round(8 * s),
+          align: 'center',
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(1200)
+        .setScale(0.85);
+      this.tweens.add({ targets: intro, scale: 1, duration: 320, ease: 'Back.out' });
+      this.tweens.add({
+        targets: intro,
+        alpha: 0,
+        delay: 2400,
+        duration: 400,
+        onComplete: () => intro.destroy(),
+      });
+    }
 
     const steps = ['3', '2', '1', 'GO!'];
     let i = 0;

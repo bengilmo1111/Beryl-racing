@@ -21,19 +21,29 @@
 // ratios so you hear all three changes rather than spending the first half of a
 // course in top.
 const GEARS = [0.0, 0.22, 0.42, 0.68];
-const IDLE_RPM = 800;
-const REDLINE_RPM = 4800;
+
+// The A-series, and what Manfeild has instead.
+//
+// `cylinders` is the whole difference in the note: a four-stroke fires once per
+// cylinder every two revolutions, so a four gives two firing pulses per rev and
+// a V8 gives four. Double the pulse rate at the same crank speed is exactly why
+// one sounds thrashy and the other sounds like it is idling when it is not.
+const DEFAULT_ENGINE = { cylinders: 4, idle: 800, redline: 4800 };
 // A gear is left a little past its band and picked up a little before it, so a
 // car sitting exactly on a shift point does not chatter between two gears.
 const SHIFT_HYSTERESIS = 0.02;
 // How long the note dips while the clutch is out.
 const SHIFT_SECONDS = 0.28;
 
-// A four-stroke four fires twice per crankshaft revolution.
-const FIRINGS_PER_REV = 2;
-
 export class EngineSound {
-  constructor(soundManager) {
+  constructor(soundManager, engine = null) {
+    this.engine = { ...DEFAULT_ENGINE, ...(engine || {}) };
+    // Firings per crankshaft revolution: cylinders / 2 on a four-stroke.
+    this.firingsPerRev = this.engine.cylinders / 2;
+    // A big lazy V8 wants a fatter, lower body and less of the small-four
+    // intake thrash, so the mix shifts with the engine rather than being tuned
+    // once for the A-series and left.
+    this.bigEngine = this.engine.cylinders > 6;
     this.ctx = soundManager && soundManager.context ? soundManager.context : null;
     this.ok = !!this.ctx;
     // Why it is silent, if it is, in a form a human can read. This used to fail
@@ -46,7 +56,7 @@ export class EngineSound {
     if (ctx.state === 'suspended') ctx.resume();
 
     this.gear = 0;
-    this.rpm = IDLE_RPM;
+    this.rpm = this.engine.idle;
     this.shiftUntil = 0;
 
     this.out = ctx.createGain();
@@ -58,7 +68,7 @@ export class EngineSound {
     this.body = ctx.createOscillator();
     this.body.type = 'sawtooth';
     this.bodyGain = ctx.createGain();
-    this.bodyGain.gain.value = 0.5;
+    this.bodyGain.gain.value = this.bigEngine ? 0.72 : 0.5;
     this.bodyFilter = ctx.createBiquadFilter();
     this.bodyFilter.type = 'lowpass';
     this.bodyFilter.frequency.value = 220;
@@ -70,7 +80,7 @@ export class EngineSound {
     this.bark = ctx.createOscillator();
     this.bark.type = 'sawtooth';
     this.barkGain = ctx.createGain();
-    this.barkGain.gain.value = 0.34;
+    this.barkGain.gain.value = this.bigEngine ? 0.42 : 0.34;
     this.barkFilter = ctx.createBiquadFilter();
     this.barkFilter.type = 'bandpass';
     this.barkFilter.frequency.value = 600;
@@ -118,7 +128,7 @@ export class EngineSound {
     const r = Math.max(0, Math.min(1, speedRatio));
 
     const through = this.#updateGear(r, now);
-    let rpm = IDLE_RPM + (REDLINE_RPM - IDLE_RPM) * through;
+    let rpm = this.engine.idle + (this.engine.redline - this.engine.idle) * through;
 
     // The dip while the clutch is out. Revs fall away and pick the new gear up.
     const shifting = now < this.shiftUntil;
@@ -132,7 +142,7 @@ export class EngineSound {
     const climb = Math.max(0, Math.min(1, grade * 6));
     const load = Math.max(0, Math.min(1, (throttle > 0 ? throttle : 0) * 0.7 + climb * 0.6));
 
-    const firing = (rpm / 60) * FIRINGS_PER_REV;
+    const firing = (rpm / 60) * this.firingsPerRev;
     const glide = 0.055;
     this.body.frequency.setTargetAtTime(firing * 0.5, now, glide);
     this.bark.frequency.setTargetAtTime(firing, now, glide);
@@ -143,8 +153,9 @@ export class EngineSound {
     this.barkFilter.frequency.setTargetAtTime(420 + firing * 3.2 + load * 900, now, glide);
     this.barkFilter.Q.setTargetAtTime(1.4 + load * 2.6, now, glide);
     this.bodyFilter.frequency.setTargetAtTime(160 + firing * 1.1, now, glide);
+    const whine = this.bigEngine ? 0.35 : 1;
     this.whineGain.gain.setTargetAtTime(
-      shifting ? 0.004 : 0.012 + load * 0.05 * (0.25 + through * 0.75),
+      shifting ? 0.004 : (0.012 + load * 0.05 * (0.25 + through * 0.75)) * whine,
       now,
       glide
     );
@@ -163,6 +174,7 @@ export class EngineSound {
     return {
       ok: this.ok,
       status: this.status,
+      cylinders: this.engine ? this.engine.cylinders : 0,
       contextState: this.ctx ? this.ctx.state : 'none',
       gear: this.gear + 1,
       rpm: Math.round(this.rpm),

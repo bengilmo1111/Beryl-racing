@@ -1720,3 +1720,35 @@ hill road through a forest park, and wrong for the other two.
 Determinism re-recorded: **only the fingerprints moved.** Finish times and final
 positions are identical to the digit on all four courses, for the second density
 pass running — the new scenery is all beside the racing line, none of it in it.
+
+## 2026-08-04 — Manfeild gets a V8
+
+Manfeild's lap at the real 3.03 km was 100 seconds at 110 km/h, which is a long
+time to spend going round a circuit. The fix is the joke: it is a race track, so
+somebody has done something unwise to the engine.
+
+**220 km/h, same 3.06 km, 52.7 s lap.** The geography stays honest and the pace
+stops being a chore, which is a better trade than shortening the track.
+
+Three parts, because a joke the player cannot see is not one:
+
+- **`intro`** — a line above the countdown, fading with it. *"BERYL HAS A V8 IN
+  FOR TRACK DAY."* It is per-course copy, so any course can say something about
+  itself before the flag drops; Manfeild is the only one that needs to.
+- **The engine actually is a V8.** `cylinders` is the whole difference in the
+  note: a four-stroke fires once per cylinder every two revolutions, so a four
+  gives two firing pulses per rev and an eight gives four. Double the pulse rate
+  at the same crank speed is precisely why one sounds thrashy and the other
+  sounds lazy. It also revs to 6,200 where the A-series gives up at 4,800, and
+  the mix shifts — more body, less intake thrash.
+- **Double the speed**, with every other physics figure following, because they
+  are all expressed as multiples of top speed.
+
+At 220 km/h her minimum turning radius (~1,070 units) is now larger than
+Manfeild's tightest corner (833), so the circuit has corners you genuinely have
+to brake for. The playtest driver copes: 100% of gates, 0% off-road.
+
+Only Manfeild moved in the baselines, and its obstacle fingerprint did not move
+at all, because it still has no scenery. `npm run test:audio` now asserts both
+engines — four firings per rev on the road courses, eight on the circuit — since
+the joke only works if the two sound different.

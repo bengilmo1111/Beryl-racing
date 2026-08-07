@@ -69,6 +69,9 @@ import { TRACKS } from '../src/tracks.js';
 //   letterboxes. Object counts roughly tripled while obstacle counts fell on two
 //   of the three courses, because only what is close enough to hit is solid.
 //   Finish times and positions are again identical to the digit.
+// - Re-recorded 2026-08-04 for Manfeild's V8. Only Manfeild moves: its lap goes
+//   from 100 s to 52.7 s at double the top speed, over the same 3.06 km. Its
+//   obstacle fingerprint is untouched, because it still has no scenery at all.
 // - Otaki's fingerprint moved once more when its farmhouse footprints were put
 //   back under src/structures.js. The rebuild had left the theme owning its own
 //   copy of the positions, so the visible houses and their collision circles were
@@ -83,8 +86,8 @@ const BASELINES = {
   // Manfeild has no trees, so every circle on the circuit belongs to a building:
   // pit wall, garages, timing tower, paddock sheds, grandstand and marshal huts.
   manfield: {
-    finishTimeMs: 100216.666667,
-    pos: { x: 27561.328674721, y: 23096.438482313 },
+    finishTimeMs: 52716.666667,
+    pos: { x: 27528.050621921, y: 23092.101893972 },
     obstacles: 'de191f8062eae108',
   },
   remutaka: {
