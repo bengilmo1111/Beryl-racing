@@ -7,7 +7,10 @@ import Phaser from 'phaser';
 import { Scene, HemisphereLight, DirectionalLight } from 'three';
 import { C, makeFog } from './palette.js';
 import { getRenderer, showCanvas, syncSize, getCanvas } from './renderer.js';
-import { buildRoad, buildKerbs, buildApron, buildGround, buildCentreLine } from './road.js';
+import {
+  buildRoad, buildKerbs, buildApron, buildGround, buildCentreLine,
+  findJunctions, junctionMask, buildJunctions,
+} from './road.js';
 import { buildStartLine, buildStartGantry } from './markers.js';
 import { buildBeryl, updateBeryl } from './beryl.js';
 import { buildTrees } from './trees.js';
@@ -64,19 +67,26 @@ class RaceWorld {
     // each other at the junctions. A side street that is simply sealed tarmac
     // joining the main road reads as a street, and is what they look like.
     const roads = scene.track.roads || [scene.track];
+    // Where a branch meets another road the two ribbons overlap at the same
+    // height, and the through road's kerb, apron and centre line run straight
+    // across the mouth of the turn. Junctions are found once and then left
+    // undressed, with a patch of tarmac laid over the overlap.
+    const junctions = findJunctions(roads);
     for (const road of roads) {
       const through = road === roads[0];
-      if (through) for (const strip of buildApron(road)) this.scene3d.add(strip);
+      const skip = junctionMask(junctions, road.centerline);
+      if (through) for (const strip of buildApron(road, skip)) this.scene3d.add(strip);
       this.scene3d.add(buildRoad(road));
       // A race circuit has no centre line either — Manfeild gets rumble kerbs
       // and a start/finish line, which is what actually marks a racing surface.
       if (through && scene.def.theme !== 'manfield') {
-        this.scene3d.add(buildCentreLine(road));
+        this.scene3d.add(buildCentreLine(road, skip));
       }
       if (through) {
-        for (const strip of buildKerbs(road, scene.def.theme)) this.scene3d.add(strip);
+        for (const strip of buildKerbs(road, scene.def.theme, skip)) this.scene3d.add(strip);
       }
     }
+    this.scene3d.add(buildJunctions(junctions));
 
     // Eastbourne and Ōtaki are geography-led courses: no race gantry, route
     // arrows, floating landmark labels or labelled finish.

@@ -2,7 +2,7 @@
 // all built from the geometry buildTrack() already produces. No new track maths
 // lives here: `left` and `right` are the same offset polylines the 2D renderer
 // filled as quads.
-import { BufferGeometry, BufferAttribute, Mesh, PlaneGeometry, DoubleSide } from 'three';
+import { BufferGeometry, BufferAttribute, Mesh, PlaneGeometry, CircleGeometry, Group, DoubleSide } from 'three';
 import { WORLD } from '../config.js';
 import { atLeast, worldDiagonal } from '../scale.js';
 import { C, basic, lambert } from './palette.js';
@@ -52,10 +52,16 @@ const UV_REPEAT_LENGTH = 512;
 // between neighbouring quads and gradient the colour across a segment instead.
 // `y` is either a constant height or a per-sample lookup (i) => height, which is
 // how the elevated courses lift the road onto the hillside.
-function buildRibbon(inner, outer, y, colorAt, closed) {
+function buildRibbon(inner, outer, y, colorAt, closed, skipAt = null) {
   const heightAt = typeof y === 'function' ? y : () => y;
   const n = inner.length;
-  const segments = closed ? n : n - 1;
+  const span = closed ? n : n - 1;
+  // Which segments actually get built. A kerb that runs straight through a
+  // junction paints a line across the mouth of the side road, so the segments
+  // inside one are dropped rather than drawn and hidden.
+  const keep = [];
+  for (let i = 0; i < span; i++) if (!skipAt || !skipAt(i)) keep.push(i);
+  const segments = keep.length;
 
   const positions = new Float32Array(segments * 6 * 3);
   const normals = new Float32Array(segments * 6 * 3);
@@ -87,7 +93,7 @@ function buildRibbon(inner, outer, y, colorAt, closed) {
     t += 2;
   };
 
-  for (let i = 0; i < segments; i++) {
+  for (const i of keep) {
     const j = (i + 1) % n;
     const i0 = inner[i];
     const i1 = inner[j];
@@ -99,6 +105,8 @@ function buildRibbon(inner, outer, y, colorAt, closed) {
     const v0 = arc / UV_REPEAT_LENGTH;
     const v1 = (arc + segLen) / UV_REPEAT_LENGTH;
     arc += segLen;
+    // (arc tracks the kept segments only, which is what the texture wants: a
+    // dropped segment is a hole in the strip, not a hole in the road.)
 
     const h0 = heightAt(i);
     const h1 = heightAt(j);
@@ -159,6 +167,81 @@ function heightsFor(track, offset) {
   return (i) => track.heights[i] + offset;
 }
 
+// Where roads meet.
+//
+// Every branch begins and ends exactly on another road's centreline, so the two
+// tarmac ribbons overlap for about a road's half-width — two coplanar surfaces
+// at the same height, which is z-fighting, and which is the mottled dark blob at
+// the Eastbourne village junctions. The primary's kerb and centre line also run
+// straight across the mouth of the side road, painting a solid line over a turn
+// you are allowed to take.
+//
+// A junction is therefore an object: a patch of tarmac laid over the overlap,
+// and a radius the road dressing knows to leave alone.
+const JUNCTION_LIFT = 0.06;
+const JUNCTION_SPREAD = 1.15;
+
+export function findJunctions(roads) {
+  const out = [];
+  if (!roads || roads.length < 2) return out;
+  for (const road of roads.slice(1)) {
+    const line = road.centerline;
+    for (const point of [line[0], line[line.length - 1]]) {
+      let best = Infinity;
+      let host = null;
+      let index = 0;
+      for (const other of roads) {
+        if (other === road) continue;
+        for (let i = 0; i < other.centerline.length; i++) {
+          const c = other.centerline[i];
+          const d = Math.hypot(c.x - point.x, c.y - point.y);
+          if (d < best) { best = d; host = other; index = i; }
+        }
+      }
+      // Only an end that actually lands on another road is a junction. A branch
+      // that simply stops in a paddock is not, and must not get an apron.
+      if (!host || best > host.half) continue;
+      out.push({
+        x: point.x,
+        y: point.y,
+        radius: (host.half + road.half) * JUNCTION_SPREAD,
+        height: host.heights ? host.heights[index] : 0,
+      });
+    }
+  }
+  return out;
+}
+
+// True when a sample sits inside a junction and should not be dressed.
+export function junctionMask(junctions, line) {
+  if (!junctions.length) return null;
+  return (i) => {
+    const a = line[i];
+    const b = line[(i + 1) % line.length];
+    const mx = (a.x + b.x) / 2;
+    const my = (a.y + b.y) / 2;
+    for (const j of junctions) {
+      if (Math.hypot(mx - j.x, my - j.y) < j.radius) return true;
+    }
+    return false;
+  };
+}
+
+// The tarmac patches themselves, laid just above both ribbons so the overlap
+// reads as one surface instead of two fighting for the same depth.
+export function buildJunctions(junctions) {
+  const group = new Group();
+  group.name = 'junctions';
+  for (const j of junctions) {
+    const geometry = new CircleGeometry(j.radius, 20);
+    geometry.rotateX(-Math.PI / 2);
+    const mesh = new Mesh(geometry, basic(C.tarmac, { fog: true }));
+    mesh.position.set(j.x, j.height + ROAD_Y + JUNCTION_LIFT, j.y);
+    group.add(mesh);
+  }
+  return group;
+}
+
 export function buildRoad(track) {
   const { left, right, surfaces, closed } = track;
   const colorAt = (i) => (surfaces && surfaces[i] === 'gravel' ? C.gravel : C.tarmac);
@@ -167,7 +250,7 @@ export function buildRoad(track) {
 
 // Kerbs, in the two flavours the 2D game had: red/white rumble strips on the
 // purpose-built circuit, warm painted edging on the public roads.
-export function buildKerbs(track, theme) {
+export function buildKerbs(track, theme, skipAt = null) {
   const { left, right, centerline, closed } = track;
   const rumble = theme === 'manfield';
   // Alternating every 3 samples, matching the old drawRumbleKerb cadence.
@@ -179,7 +262,8 @@ export function buildKerbs(track, theme) {
       offsetOutward(edge, centerline, KERB_WIDTH),
       heightsFor(track, KERB_Y),
       colorAt,
-      closed
+      closed,
+      skipAt
     )
   );
 }
@@ -195,7 +279,7 @@ export function buildKerbs(track, theme) {
 //
 // Skipped on gravel, where there is no seal to paint, and on the circuit, which
 // has racing kerbs instead (see buildKerbs).
-export function buildCentreLine(track) {
+export function buildCentreLine(track, skipAt = null) {
   const { centerline, left, surfaces, closed, heights } = track;
   const n = centerline.length;
   const segments = closed ? n : n - 1;
@@ -254,7 +338,9 @@ export function buildCentreLine(track) {
     const segLen = Math.hypot(centerline[j].x - centerline[i].x, centerline[j].y - centerline[i].y);
     if (segLen <= 0) continue;
 
-    if (!(surfaces && surfaces[i] === 'gravel')) {
+    // No centre line painted across the mouth of a side road — a solid line over
+    // a turn you are allowed to take is worse than no line at all.
+    if (!(surfaces && surfaces[i] === 'gravel') && !(skipAt && skipAt(i))) {
       const end = arc + segLen;
       // Every dash window that overlaps this segment, clipped to it. Usually one
       // or none, but a long segment can span several.
@@ -280,7 +366,7 @@ export function buildCentreLine(track) {
 }
 
 // Darker run-off band outside each kerb, for depth against the grass.
-export function buildApron(track) {
+export function buildApron(track, skipAt = null) {
   const { left, right, centerline, closed } = track;
   const colorAt = () => C.deepHill;
   return [left, right].map((edge) =>
@@ -289,7 +375,8 @@ export function buildApron(track) {
       offsetOutward(edge, centerline, KERB_WIDTH + APRON_WIDTH),
       heightsFor(track, APRON_Y),
       colorAt,
-      closed
+      closed,
+      skipAt
     )
   );
 }
