@@ -23,12 +23,12 @@ It is derived, not chosen: Beryl's model is 217.6 units long and a Morris Minor
   `metres(105)` is the same distance in a bigger world.
 
 Getting these confused is the single most productive source of bugs in this
-project. It has four entries in `progress.md`, all with the same shape and all
+project. It has five entries in `progress.md`, all with the same shape and all
 found by looking at a screenshot rather than by any test.
 
 ## How it goes wrong
 
-The four occurrences, and the door each came in by:
+The occurrences so far, and the door each came in by:
 
 1. **The original fault.** The courses were authored roughly ten times too small
    for the car. Beryl did 10–13 km/h on three of the four, and on those three the
@@ -46,10 +46,21 @@ The four occurrences, and the door each came in by:
    After the rescale every one of them stood about 900 m from the nearest road.
    The fingerprint faithfully reported "17 buildings" the whole time, because
    they were all still exactly where they had been put.
+5. **The coast.** Eastbourne's shoreline was eleven authored coordinates, about
+   20 m off Marine Drive in the world they were written for. The rescale
+   multiplied the beach along with the course: 80 m of beach at the top of the
+   drive, 250 m by the village. The most coastal course in the game read as a
+   road through a forest, and its seawall stood in an empty paddock.
 
 Note the pattern: every fix moved the numbers, and the *next* occurrence was
 always somewhere the previous fix had not looked. Rescaling harder is not the
 answer.
+
+The fifth is the clearest statement of the rule the whole document exists for.
+The route's *length* needed multiplying — that was the point of the rescale. The
+*beach* did not, because a beach is 20 m wide in any world. One number in the
+same file needed scaling and the one beside it did not, and nothing in a list of
+coordinates can tell you which is which.
 
 ## What to do instead
 
@@ -97,8 +108,9 @@ Not much, honestly, which is why this document exists.
   and `vite build` pass.
 - The obstacle fingerprint in `test:determinism` notices when things move, but it
   cannot tell "moved because I meant it" from "moved into a paddock".
-- **Screenshots.** All four occurrences were found by looking at
-  `playtest-out/shots/`. That remains the only reliable detector, so look.
+- **Screenshots.** Every occurrence so far was found by looking at one, and by
+  nothing else. That remains the only reliable detector, so look —
+  `npm run shots -- eastbourne-dash:3000` takes seconds.
 
 ## One footgun while you are in here
 

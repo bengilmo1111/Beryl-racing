@@ -17,6 +17,8 @@ import { C, basic, lambert } from '../palette.js';
 import { labelTexture } from '../textures.js';
 import { buildManfeildParallax } from './manfeildParallax.js';
 import { manfeildStandZ } from '../../structures.js';
+import { metres } from '../../scale.js';
+import { bakeStatic } from '../bake.js';
 
 const M = {
   cream: lambert(0xf3ead2),
@@ -302,6 +304,152 @@ function buildMownInfield(track) {
   return group;
 }
 
+
+// The perimeter, which is what actually says "race circuit" from a car.
+//
+// Manfeild had a pit complex, a grandstand, eight bale stacks and four
+// advertising boards — and 3 km of lap, so for most of a lap there was nothing
+// at all beyond green paddock to the horizon. A circuit is not distinguished
+// from a road across a farm by the buildings at one end of it. It is
+// distinguished by the fence that runs the whole way round, always the same
+// distance out, always on the outside.
+//
+// Baked into one mesh (see render3d/bake.js): about 1,600 posts and their rails
+// would otherwise be several thousand draw calls for something that never moves.
+const FENCE_SETBACK = metres(11);
+const FENCE_POST_SPACING = metres(7);
+
+// Which way is "out" at each sample. On a closed circuit that is simply away
+// from the middle, so the centroid answers it without any authoring.
+function outwardFrom(track) {
+  let cx = 0;
+  let cz = 0;
+  for (const p of track.centerline) {
+    cx += p.x;
+    cz += p.y;
+  }
+  cx /= track.centerline.length;
+  cz /= track.centerline.length;
+  return (i) => {
+    const p = track.centerline[i];
+    const dx = p.x - cx;
+    const dz = p.y - cz;
+    const len = Math.hypot(dx, dz) || 1;
+    return { x: dx / len, z: dz / len };
+  };
+}
+
+function buildPerimeterFence(track) {
+  const group = new Group();
+  const outward = outwardFrom(track);
+  const line = track.centerline;
+  const offset = track.half + FENCE_SETBACK;
+
+  // Walk by distance, not by sample: samples are evenly spaced in parameter, so
+  // posting every Nth one bunches them in the hairpins and stretches them down
+  // the straight.
+  let carry = 0;
+  let previous = null;
+  for (let i = 0; i < line.length; i += 1) {
+    const j = (i + 1) % line.length;
+    const step = Math.hypot(line[j].x - line[i].x, line[j].y - line[i].y);
+    carry += step;
+    if (carry < FENCE_POST_SPACING) continue;
+    carry = 0;
+    const out = outward(i);
+    const at = { x: line[i].x + out.x * offset, z: line[i].y + out.z * offset };
+    box(group, metres(0.12), metres(1.5), metres(0.12), M.timber, at.x, metres(0.75), at.z);
+    if (previous) {
+      // Two wires between consecutive posts, drawn as thin boxes so the whole
+      // thing bakes into the same mesh as everything else.
+      const dx = at.x - previous.x;
+      const dz = at.z - previous.z;
+      const span = Math.hypot(dx, dz);
+      for (const h of [metres(0.75), metres(1.35)]) {
+        const wire = new Mesh(new BoxGeometry(metres(0.05), metres(0.05), span), M.cream);
+        wire.position.set((at.x + previous.x) / 2, h, (at.z + previous.z) / 2);
+        wire.rotation.y = Math.atan2(dx, dz);
+        group.add(wire);
+      }
+    }
+    previous = at;
+  }
+
+  const baked = bakeStatic(group);
+  return baked || group;
+}
+
+// Braking boards on the approach to every corner.
+//
+// Three marker boards counting down to a turn is the single most recognisable
+// piece of circuit furniture there is, and unlike a grandstand you meet it eight
+// times a lap. Placed by curvature, so they arrive where the track actually
+// turns rather than at authored fractions that would need re-authoring the
+// moment the layout moved.
+function buildBrakingBoards(track) {
+  const group = new Group();
+  const line = track.centerline;
+  const n = line.length;
+  const outward = outwardFrom(track);
+
+  // Curvature at each sample, smoothed over a car length or so.
+  const look = Math.max(2, Math.round(n / 90));
+  const turning = [];
+  for (let i = 0; i < n; i += 1) {
+    const a = line[(i - look + n) % n];
+    const b = line[i];
+    const c = line[(i + look) % n];
+    const abx = b.x - a.x;
+    const aby = b.y - a.y;
+    const bcx = c.x - b.x;
+    const bcy = c.y - b.y;
+    const cross = abx * bcy - aby * bcx;
+    const dot = abx * bcx + aby * bcy;
+    turning.push(Math.abs(Math.atan2(cross, dot)));
+  }
+
+  // Local maxima of curvature, spaced out so one long corner gets one set.
+  const corners = [];
+  const apart = Math.round(n / 22);
+  for (let i = 0; i < n; i += 1) {
+    if (turning[i] < 0.06) continue;
+    let peak = true;
+    for (let k = -apart; k <= apart; k += 1) {
+      if (turning[(i + k + n) % n] > turning[i]) { peak = false; break; }
+    }
+    if (!peak) continue;
+    if (corners.some((c) => Math.min(Math.abs(c - i), n - Math.abs(c - i)) < apart)) continue;
+    corners.push(i);
+  }
+
+  // Boards sit back up the road from the corner, on the outside of it.
+  const spacing = Math.round(n * (metres(50) / trackLength(track)));
+  for (const corner of corners) {
+    ['3', '2', '1'].forEach((label, k) => {
+      const i = (corner - (3 - k) * spacing + n * 4) % n;
+      const out = outward(i);
+      const board = textBoard(label, 78, 78, {
+        color: '#24333a', background: '#f3ead2', fontSize: 96,
+      });
+      const at = track.half + metres(7);
+      board.position.set(line[i].x + out.x * at, metres(1.3), line[i].y + out.z * at);
+      board.rotation.y = nearestTrackFrame(track, line[i].x, line[i].y).yaw + Math.PI;
+      group.add(board);
+    });
+  }
+  return group;
+}
+
+function trackLength(track) {
+  const line = track.centerline;
+  let total = 0;
+  for (let i = 0; i < line.length; i += 1) {
+    const j = (i + 1) % line.length;
+    total += Math.hypot(line[j].x - line[i].x, line[j].y - line[i].y);
+  }
+  return total;
+}
+
 export function buildManfeild(track, def, terrain) {
   const root = new Group();
   const frame = roadFrame(track);
@@ -314,6 +462,8 @@ export function buildManfeild(track, def, terrain) {
   venue.rotation.y = frame.yaw;
   root.add(venue);
 
+  root.add(buildPerimeterFence(track));
+  root.add(buildBrakingBoards(track));
   root.add(buildMarshalPosts(track, def));
   root.add(buildCornerFurniture(track));
   root.add(buildMownInfield(track));

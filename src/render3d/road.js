@@ -6,6 +6,7 @@ import { BufferGeometry, BufferAttribute, Mesh, PlaneGeometry, CircleGeometry, G
 import { WORLD } from '../config.js';
 import { atLeast, worldDiagonal } from '../scale.js';
 import { C, basic, lambert } from './palette.js';
+import { groundColours, groundBase, vergeColour, dustColour } from './ground.js';
 
 // Strictly ordered so nothing z-fights: ground below the road, apron just above
 // it, kerbs a real lip above that. The ground sits a clear 8 units down rather
@@ -251,10 +252,18 @@ export function buildRoad(track) {
 // Kerbs, in the two flavours the 2D game had: red/white rumble strips on the
 // purpose-built circuit, warm painted edging on the public roads.
 export function buildKerbs(track, theme, skipAt = null) {
-  const { left, right, centerline, closed } = track;
+  const { left, right, centerline, closed, surfaces } = track;
   const rumble = theme === 'manfield';
   // Alternating every 3 samples, matching the old drawRumbleKerb cadence.
   const colorAt = rumble ? (i) => (Math.floor(i / 3) % 2 === 0 ? C.red : C.white) : () => C.cream;
+
+  // Nothing painted on gravel. `buildCentreLine` has always skipped the dashes
+  // there, but the cream edging ran the full length of the road regardless, so
+  // Ōtaki's unsealed gorge had a crisp painted line down each side of it —
+  // which is the one marking a gravel road certainly does not have, and it
+  // undid most of the work the gravel colour was doing.
+  const unsealed = (i) => !!(surfaces && surfaces[i] === 'gravel');
+  const skip = skipAt ? (i) => unsealed(i) || skipAt(i) : unsealed;
 
   return [left, right].map((edge) =>
     buildRibbon(
@@ -263,7 +272,7 @@ export function buildKerbs(track, theme, skipAt = null) {
       heightsFor(track, KERB_Y),
       colorAt,
       closed,
-      skipAt
+      skip
     )
   );
 }
@@ -366,9 +375,11 @@ export function buildCentreLine(track, skipAt = null) {
 }
 
 // Darker run-off band outside each kerb, for depth against the grass.
-export function buildApron(track, skipAt = null) {
-  const { left, right, centerline, closed } = track;
-  const colorAt = () => C.deepHill;
+export function buildApron(track, theme = null, skipAt = null) {
+  const { left, right, centerline, closed, surfaces } = track;
+  const verge = vergeColour(theme);
+  const dust = dustColour(theme);
+  const colorAt = (i) => (surfaces && surfaces[i] === 'gravel' ? dust : verge);
   return [left, right].map((edge) =>
     buildRibbon(
       offsetOutward(edge, centerline, KERB_WIDTH),
@@ -388,18 +399,18 @@ export function buildApron(track, skipAt = null) {
 // past a world-sized plane when the car is near an edge, and a visible plane
 // edge at the horizon instantly reads as "the ground has run out". Big enough
 // that fog always saturates to sky before the edge could come into view.
-export function buildGround(terrain) {
+export function buildGround(terrain, theme = null) {
   const info = terrain && terrain.describe();
 
   // Elevated courses get a real surface built from the same height grid the
   // physics reads, so what the player drives on and what they see are the same
   // data. Flat courses keep the single cheap quad.
-  if (info && !info.flat) return buildTerrainMesh(info);
+  if (info && !info.flat) return buildTerrainMesh(info, theme, terrain.seaLevel);
 
   const span = Math.max(WORLD.width, WORLD.height) * 6;
   const geometry = new PlaneGeometry(span, span);
   geometry.rotateX(-Math.PI / 2);
-  const mesh = new Mesh(geometry, basic(C.hill, { fog: true }));
+  const mesh = new Mesh(geometry, basic(groundBase(theme), { fog: true }));
   mesh.position.set(WORLD.width / 2, GROUND_Y, WORLD.height / 2);
   mesh.frustumCulled = false;
   return mesh;
@@ -408,7 +419,7 @@ export function buildGround(terrain) {
 // The height grid as a lit mesh. Lit, unlike the road: this one has real form,
 // so shading is doing actual work — it is what makes a hillside read as a
 // hillside rather than a flat green field.
-function buildTerrainMesh(info) {
+function buildTerrainMesh(info, theme, seaLevel) {
   const { cols, rows, cell, minX, minY, grid } = info;
   const skirt = skirtFor(WORLD);
   const positions = new Float32Array(cols * rows * 3);
@@ -448,11 +459,18 @@ function buildTerrainMesh(info) {
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new BufferAttribute(positions, 3));
   geometry.setIndex(new BufferAttribute(indices, 1));
+  // Per-course ground, varying across the course rather than one flat green to
+  // the horizon — see render3d/ground.js for why that was the biggest single
+  // thing making the four courses look like the same road.
+  geometry.setAttribute(
+    'color',
+    new BufferAttribute(groundColours(info, theme, seaLevel), 3)
+  );
   // Indexed, so shared vertices average into a smooth hillside rather than
   // showing every grid facet.
   geometry.computeVertexNormals();
 
-  const mesh = new Mesh(geometry, lambert(C.hill, { fog: true }));
+  const mesh = new Mesh(geometry, lambert(0xffffff, { fog: true, vertexColors: true }));
   mesh.frustumCulled = false;
   return mesh;
 }

@@ -4,7 +4,8 @@ import { getSelectedTrack } from '../tracks.js';
 import { buildTrack, distanceToCenterline, surfaceAt } from '../track.js';
 import { scatterScenery } from '../scenery.js';
 import { buildStructures, structureObstacles } from '../structures.js';
-import { EASTBOURNE_LAYOUT } from '../eastbourneRoute.js';
+import { eastbourneCoast } from '../coast.js';
+import { metres } from '../scale.js';
 import { Terrain } from '../terrain.js';
 import { Car } from '../entities/Car.js';
 import { Hud } from '../ui/Hud.js';
@@ -153,24 +154,30 @@ export class RaceScene extends Phaser.Scene {
 
   // Eastbourne's seawall, which makes the harbour visible but unreachable.
   //
-  // Built by walking EASTBOURNE_LAYOUT.shoreline — the same polyline the theme
-  // draws the beach and its landward edging from — so what you see and what you
-  // hit are the same wall. It used to be derived from fractions of the world
-  // instead, which happened to land within about 55 units of the drawn edging
-  // after the course was rebuilt; that is luck, not agreement.
+  // Built by walking the line src/coast.js derives from the road itself, which
+  // is also what the theme draws the wall from — so what you see and what you
+  // hit are the same wall. It has been wrong twice: first derived from fractions
+  // of the world (which landed near the drawn edging by luck, not agreement),
+  // then from an authored shoreline that the rescale left hundreds of metres out
+  // to sea.
   placeSeawall() {
-    const line = EASTBOURNE_LAYOUT.shoreline;
-    // 115 is the offset the theme draws its landward edging at.
-    const STEP = 50;
-    for (let i = 0; i < line.length - 1; i += 1) {
-      const a = line[i];
-      const b = line[i + 1];
+    // The same walk render3d/themes/eastbourne.js draws the wall from, so what
+    // stops the car and what the player sees it stop against are one polyline.
+    const { wall } = eastbourneCoast(this.track);
+    // Overlapping circles, so there is no gap to slip through. A metre and a
+    // half of radius at two metres of spacing: the old wall was 0.55 m circles
+    // every 0.86 m, which is four thousand obstacles to build one fence.
+    const r = metres(1.5);
+    const step = metres(2);
+    for (let i = 0; i < wall.length - 1; i += 1) {
+      const a = wall[i];
+      const b = wall[i + 1];
       const dx = b.x - a.x;
       const dz = b.z - a.z;
-      const steps = Math.max(1, Math.round(Math.hypot(dx, dz) / STEP));
+      const steps = Math.max(1, Math.round(Math.hypot(dx, dz) / step));
       for (let s = 0; s < steps; s += 1) {
         const t = s / steps;
-        this.obstacles.push({ x: a.x + dx * t + 115, y: a.z + dz * t, r: 32 });
+        this.obstacles.push({ x: a.x + dx * t, y: a.z + dz * t, r });
       }
     }
   }

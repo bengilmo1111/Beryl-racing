@@ -55,7 +55,7 @@ class RaceWorld {
 
     this.terrain = scene.terrain;
     this.otakiParallax = null;
-    this.scene3d.add(buildGround(this.terrain));
+    this.scene3d.add(buildGround(this.terrain, scene.def.theme));
 
     // Ground first, then every driveable road, each painted outward-in and
     // bottom-up: apron, road, centre line, kerbs.
@@ -75,7 +75,9 @@ class RaceWorld {
     for (const road of roads) {
       const through = road === roads[0];
       const skip = junctionMask(junctions, road.centerline);
-      if (through) for (const strip of buildApron(road, skip)) this.scene3d.add(strip);
+      if (through) {
+        for (const strip of buildApron(road, scene.def.theme, skip)) this.scene3d.add(strip);
+      }
       this.scene3d.add(buildRoad(road));
       // A race circuit has no centre line either — Manfeild gets rumble kerbs
       // and a start/finish line, which is what actually marks a racing surface.
@@ -116,7 +118,7 @@ class RaceWorld {
       this.scene3d.add(buildRemutaka(scene.track, scene.def, this.terrain));
     }
 
-    this.scene3d.add(buildTrees(scene.scenery.trees, this.terrain));
+    this.scene3d.add(buildTrees(scene.scenery.trees, this.terrain, scene.def.theme));
     this.scene3d.add(buildProps(scene.scenery.props, this.terrain));
     if (!geographyLed) this.scene3d.add(buildSigns(scene.track, scene.def, this.terrain));
 

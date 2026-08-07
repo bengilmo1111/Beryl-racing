@@ -16,8 +16,10 @@ import {
   CircleGeometry,
   Object3D,
   Group,
+  Color,
 } from 'three';
 import { C, lambert, basic } from './palette.js';
+import { foliageTint } from './ground.js';
 
 // Distinct silhouettes, per docs/ART-DIRECTION.md §5.3 — the player should be
 // able to tell them apart at a glance, not just see "a tree".
@@ -47,12 +49,18 @@ const TRUNK_COLOR = 0x6b4f34;
 // A cheap deterministic hash so each tree gets its own yaw without touching
 // Math.random — the global stream is seeded and part of the determinism
 // contract (see src/scenery.js).
-function hashAngle(x, y) {
+function hashUnit(x, y) {
   const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-  return (n - Math.floor(n)) * Math.PI * 2;
+  return n - Math.floor(n);
 }
 
-export function buildTrees(trees, terrain) {
+function hashAngle(x, y) {
+  return hashUnit(x, y) * Math.PI * 2;
+}
+
+const tint = new Color();
+
+export function buildTrees(trees, terrain, theme = null) {
   const group = new Group();
   if (!trees || !trees.length) return group;
 
@@ -79,7 +87,8 @@ export function buildTrees(trees, terrain) {
     const shadowGeom = new CircleGeometry(0.5, 12);
     shadowGeom.rotateX(-Math.PI / 2);
 
-    const canopy = new InstancedMesh(canopyGeom, lambert(spec.color), list.length);
+    const canopyBase = foliageTint(theme, spec.color);
+    const canopy = new InstancedMesh(canopyGeom, lambert(canopyBase), list.length);
     const trunk = new InstancedMesh(trunkGeom, lambert(TRUNK_COLOR), list.length);
     const shadow = new InstancedMesh(
       shadowGeom,
@@ -113,7 +122,15 @@ export function buildTrees(trees, terrain) {
       dummy.scale.set(width * 1.1, 1, width * 1.1);
       dummy.updateMatrix();
       shadow.setMatrixAt(i, dummy.matrix);
+
+      // A shade lighter or darker per tree. A stand of a hundred canopies in one
+      // flat colour reads as a texture rather than as trees, and this is the
+      // cheapest possible cure — the same positional hash the yaw uses, so it
+      // costs nothing and touches no RNG.
+      const shade = 0.86 + hashUnit(tree.x * 0.7, tree.y * 0.7) * 0.28;
+      canopy.setColorAt(i, tint.copy(canopyBase).multiplyScalar(shade));
     });
+    if (canopy.instanceColor) canopy.instanceColor.needsUpdate = true;
 
     for (const mesh of [shadow, trunk, canopy]) {
       mesh.instanceMatrix.needsUpdate = true;

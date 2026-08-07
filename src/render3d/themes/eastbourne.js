@@ -16,6 +16,8 @@ import {
 import { WORLD } from '../../config.js';
 import { EASTBOURNE_LAYOUT } from '../../eastbourneRoute.js';
 import { basic, lambert } from '../palette.js';
+import { eastbourneCoast } from '../../coast.js';
+import { metres } from '../../scale.js';
 import { buildEastbourneVilla, villaPalette } from '../houses.js';
 import { bakeStatic } from '../bake.js';
 import { buildEastbourneParallax } from './eastbourneParallax.js';
@@ -61,66 +63,81 @@ function placeAtGround(object, terrain, x, z, yOffset = 1) {
   return object;
 }
 
-function addCoast(group, terrain) {
-  const W = WORLD.width;
-  const H = WORLD.height;
+// The harbour, drawn from the same walk the seawall is built from.
+//
+// This used to lay a flat sand ribbon and a flat water plane over ground that
+// was neither flat nor at that height, against an authored shoreline that the
+// rescale had left hundreds of metres out to sea. Both problems go away by
+// drawing what the terrain actually does: the ground ramps from the road down
+// to sea level across the beach, render3d/ground.js tints that ramp to sand as
+// it approaches the water, and all that is needed here is the water itself, a
+// line of foam where it meets the sand, and the low wall at the road edge.
+function addCoast(group, terrain, track) {
   const sea = terrain.seaLevel || 0;
+  const { points, wall } = eastbourneCoast(track);
 
-  // Open water extends far outside the course. A paler inshore strip and the
-  // sandy ribbon make the coast legible from the chase camera without turning
-  // it into a heavy promenade or retaining wall.
-  const water = new Mesh(
-    new PlaneGeometry(W * 1.15, H * 1.35),
-    basic(COLOUR.water, { fog: true })
-  );
+  // Open water, out past anything the camera can reach. Anchored on the derived
+  // shoreline rather than on fractions of the world, so it arrives at the beach
+  // instead of near it.
+  let sumX = 0;
+  let sumZ = 0;
+  for (const p of points) {
+    sumX += p.x;
+    sumZ += p.z;
+  }
+  const midX = sumX / points.length;
+  const midZ = sumZ / points.length;
+  const reach = Math.max(WORLD.width, WORLD.height) * 2.2;
+  const water = new Mesh(new PlaneGeometry(reach, reach), basic(COLOUR.water, { fog: true }));
   water.geometry.rotateX(-Math.PI / 2);
-  water.position.set(-W * 0.32, sea + 2, H * 0.54);
+  // Half a plane seaward of the mean shoreline, so its landward edge lands on
+  // the coast. The beach is a ramp, so the water's edge is hidden under the
+  // sand wherever the two disagree by a metre — which is the right way to be
+  // wrong, and the reason the foam is drawn separately below.
+  water.position.set(midX - reach * 0.5 + metres(6), sea + 2, midZ);
   group.add(water);
 
-  const shallow = new Mesh(
-    new PlaneGeometry(W * 0.22, H * 1.16),
-    basic(COLOUR.shallow, { fog: true })
-  );
-  shallow.geometry.rotateX(-Math.PI / 2);
-  shallow.position.set(W * 0.02, sea + 2.5, H * 0.55);
-  group.add(shallow);
-
-  const sand = lambert(COLOUR.sand);
+  const shallow = lambert(COLOUR.shallow);
   const foam = basic(COLOUR.foam, { fog: true });
-  const edge = lambert(COLOUR.concrete);
-  const shoreline = EASTBOURNE_LAYOUT.shoreline;
-  for (let i = 0; i < shoreline.length - 1; i += 1) {
-    const a = shoreline[i];
-    const b = shoreline[i + 1];
-    // A thin but continuous beach, matching the long narrow coastal strip in
-    // the reference route rather than the previous hard seawall-only edge.
-    addSegment(group, a, b, 230, 7, sea + 4, sand);
-    addSegment(
-      group,
-      { x: a.x - 112, z: a.z },
-      { x: b.x - 112, z: b.z },
-      14,
-      3,
-      sea + 5.5,
-      foam
-    );
-    // Low landward edging aligns closely with the collision barrier used by the
-    // simulation, but stays low enough that the beach and harbour remain open.
-    addSegment(
-      group,
-      { x: a.x + 115, z: a.z },
-      { x: b.x + 115, z: b.z },
-      20,
-      20,
-      sea + 10,
-      edge
-    );
+  for (let i = 0; i < points.length - 1; i += 1) {
+    // An inshore shelf, then the foam line right on the sand.
+    addSegment(group, points[i], points[i + 1], metres(9), 7, sea + 3, shallow);
+    addSegment(group, points[i], points[i + 1], metres(1.1), 4, sea + 5, foam);
+  }
+
+  // The low wall along the seaward edge of the road. Its collision circles are
+  // placed by RaceScene.placeSeawall from the same `wall` polyline.
+  const concrete = lambert(COLOUR.concrete);
+  for (let i = 0; i < wall.length - 1; i += 1) {
+    const a = wall[i];
+    const b = wall[i + 1];
+    const y = terrain.heightAt((a.x + b.x) / 2, (a.z + b.z) / 2);
+    addSegment(group, a, b, metres(0.5), metres(0.8), y + metres(0.4), concrete);
   }
 }
 
-function addWharf(group, terrain) {
+// Days Bay Wharf, projecting from wherever the beach actually is.
+//
+// `shoreX` was a single authored number for the whole coast, which stopped being
+// true the moment the shoreline started following the road. The wharf now finds
+// the coast point nearest its own z and starts there, so it meets the beach at
+// the top and reaches open water at the T whatever the road does.
+function shoreXAt(coast, z) {
+  let best = coast.points[0];
+  let bestGap = Infinity;
+  for (const p of coast.points) {
+    const gap = Math.abs(p.z - z);
+    if (gap < bestGap) {
+      bestGap = gap;
+      best = p;
+    }
+  }
+  return best.x;
+}
+
+function addWharf(group, terrain, track) {
   const z = EASTBOURNE_LAYOUT.places.wharfZ;
-  const shoreX = EASTBOURNE_LAYOUT.shoreX;
+  const shoreX = shoreXAt(eastbourneCoast(track), z);
   const sea = terrain.seaLevel || 0;
   const deck = lambert(0x72797c);
   const white = lambert(COLOUR.white);
@@ -176,19 +193,24 @@ function addNorfolkPine(group, terrain, x, z, scale = 1) {
   group.add(root);
 }
 
-// The pine positions below were authored against Eastbourne at 7,200 x 15,000.
-// It is seventeen times that now, and left alone they would stand in a huddle
-// down at the Days Bay end instead of running the length of the shore. Positions
-// map; the trees' own sizes do not.
-const AUTHORED = { width: 7200, height: 15000 };
-const px = (x) => x * (WORLD.width / AUTHORED.width);
-const pz = (z) => z * (WORLD.height / AUTHORED.height);
-
-function addCoastalPines(group, terrain) {
-  // Norfolk pines punctuate the shore without becoming a continuous forest.
-  const positions = [3900, 4700, 5550, 6500, 7420, 8350, 9300, 10300];
-  positions.forEach((az, i) =>
-    addNorfolkPine(group, terrain, px(1380 + (i % 2) * 35), pz(az), 0.86 + (i % 3) * 0.08));
+// Norfolk pines punctuate the shore without becoming a continuous forest.
+//
+// Spaced along the derived coast rather than at authored points: they are a
+// feature *of the shore*, so if the shore moves they move with it. The authored
+// x they used to carry put them on the beach in the world this file was written
+// for and out in the harbour in the one it renders now.
+function addCoastalPines(group, terrain, track) {
+  const { points } = eastbourneCoast(track);
+  const count = 9;
+  for (let i = 0; i < count; i += 1) {
+    // Skipping the run-on at either end, which is geography rather than shore.
+    const t = 0.1 + (i / (count - 1)) * 0.8;
+    const at = points[Math.round(t * (points.length - 1))];
+    if (!at) continue;
+    // Set back onto the berm, on the landward side of the sand.
+    const inland = at.x + metres(9) + (i % 2) * metres(4);
+    addNorfolkPine(group, terrain, inland, at.z, 0.86 + (i % 3) * 0.08);
+  }
 }
 
 function addHills(group, terrain) {
@@ -345,9 +367,9 @@ export function buildEastbourne(track, def, terrain, structures = []) {
   const group = new Group();
   group.name = 'eastbourne-layout-environment';
 
-  addCoast(group, terrain);
-  addWharf(group, terrain);
-  addCoastalPines(group, terrain);
+  addCoast(group, terrain, track);
+  addWharf(group, terrain, track);
+  addCoastalPines(group, terrain, track);
   addHills(group, terrain);
   addHouses(group, terrain, structures);
   addVillage(group, terrain, structures);

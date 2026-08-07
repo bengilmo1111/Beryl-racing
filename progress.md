@@ -1901,3 +1901,124 @@ measured whichever course happened to be selected last, which is how "Ōtaki has
 97 houses" got reported when the real figure was 74. The counts above come from
 the running game instead. A function that ignores its argument and answers
 confidently is a worse failure mode than one that throws.
+
+## 2026-08-07 — Four places, not one road four times
+
+*"More realistic and recognisable places."*
+
+The survey that started this is worth recording, because the fault was not in any
+one course. Screenshots of all four, five frames apart along each route, showed
+**the same picture**: a sealed two-lane road with white edge lines, running
+through uniformly bright green grass, populated by the same conifers and the same
+post-and-wire fence. Ōtaki's dry summer farmland, Eastbourne's harbour edge and
+the Remutaka bush floor were all the same emerald. The only thing telling one
+course from another was the shape of the corners.
+
+Each art brief names a ground colour, and none of them is that green.
+
+### The ground was one colour on every course
+
+`buildGround` drew the terrain in a single flat `C.hill`. That is the whole
+explanation, and it is also the cheapest thing in the game to fix.
+
+`render3d/ground.js` gives each course a palette and varies it within the course:
+a coarse noise the size of a paddock and a finer one inside it, so the ground is
+a patchwork rather than one unbroken sheet to the horizon — which is the thing
+that reads as "computer game" faster than any amount of missing detail. Both
+frequencies come from a positional hash, never `Math.random`, because the global
+stream is seeded and its draw order is part of the determinism contract.
+
+- **Ōtaki** is Kāpiti in February: grazed-off straw and ochre.
+- **Eastbourne** is bright coastal grass going darker up the bush hillside, with
+  sand where the ground approaches sea level.
+- **Remutaka** is a deep, cool forest-park floor with browner cut banks up high.
+- **Manfeild** is mown, and gets a much tighter spread, because a circuit
+  genuinely is uniform.
+
+Two things had to follow it. The run-off **verge** was one fixed deep green;
+against ochre that stopped reading as a verge and started reading as a green
+stripe painted down the course, so it is now the course's own ground darkened —
+the legibility contrast is preserved because the darkening is relative. And the
+**foliage**: three tree variants with one authored colour each meant a macrocarpa
+shelter belt on the February flats was the same green as bush in a forest park.
+Each variant now gets pulled part of the way toward the course's cast, so a
+conifer still reads darker than a pōhutukawa and only the overall tone moves.
+Per-tree shading on top, from the same hash the yaw already uses, because a
+hundred canopies in one flat colour read as a texture rather than as trees.
+
+### Eastbourne was not on the coast
+
+The brief's first recognition test is *"harbour on the coastal side"*. The harbour
+was 80 m off the road at the top of Marine Drive and 250 m off it by the village,
+behind a screen of trees. The most coastal course in the game read as a road
+through a forest.
+
+Same fault as the houses, one more time. The shoreline was eleven authored
+coordinates, about 20 m off the road **in the world they were written for**. The
+rescale multiplied the course by 17 so its length would be honest, and multiplied
+the beach with it, because a coordinate list cannot know that this particular
+number was a beach and not a place. *The width of a beach is a size. It does not
+scale with the map.*
+
+So the coast is generated: offset the coastal roads' own centrelines, seaward, by
+a beach. `src/coast.js` sits outside `render3d/` deliberately — the seawall Beryl
+hits is simulation and the water is render, and both coming out of one walk is
+what stops them drifting apart.
+
+Four things fell out of doing it properly:
+
+- **Which roads are the coast.** The primary turns inland at the village to reach
+  the RSA; it is Marine Parade that carries on around Rona Bay. Projecting the
+  primary's last heading onward ran the harbour diagonally across the shops and
+  put Marine Parade underwater. The layout names both legs, as fractions.
+- **The sea region had to be rotated.** Marine Drive drifts east as it runs
+  south, so an upright box either floods the road at one end or strands the beach
+  up a hillside at the other. It is an oriented rect on the road's own line now,
+  and its landward edge lands on the generated shoreline at *both* ends —
+  checked, not assumed. The road corridor is pinned before any sea is applied, so
+  the carriageway stays on its shelf and the ground ramps down to the water.
+- **That ramp is the beach.** No sand ribbon is laid over it any more; the ground
+  is tinted to sand as it approaches sea level. Which forced the beach wider —
+  45 m, not 26 — because the terrain grid on a course this size has ~15 m cells
+  and a 26 m beach is under two cells across, so the slope could not be resolved
+  at all.
+- **The houses were on the beach.** All 270 of them. The comment above them said
+  "seaward is beach and harbour, so the houses are inland only" while the code
+  put every one on the water side, because "side 1" is a sign, not a direction,
+  and nothing had ever asked which way the sea was. It asks now.
+
+And once there was water beside the road, the scenery scatter started putting
+macrocarpa in it. A beach mask keeps trees, scrub, bales, fences and gates off
+the sand; the power line swaps to the landward side rather than marching out into
+the harbour.
+
+### Gravel with painted edge lines
+
+`buildCentreLine` had always skipped the dashes on Ōtaki's unsealed gorge. The
+cream kerb edging ran the full length of the road regardless, so the gravel had a
+crisp painted line down each side of it — the one marking a gravel road certainly
+does not have, and enough to undo most of the work the gravel colour was doing.
+It skips now, and the verge beside it is dust rather than mown grass.
+
+### Manfeild was a race circuit with nothing round it
+
+A pit complex and a grandstand at one end, eight bale stacks, four advertising
+boards — and 3 km of lap, so for most of a lap there was green paddock to the
+horizon. What distinguishes a circuit from a road across a farm is not the
+buildings at one end. It is **the fence that runs the whole way round**, always
+the same distance out, always on the outside, plus braking boards on the approach
+to every corner.
+
+Both are generated rather than authored: the outside of a closed circuit is
+simply away from the centroid, and the corners are found from curvature, so
+neither needs re-authoring if the layout ever moves. The fence is ~1,600 posts
+and their wires, baked into one mesh.
+
+### Baselines
+
+**Only Eastbourne moves**, and this is the rare re-record where a finish time
+legitimately moves with it: 162.4 s → 160.6 s. The bot is not driving better — it
+is driving a course that finally has a barrier along its seaward edge instead of
+an unmarked run-off into open grass, and a barrier there changes the line.
+Manfeild, Remutaka and Ōtaki are identical to the digit, which is the check that
+the ground palette, the foliage tint and the gravel kerbs are all render-side.

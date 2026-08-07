@@ -7,9 +7,9 @@
 // left tracks.js holding a stale prototype route that looked authoritative and
 // silently did nothing.
 //
-// Authored at final world scale, unlike every other course. tracks.js marks the
-// entry `preScaled` so scaleCourse leaves the geometry alone; see the note
-// there.
+// Authored small and scaled up by `lengthScale` in tracks.js, like every other
+// course. (It was once the exception, marked `preScaled`; that flag and the two
+// courses that skipped the geometry pass entirely went away with the rescale.)
 //
 // Shape references:
 // - the supplied Google Maps screenshots from 28 Ferry Road to Eastbourne RSA;
@@ -24,7 +24,21 @@
 
 export const EASTBOURNE_LAYOUT = {
   world: { width: 7200, height: 15000 },
-  shoreX: 1200,
+  // Which roads follow the water, and over what fraction of each.
+  //
+  // The coast is generated from these — see src/coast.js — because the
+  // shoreline that used to be authored here was a list of coordinates, and a
+  // list of coordinates cannot survive a rescale of the map it sits on.
+  // Fractions can. That is the whole reason they are fractions.
+  //
+  // Two legs, because the primary turns inland at the village to reach the RSA
+  // and it is Marine Parade that carries on around Rona Bay. Projecting the
+  // primary's last heading onward instead ran the harbour diagonally across the
+  // shops, and put Marine Parade underwater.
+  coastal: [
+    { road: 'primary', from: 0.2, to: 0.76 },
+    { road: 'marine-parade', from: 0.04, to: 0.9 },
+  ],
   places: {
     wharfZ: 5480,
     williamsPark: { x: 3150, z: 7100 },
@@ -33,21 +47,6 @@ export const EASTBOURNE_LAYOUT = {
     school: { x: 3720, z: 12720 },
     rsa: { x: 2920, z: 14350 },
   },
-  // A nearly continuous shoreline with small bays. The playable road follows
-  // this shape at a modest setback, leaving a thin strip of beach throughout.
-  shoreline: [
-    { x: 1200, z: 2500 },
-    { x: 1160, z: 3600 },
-    { x: 1120, z: 4700 },
-    { x: 1200, z: 5800 },
-    { x: 1080, z: 7000 },
-    { x: 1160, z: 8200 },
-    { x: 1100, z: 9400 },
-    { x: 1180, z: 10600 },
-    { x: 1100, z: 11800 },
-    { x: 1120, z: 13000 },
-    { x: 1180, z: 14500 },
-  ],
 };
 
 const PRIMARY_ANCHORS = [
@@ -154,7 +153,24 @@ export const EASTBOURNE_GEOMETRY = {
   checkpointFractions: [0, 0.12, 0.26, 0.42, 0.58, 0.73, 1],
   closed: false,
   elevation: {
-    sea: [{ x: -1800, y: -1000, w: 3100, h: 17000, level: 0 }],
+    // The harbour, as an *oriented* region rather than an upright box.
+    //
+    // Marine Drive drifts east as it runs south — from x 1480 at the top of the
+    // drive to 2040 at the village — so an axis-aligned sea either floods the
+    // road at one end or leaves the beach stranded up a hillside at the other.
+    // This one is rotated onto the road's own line, and its landward edge sits
+    // exactly where src/coast.js puts the water: half a road plus a beach out
+    // from the centreline, at both ends.
+    //
+    // The road corridor is pinned to its own height before any sea region is
+    // applied (see terrain.js), so the carriageway stays up on its shelf and the
+    // ground ramps down across the beach to the water. That ramp *is* the beach:
+    // render3d/ground.js tints the terrain to sand as it approaches sea level,
+    // rather than laying a flat sand ribbon over ground that is not flat.
+    // halfW reaches far out past anything the camera can see. At 1950 the
+    // terrain came back up beyond the region and poked through the water plane,
+    // turning Wellington Harbour into a canal with a green far bank.
+    sea: [{ cx: -7269, cy: 8414, angle: -0.0731, halfW: 9000, halfL: 9600, level: 0 }],
     profile: [
       { at: 0, h: 320 },
       { at: 0.07, h: 235 },

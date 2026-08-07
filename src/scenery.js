@@ -28,6 +28,7 @@
 import Phaser from 'phaser';
 import { TRACK, WORLD } from './config.js';
 import { distanceToCenterline } from './track.js';
+import { beachMask } from './coast.js';
 import { metres } from './scale.js';
 
 // Real sizes, at last.
@@ -220,6 +221,13 @@ export function scatterScenery(track, def) {
   // Clear air between the carriageway and anything solid. Trees that brush the
   // kerb make a two-lane road feel like a tunnel.
   const inner = TRACK.roadWidth / 2 + plan.verge;
+  // Nothing grows on a beach, or in a harbour. Until the water arrived beside
+  // Marine Drive this could not come up; now the seaward band lands in it, and
+  // a stand of macrocarpa standing in Wellington Harbour is a fairly direct
+  // contradiction of "recognisable place". Null on every other course, and the
+  // `!offBeach` short-circuit keeps it free there.
+  const offBeach = beachMask(track, def);
+  const dry = (x, y) => !offBeach || !offBeach(x, y);
 
   // Trees, in two bands.
   //
@@ -244,6 +252,7 @@ export function scatterScenery(track, def) {
           // every branch: a band measured off the primary route knows nothing
           // about the side street it may be crossing.
           if (distanceToCenterline(x, y, line) < inner) continue;
+          if (!dry(x, y)) continue;
           const sp = SPECIES[variant];
           trees.push({ x, y, variant, canopyWidth: sp.canopy * size });
           if (solid && offset < SOLID_WITHIN) obstacles.push({ x, y, r: sp.trunk * size });
@@ -279,6 +288,7 @@ export function scatterScenery(track, def) {
       const y = at.y + at.ny * side * offset + dz;
       if (!insideWorld(x, y)) continue;
       if (distanceToCenterline(x, y, line) < inner - metres(3)) continue;
+      if (!dry(x, y)) continue;
       props.push({ kind: 'scrub', x, y, yaw: Phaser.Math.FloatBetween(0, Math.PI), size });
     }
   }
@@ -294,6 +304,7 @@ export function scatterScenery(track, def) {
     const y = at.y + at.ny * side * offset;
     if (!insideWorld(x, y)) continue;
     if (distanceToCenterline(x, y, line) < inner + metres(14)) continue;
+    if (!dry(x, y)) continue;
     props.push({ kind: 'bale', x, y, yaw, size: 1 });
   }
 
@@ -309,6 +320,7 @@ export function scatterScenery(track, def) {
     const y = at.y + at.ny * side * offset;
     if (!insideWorld(x, y)) continue;
     if (distanceToCenterline(x, y, line) < inner - metres(2)) continue;
+    if (!dry(x, y)) continue;
     props.push({ kind: 'rock', x, y, yaw: Phaser.Math.FloatBetween(0, Math.PI), size });
   }
 
@@ -325,6 +337,7 @@ export function scatterScenery(track, def) {
     const y = at.y + at.ny * side * (inner + offset);
     if (!insideWorld(x, y)) continue;
     if (distanceToCenterline(x, y, line) < inner + metres(40)) continue;
+    if (!dry(x, y)) continue;
     props.push({ kind: 'shelterBelt', x, y, yaw: Math.atan2(at.ny, at.nx) + lean, length });
   }
 
@@ -346,6 +359,7 @@ export function scatterScenery(track, def) {
         const y = at.y + at.ny * side * offset;
         if (!insideWorld(x, y)) continue;
         if (blocksAJunction(x, y, roads, fenceStep * 0.6)) continue;
+        if (!dry(x, y)) continue;
         props.push({ kind: 'fence', x, y, yaw: Math.atan2(at.ny, at.nx), length: fenceStep });
       }
     }
@@ -365,6 +379,7 @@ export function scatterScenery(track, def) {
       const y = at.y + at.ny * side * offset;
       if (!insideWorld(x, y)) continue;
       if (blocksAJunction(x, y, roads, metres(6))) continue;
+      if (!dry(x, y)) continue;
       props.push({ kind: 'gate', x, y, yaw: Math.atan2(at.ny, at.nx), side });
     }
   }
@@ -374,11 +389,19 @@ export function scatterScenery(track, def) {
     const offset = TRACK.roadWidth / 2 + metres(7);
     for (let s = poleStep; s < routeLength; s += poleStep) {
       const at = alongRoute(line, cumulative, s);
-      const x = at.x + at.nx * offset;
-      const y = at.y + at.ny * offset;
-      if (!insideWorld(x, y)) continue;
-      if (blocksAJunction(x, y, roads)) continue;
-      props.push({ kind: 'pole', x, y, yaw: Math.atan2(at.ny, at.nx) });
+      // One side of the road, and the same side throughout — a power line
+      // crossing back and forth is not a thing. But on the coast that one side
+      // is sometimes the beach, so it swaps to the other rather than marching
+      // out into the harbour.
+      for (const side of [1, -1]) {
+        const x = at.x + at.nx * side * offset;
+        const y = at.y + at.ny * side * offset;
+        if (!insideWorld(x, y)) continue;
+        if (blocksAJunction(x, y, roads)) continue;
+        if (!dry(x, y)) continue;
+        props.push({ kind: 'pole', x, y, yaw: Math.atan2(at.ny, at.nx) });
+        break;
+      }
     }
   }
 

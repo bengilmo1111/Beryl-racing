@@ -353,14 +353,30 @@ function scaleCourse(def) {
         drop: r.drop * L,
       };
     }
+    // Sea regions come in two shapes. An axis-aligned rect is enough where the
+    // coast runs with the grid; an oriented one is what Eastbourne needs, since
+    // its harbour follows Marine Drive rather than a line of longitude and an
+    // upright box either floods the road or leaves the beach on a hillside.
+    // `angle` is a rotation and must not be multiplied by anything.
     if (g.elevation.sea) {
-      g.elevation.sea = g.elevation.sea.map((r) => ({
-        x: r.x * L,
-        y: r.y * L,
-        w: r.w * L,
-        h: r.h * L,
-        level: r.level * L,
-      }));
+      g.elevation.sea = g.elevation.sea.map((r) => (
+        r.angle != null
+          ? {
+              cx: r.cx * L,
+              cy: r.cy * L,
+              angle: r.angle,
+              halfW: r.halfW * L,
+              halfL: r.halfL * L,
+              level: r.level * L,
+            }
+          : {
+              x: r.x * L,
+              y: r.y * L,
+              w: r.w * L,
+              h: r.h * L,
+              level: r.level * L,
+            }
+      ));
     }
   }
 

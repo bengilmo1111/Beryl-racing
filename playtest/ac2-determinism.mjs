@@ -88,11 +88,25 @@ import { TRACKS } from '../src/tracks.js';
 //   Manfeild and Remutaka are untouched, and all four finish times and final
 //   positions are identical to the digit — the houses went beside the road,
 //   which is exactly the claim being made.
+// - Re-recorded 2026-08-07 for Eastbourne's coast. Its shoreline was an authored
+//   polyline that the 17× rescale had left 80–250 m off Marine Drive, so the
+//   most coastal course in the game read as a road through a forest and its
+//   seawall stood in the middle of an empty paddock. The coast is generated from
+//   the road now (src/coast.js), which puts the wall 3 m off the seal where it
+//   belongs.
+//
+//   So this is the rare re-record where a *finish time* legitimately moves:
+//   162.4 s → 160.6 s. The bot is not driving better. It is driving a course
+//   that finally has a barrier along its seaward edge instead of an unmarked
+//   run-off into open grass, and a barrier there changes the line. Only
+//   Eastbourne moves; the other three are identical to the digit, which is the
+//   check that the per-course ground palette, the tree tint and the gravel kerbs
+//   in the same change are all render-side.
 const BASELINES = {
   'eastbourne-dash': {
-    finishTimeMs: 162366.666667,
-    pos: { x: 46502.232482791, y: 243327.790437364 },
-    obstacles: 'ac872823a5163a54',
+    finishTimeMs: 160583.333333,
+    pos: { x: 46489.226573488, y: 243324.686123008 },
+    obstacles: '1ead6a124048ceb1',
   },
   // Manfeild has no trees, so every circle on the circuit belongs to a building:
   // pit wall, garages, timing tower, paddock sheds, grandstand and marshal huts.

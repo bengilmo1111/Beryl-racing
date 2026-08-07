@@ -15,6 +15,7 @@
 // obstacle list itself changes.
 import { EASTBOURNE_LAYOUT } from './eastbourneRoute.js';
 import { metres } from './scale.js';
+import { eastbourneSeaward } from './coast.js';
 
 // Clear air between the kerb and the nearest corner of a building.
 const SHOULDER = 70;
@@ -186,7 +187,10 @@ const HOUSE_VARIANTS = ['villa', 'bungalow', 'cottage', 'villa', 'bungalow', 'tw
 // they can stay. Houses behind the shops is also what a main street looks like.
 function housesAlong(
   track,
-  { from, to, settledAt, sides = [0, 1], depth0 = 150, rowDepth = 470, frontTaken = null }
+  {
+    from, to, settledAt, sides = [0, 1], depth0 = 150, rowDepth = 470,
+    frontTaken = null, facing = 1,
+  }
 ) {
   const walk = routeWalker(track);
   const half = track.half;
@@ -203,7 +207,7 @@ function housesAlong(
       const pick = hashUnit(at.x * 0.013 + row * 7.7, at.z * 0.017);
       if (pick > settled) continue;
       const spread = hashUnit(at.z * 0.021 + row * 3.1, at.x * 0.011);
-      const side = row >= 2 ? -1 : 1;
+      const side = (row >= 2 ? -1 : 1) * facing;
       const depth = half + depth0 + (row % 2) * rowDepth + spread * 190;
       out.push(villa({
         x: at.x + at.nx * depth * side,
@@ -224,12 +228,16 @@ function eastbourneStructures(def, track) {
   const places = EASTBOURNE_LAYOUT.places;
 
   // Bush and bays at the Days Bay end, a solid street by the time the village
-  // arrives. Seaward is beach and harbour, so the houses are inland only.
+  // arrives. Seaward is beach and harbour, so the houses are inland only —
+  // which is what the first version of this comment claimed while the code put
+  // all 270 of them on the beach, because "side 1" is a sign, not a direction,
+  // and nothing had ever asked which way the water was. It asks now.
   const houses = housesAlong(track, {
     from: 0.10,
     to: 0.99,
     settledAt: (f) => 0.30 + Math.min(1, Math.max(0, (f - 0.12) / 0.5)) * 0.62,
     sides: [0, 1],
+    facing: -eastbourneSeaward(track),
   });
 
   return [
