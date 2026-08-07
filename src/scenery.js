@@ -128,6 +128,32 @@ function insideWorld(x, y) {
   return x > 60 && y > 60 && x < WORLD.width - 60 && y < WORLD.height - 60;
 }
 
+// Roadside furniture is laid at a fixed offset from the primary route, which
+// knows nothing about the roads crossing it. Left alone that runs a post-and-wire
+// fence straight across the mouth of every side street — the same fault the
+// kerbs and centre line had, and just as obvious once you are looking at a
+// junction.
+//
+// Trees do not need this: they already go through distanceToCenterline, which
+// sees the whole network.
+const JUNCTION_CLEAR = 1.6;
+
+// `reach` is how far the prop itself extends from its own position. A fence
+// segment is 24 m long, so testing only its centre point cleared the posts and
+// left the wire strung straight across the road — the radius has to cover what
+// is being placed, not just where it is placed.
+function blocksAJunction(x, y, roads, reach = 0) {
+  for (let r = 1; r < roads.length; r++) {
+    const line = roads[r].centerline;
+    const limit = roads[r].half * JUNCTION_CLEAR + reach;
+    for (const p of line) {
+      if (Math.abs(p.x - x) > limit || Math.abs(p.y - y) > limit) continue;
+      if (Math.hypot(p.x - x, p.y - y) < limit) return true;
+    }
+  }
+  return false;
+}
+
 // Returns { trees, props, obstacles }. `trees` and `props` are render data — the
 // caller decides what a mesh looks like — and `obstacles` is gameplay, which
 // must be appended to the scene's list in this order.
@@ -145,6 +171,7 @@ export function scatterScenery(track, def) {
   if (!plan) return { trees, props, obstacles };
 
   const line = track.centerline;
+  const roads = track.roads || [track];
   const cumulative = arcLengths(line);
   const routeLength = cumulative[cumulative.length - 1];
   // Clear air between the carriageway and anything solid. Trees that brush the
@@ -208,6 +235,7 @@ export function scatterScenery(track, def) {
         const x = at.x + at.nx * side * offset;
         const y = at.y + at.ny * side * offset;
         if (!insideWorld(x, y)) continue;
+        if (blocksAJunction(x, y, roads, fenceStep * 0.6)) continue;
         props.push({ kind: 'fence', x, y, yaw: Math.atan2(at.ny, at.nx), length: fenceStep });
       }
     }
@@ -221,6 +249,7 @@ export function scatterScenery(track, def) {
       const x = at.x + at.nx * offset;
       const y = at.y + at.ny * offset;
       if (!insideWorld(x, y)) continue;
+      if (blocksAJunction(x, y, roads)) continue;
       props.push({ kind: 'pole', x, y, yaw: Math.atan2(at.ny, at.nx) });
     }
   }

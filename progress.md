@@ -1648,3 +1648,28 @@ both looked like product bugs:
    gear flipped every frame and re-armed the dip with it, so revs read a
    permanent 0.62× and looked flat. The synth was fine; the measurement was
    driving it twice.
+
+### Junctions
+
+Where a branch meets another road the two ribbons overlap for about a road's
+half-width — two coplanar surfaces at the same height, which is z-fighting, and
+which is the mottled dark blob at the Eastbourne village. The through road's
+kerb, apron and centre line also ran straight across the mouth of the side road,
+painting a solid line over a turn you are allowed to take.
+
+Every branch end lands exactly on another road's centreline, so the junctions can
+be found rather than authored: 8 on Eastbourne, 10 on Ōtaki, none on the two
+courses without branches. Each becomes a patch of tarmac laid just above the
+overlap and a radius the road dressing leaves alone. `buildRibbon` takes an
+optional per-segment skip, so a kerb is not drawn and hidden — it is not drawn.
+
+**Roadside furniture needed the same treatment and revealed a second bug.**
+Fences and poles are laid at a fixed offset from the primary route, which knows
+nothing about the roads crossing it, so a post-and-wire fence ran straight across
+every side street. Filtering on the fence's *centre point* was not enough: a
+segment is 24 m long and the clearance was 3.5 m, so the posts cleared and the
+wire stayed strung across the road. The test has to cover what is being placed,
+not just where it is placed.
+
+Render-side throughout, and the baselines confirm it: unchanged on all four
+courses. Props are deliberately off the RNG, so filtering them consumes no draws.
