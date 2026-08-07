@@ -1880,8 +1880,8 @@ Eastbourne's and Ōtaki's obstacle fingerprints moved, which they must when one
 course gains 258 buildings and the other 78. **Manfeild's and Remutaka's did
 not, and all four finish times and final positions are identical to the digit**
 — the houses went beside the road rather than into it, which is the whole
-claim. Matrix 16/16, waypoint bot 100% of gates and 0% off-road on all three
-road courses.
+claim. Matrix **16/16**, waypoint bot 100% of gates and 0% off-road on all three
+road courses, mobile controls and the new-player journey both green.
 
 ### Written down, finally
 
