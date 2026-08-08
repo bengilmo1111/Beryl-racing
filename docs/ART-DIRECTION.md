@@ -252,7 +252,7 @@ Do not falsely present the tracks as exact historical reconstructions. They are 
 
 ## 7. Track-specific visual identities
 
-### 7.1 Eastbourne Pootle
+### 7.1 Eastbourne Dash
 
 **Mood:** breezy, warm, coastal and relaxed  
 **Time:** late afternoon  

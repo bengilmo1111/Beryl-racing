@@ -1,17 +1,24 @@
 {
-  "name": "beryl-racing",
+  "name": "beryl-racing-3d",
   "version": "0.1.0",
-  "description": "Top-down 2D time-trial game where you drive Beryl, a classic Morris Minor, around a track.",
+  "description": "3D chase-cam time-trial game where you drive Beryl, a classic Morris Minor, around a track.",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "playtest": "node playtest/run.mjs",
-    "test:determinism": "node playtest/ac2-determinism.mjs"
+    "test:determinism": "node playtest/ac2-determinism.mjs",
+    "test:road-index": "node playtest/road-index.mjs",
+    "test:tree-art": "node scripts/validate-nz-tree-models.mjs",
+    "test:track-geometry": "node playtest/track-geometry.mjs",
+    "test:placement": "node playtest/placement.mjs",
+    "test:audio": "node playtest/audio-check.mjs",
+    "shots": "node playtest/shots.mjs"
   },
   "dependencies": {
-    "phaser": "^3.80.1"
+    "phaser": "^3.80.1",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "playwright": "^1.61.1",

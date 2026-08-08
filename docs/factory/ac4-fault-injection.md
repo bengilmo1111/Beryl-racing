@@ -10,7 +10,7 @@ the next fault.
 
 | Injected fault | Focused command | Named report failure | Result |
 |---|---|---|---|
-| Eastbourne checkpoint count changed from 10 to 9 | `npm run playtest -- --course=eastbourne-pootle --bot=idle --no-journey --no-mobile` | `checkpoint-count`: expected 10, found 9 | Caught |
+| Eastbourne checkpoint count changed from 10 to 9 | `npm run playtest -- --course=eastbourne-dash --bot=idle --no-journey --no-mobile` | `checkpoint-count`: expected 10, found 9 | Caught |
 | `public/assets/tree-1.png` renamed | same Eastbourne idle command | `failed-request`: invalid content type `text/html` for `./assets/tree-1.png`; Phaser also emitted `console-error` | Caught |
 | Manfield world-boundary collision disabled | `npm run playtest -- --course=manfield --bot=pedal-to-the-metal --no-journey --no-mobile` | `out-of-bounds`: 1 event, limit 0 | Caught |
 | `RaceScene.update` throws `AC4 injected update-loop failure` | Eastbourne idle command | `runtime-error` with the injected message and update stack | Caught |

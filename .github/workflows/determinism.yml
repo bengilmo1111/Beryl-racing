@@ -1,0 +1,43 @@
+name: Determinism
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: determinism-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    name: Deterministic replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Validate the tree model library
+        run: npm run test:tree-art
+      # The fast Node guards, before anything that needs a browser. Each of
+      # these catches a class of bug that used to reach a screenshot: a road
+      # folded through itself, a road index that disagrees with the full scan,
+      # and a building, beach or fog band that has drifted from the thing it
+      # belongs to. Seconds each, and they fail with the exact course and metric.
+      - name: Road geometry
+        run: npm run test:track-geometry
+      - name: Placement
+        run: npm run test:placement
+      - name: Road index
+        run: npm run test:road-index
+      - name: Verify replay and obstacle baselines
+        run: npm run test:determinism
+      - name: Engine sound
+        run: npm run test:audio

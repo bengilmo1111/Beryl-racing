@@ -4,6 +4,11 @@
 import Phaser from 'phaser';
 import { CAR, WORLD } from '../config.js';
 
+// Fraction of top speed above which a sideways slide counts as a drift. Matched
+// to the `CAR.maxSpeed * 0.3` gate applyFx already uses for handbrake skids, so
+// the two ways of laying a skid mark now agree with each other.
+const DRIFT_SPEED = 0.3;
+
 function approach(value, target, maxDelta) {
   if (value < target) return Math.min(value + maxDelta, target);
   if (value > target) return Math.max(value - maxDelta, target);
@@ -13,7 +18,13 @@ function approach(value, target, maxDelta) {
 export class Car {
   constructor(scene, x, y, rotation) {
     this.scene = scene;
-    this.sprite = scene.add.sprite(x, y, 'beryl');
+    // Made, not added. Beryl is drawn as a mesh on the 3D canvas now, but this
+    // sprite still defines her collision footprint, and those numbers are pinned
+    // by the determinism baselines: collideRadius 54.4, axleOffset 60.928,
+    // boundsMargin 108.8, all derived below from beryl.png's 128x256 at 0.85
+    // scale. Keeping the real texture-backed object is what guarantees they stay
+    // exactly what they were; it simply never joins the display list.
+    this.sprite = scene.make.sprite({ x, y, key: 'beryl', add: false });
     this.sprite.setOrigin(0.5, 0.5);
     this.sprite.setDepth(10);
     this.sprite.rotation = rotation;
@@ -53,7 +64,10 @@ export class Car {
     return { x: Math.sin(this.rotation), y: -Math.cos(this.rotation) };
   }
 
-  update(dt, input, onTrack, surface) {
+  // `grade` is the slope along Beryl's heading as a rise-over-run ratio, positive
+  // uphill. Flat courses pass 0 and take no extra arithmetic at all — see the
+  // guard below, which is what keeps Manfield's recorded baselines untouched.
+  update(dt, input, onTrack, surface, grade = 0) {
     this.onTrack = onTrack;
     const handbrake = !!input.handbrake;
 
@@ -79,8 +93,31 @@ export class Car {
       vForward = approach(vForward, 0, CAR.coastDrag * dt);
     }
 
+    // Gravity along the slope. Climbs bleed speed, descents give it back — this
+    // is the whole point of the hill climb: a slow car labouring up a steep road.
+    if (grade !== 0) {
+      let pull = CAR.gravity * grade;
+      if (pull > 0) {
+        // The hill never wins. Capping the climb penalty below Beryl's own
+        // acceleration guarantees full throttle always nets forward progress, so
+        // she crawls and strains up the switchbacks but is never stopped dead by
+        // them — which matters for a family game, and keeps the playtest bots
+        // able to summit.
+        const cap = CAR.accel * (CAR.maxClimbPenalty != null ? CAR.maxClimbPenalty : 0.78);
+        if (pull > cap) pull = cap;
+      }
+      vForward -= pull * dt;
+    }
+
     // Surface speed cap (soft pull-back if over).
-    const maxV = onTrack ? CAR.maxSpeed : CAR.maxSpeed * CAR.grassMaxSpeedFactor;
+    let maxV = onTrack ? CAR.maxSpeed : CAR.maxSpeed * CAR.grassMaxSpeedFactor;
+    // Running downhill earns a little over the flat top speed. Without this the
+    // hard clamp below swallows every metre gravity gives back and a descent
+    // feels identical to the flat.
+    if (grade < 0 && CAR.downhillOverspeed) {
+      const over = Math.min(1, -grade / 0.15);
+      maxV *= 1 + CAR.downhillOverspeed * over;
+    }
     if (vForward > maxV) {
       vForward = approach(vForward, maxV, (onTrack ? CAR.overspeedDrag : CAR.grassDrag) * dt);
     }
@@ -90,7 +127,13 @@ export class Car {
     // Steering: scales with speed, flips when reversing, sharper mid-drift.
     const speedRatio = Phaser.Math.Clamp(Math.abs(vForward) / CAR.maxSpeed, 0, 1);
     const effectiveness = CAR.lowSpeedTurn + (1 - CAR.lowSpeedTurn) * speedRatio;
-    const dir = vForward >= 0 ? 1 : -1;
+    // Steering only inverts once she is genuinely reversing. Taking the raw sign
+    // of vForward makes this chatter whenever speed hovers around zero: a car
+    // nudged back and forth — stopped on a hill, or resting against scenery —
+    // gets its steering flipped every few frames and jitters on the spot instead
+    // of turning, unable to point itself anywhere. A small deadband makes a
+    // stationary car steer consistently forwards.
+    const dir = vForward < -CAR.maxSpeed * 0.01 ? -1 : 1;
     const driftBoost = handbrake ? CAR.driftTurnBoost : 1;
     this.rotation += input.steer * CAR.turnRate * effectiveness * dir * driftBoost * dt;
 
@@ -132,7 +175,19 @@ export class Car {
     }
 
     this.lateral = vLateral;
-    this.drifting = Math.abs(vLateral) > CAR.driftLateral && Math.abs(vForward) > 140;
+    // Fast enough for a slide to read as a slide, expressed against this
+    // course's top speed rather than as a fixed number of units per second.
+    //
+    // It used to be a hard-coded 140, which is 88% of Eastbourne's top speed,
+    // 78% of Remutaka's, 68% of Ōtaki's — and 8% of Manfeild's. So drifting was
+    // unreachable on three courses and permanent on the fourth, and since this
+    // flag is what gates skid marks and tyre smoke, three of the four courses
+    // silently had no drift FX at all.
+    //
+    // Read only by applyFx (see RaceScene): nothing here feeds back into the
+    // simulation, which is why this can be corrected without moving a baseline.
+    this.drifting =
+      Math.abs(vLateral) > CAR.driftLateral && Math.abs(vForward) > CAR.maxSpeed * DRIFT_SPEED;
 
     this.sync();
   }

@@ -2,201 +2,242 @@
 // course — its world size, road geometry, handling model, decoration theme,
 // game mode and HUD/finish copy. config.applyTrack() copies the live parts into
 // the shared config objects when a course becomes active.
-//
-// Two very different courses ship today:
-//
-//   * Manfield Racetrack  — the original closed drift circuit (lap racing,
-//     large fast world, red/white rumble kerbs).
-//   * Eastbourne Pootle   — a gentle coastal point-to-point sprint (single run
-//     to the RSA, harbour on your left, warm late afternoon).
-//
-// Because they were authored at different scales, each carries its own physics.
 
 import { applyTrack } from './config.js';
+import { kmhToUnits } from './scale.js';
+import { walkNumbers, kindOf, scales, UndeclaredNumberError } from './courseSchema.js';
+import { EASTBOURNE_GEOMETRY, EASTBOURNE_LAYOUT } from './eastbourneRoute.js';
+import { OTAKI_GEOMETRY, OTAKI_LAYOUT } from './otakiRoute.js';
 
 export const TRACKS = [
   {
-    id: 'eastbourne-pootle',
-    name: 'Eastbourne Pootle',
+    id: 'eastbourne-dash',
+    name: 'Eastbourne Dash',
     tagline: 'Coastal point-to-point',
-    mode: 'sprint', // one run, start to finish
+    mode: 'sprint',
     theme: 'eastbourne',
-    world: { width: 2400, height: 5000 },
-    // Compressed north-to-south coastal route. Harbour stays on the player's
-    // left until the village, then the road turns inland to the RSA.
-    geometry: {
-      anchors: [
-        { x: 800, y: 400 },
-        { x: 650, y: 700 },
-        { x: 740, y: 1100 },
-        { x: 610, y: 1580 },
-        { x: 740, y: 2100 },
-        { x: 580, y: 2660 },
-        { x: 720, y: 3200 },
-        { x: 640, y: 3700 },
-        { x: 850, y: 4050 },
-        { x: 1250, y: 4200 },
-        { x: 1450, y: 4470 },
-        { x: 1280, y: 4740 },
-      ],
-      roadWidth: 180,
-      samplesPerSegment: 20,
-      numCheckpoints: 10,
-      closed: false,
-    },
-    // Morris Minor character: a decent top speed you have to work up to (long,
-    // lazy acceleration), weak brakes that are slow to wash off speed, and loose,
-    // low-grip cornering that gently oversteers — the tail drifts wide rather
-    // than the car darting where it's pointed.
+    world: { ...EASTBOURNE_LAYOUT.world },
+    // Days Bay round to Eastbourne and up to the RSA: about 3.8 km of coast
+    // road once scaled, which is roughly the real run.
+    lengthScale: 17,
+    geometry: EASTBOURNE_GEOMETRY,
+    layout: EASTBOURNE_LAYOUT,
     physics: {
-      maxSpeed: 88, // px/s; higher top end so the coastal run isn't a crawl
-      accel: 46, // long acceleration — takes ~2s to wind up to top speed
-      brakeDecel: 82, // poor brakes: slow to stop
-      reverseAccel: 40,
-      maxReverse: 34,
-      coastDrag: 8, // carries momentum; reluctant to slow when you lift off
-      overspeedDrag: 90,
-      turnRate: 3.1, // slightly lazy turn-in
+      topSpeedKmh: 100,
+      accel: 0.6795,
+      brakeDecel: 1.2114,
+      reverseAccel: 0.4545,
+      maxReverse: 0.3864,
+      coastDrag: 0.0909,
+      overspeedDrag: 1.0227,
+      grassDrag: 1.1364,
+      driftLateral: 0.1591,
+      gravity: 3.4091,
+      turnRate: 3.1,
       lowSpeedTurn: 0.55,
-      gripNormal: 5.4, // loose rear end — slow oversteer through the bends
-      gripDrift: 2.4,
-      gripGrass: 3.4,
+      gripNormal: 7.56,
+      gripDrift: 3.36,
+      gripGrass: 4.76,
       driftTurnBoost: 1.5,
       grassMaxSpeedFactor: 0.5,
-      grassDrag: 100,
-      driftLateral: 14,
+      maxClimbPenalty: 0.78,
+      downhillOverspeed: 0.18,
     },
-    storageKey: 'beryl-racing.eastbourne-pootle.bestTimeMs.v1',
-    hud: { current: 'POOTLE TIME', progress: 'TO EASTBOURNE' },
+    storageKey: 'beryl-racing-3d.eastbourne-dash.bestTimeMs.v2',
+    hud: { current: 'DASH TIME', progress: 'TO EASTBOURNE' },
     bestLabel: 'Eastbourne best',
     results: {
-      title: 'POOTLE COMPLETE!',
+      title: 'DASH COMPLETE!',
       message: 'Phew! Just in time for a beer.',
-      retryLabel: '↻  POOTLE AGAIN',
+      retryLabel: '↻  DASH AGAIN',
     },
-    // Roadside landmark labels, advance arrows and the finish marker text.
-    landmarks: [
-      [830, 300, '28 FERRY ROAD'],
-      [470, 1100, 'DAYS BAY WHARF'],
-      [900, 1580, 'WILLIAMS PARK'],
-      [470, 2660, 'RONA BAY'],
-      [920, 3700, 'EASTBOURNE VILLAGE'],
-      [1420, 4740, 'EASTBOURNE RSA'],
-    ],
-    arrows: [{ x: 980, y: 4010, text: 'TURN INLAND  ➜', rot: 0.15 }],
-    finishLabel: 'FINISH • RSA',
   },
   {
     id: 'manfield',
-    name: 'Manfield Racetrack',
-    tagline: 'Classic drift circuit',
-    mode: 'circuit', // continuous lap racing
+    name: 'Manfeild Circuit',
+    tagline: 'Chris Amon • 3.03 km',
+    mode: 'circuit',
     theme: 'manfield',
-    world: { width: 3000, height: 2000 },
-    // Hand-authored closed loop: a long bottom straight, sweeping right-handers,
-    // a top ess, and a left sweeper back to the line.
+    world: { width: 3540, height: 1920 },
+    // The true corner sequence at its true size: 4.1 was chosen only so a
+    // 450-wide road would fit inside the traced layout's tightest radius, which
+    // left the venue 875 m round — 29% of the real lap, and close enough to see
+    // the far side of the circuit from the main straight. 14.35 makes it the
+    // real 3.03 km, and the radius problem goes away on its own.
+    lengthScale: 14.35,
     geometry: {
       anchors: [
-        { x: 760, y: 1560 },
-        { x: 1700, y: 1660 },
-        { x: 2400, y: 1520 },
-        { x: 2720, y: 1170 },
-        { x: 2520, y: 820 },
-        { x: 2660, y: 470 },
-        { x: 2080, y: 400 },
-        { x: 1680, y: 560 },
-        { x: 1250, y: 380 },
-        { x: 760, y: 440 },
-        { x: 400, y: 820 },
-        { x: 470, y: 1240 },
-        { x: 560, y: 1480 },
+        { x: 1883, y: 1609 },
+        { x: 1510, y: 1607 },
+        { x: 1144, y: 1605 },
+        { x: 777, y: 1605 },
+        { x: 480, y: 1595 },
+        { x: 315, y: 1515 },
+        { x: 300, y: 1400 },
+        { x: 449, y: 1249 },
+        { x: 710, y: 1117 },
+        { x: 987, y: 1024 },
+        { x: 1251, y: 1031 },
+        { x: 1494, y: 1143 },
+        { x: 1696, y: 1364 },
+        { x: 1836, y: 1443 },
+        { x: 2000, y: 1372 },
+        { x: 2205, y: 1177 },
+        { x: 2410, y: 1130 },
+        { x: 2683, y: 1148 },
+        { x: 2872, y: 1074 },
+        { x: 2893, y: 980 },
+        { x: 2757, y: 876 },
+        { x: 2470, y: 808 },
+        { x: 2139, y: 799 },
+        { x: 1766, y: 799 },
+        { x: 1406, y: 800 },
+        { x: 1026, y: 800 },
+        { x: 660, y: 800 },
+        { x: 412, y: 761 },
+        { x: 322, y: 654 },
+        { x: 367, y: 508 },
+        { x: 577, y: 365 },
+        { x: 846, y: 300 },
+        { x: 1149, y: 306 },
+        { x: 1446, y: 367 },
+        { x: 1713, y: 438 },
+        { x: 1998, y: 512 },
+        { x: 2271, y: 584 },
+        { x: 2533, y: 652 },
+        { x: 2783, y: 717 },
+        { x: 3036, y: 823 },
+        { x: 3201, y: 1019 },
+        { x: 3234, y: 1227 },
+        { x: 3134, y: 1367 },
+        { x: 2839, y: 1479 },
+        { x: 2531, y: 1574 },
+        { x: 2249, y: 1611 },
       ],
-      roadWidth: 300, // wide, for drifting room
-      samplesPerSegment: 20,
-      numCheckpoints: 6, // includes the start/finish gate (index 0)
+      roadWidth: 450,
+      numCheckpoints: 18,
       closed: true,
     },
+    // The joke, and the reason it is allowed to be one.
+    //
+    // Every other course is a Morris Minor doing what a Morris Minor does. This
+    // one is a race circuit, so the only honest way for Beryl to be on it is if
+    // somebody has done something unwise to the engine. At the real 3.03 km a
+    // 110 km/h lap took 100 seconds, which is a long time to spend on a circuit;
+    // 220 halves it and buys the gag at the same time.
+    intro: 'BERYL HAS A V8 IN FOR TRACK DAY',
+    // Eight cylinders, so four firings per crankshaft revolution instead of two,
+    // and it revs past where the A-series gives up. See src/audio/EngineSound.js.
+    engine: { cylinders: 8, redline: 6200, idle: 950 },
     physics: {
-      maxSpeed: 940, // px/s on tarmac
-      accel: 900,
-      brakeDecel: 1600,
-      reverseAccel: 340,
-      maxReverse: 240,
-      coastDrag: 150,
-      overspeedDrag: 700,
+      topSpeedKmh: 220,
+      accel: 1.2447,
+      brakeDecel: 2.2128,
+      reverseAccel: 0.3617,
+      maxReverse: 0.2553,
+      coastDrag: 0.1596,
+      overspeedDrag: 0.7447,
+      grassDrag: 0.9574,
+      driftLateral: 0.0745,
       turnRate: 3.3,
       lowSpeedTurn: 0.5,
-      gripNormal: 9.0,
-      gripDrift: 2.4,
-      gripGrass: 4.0,
+      gripNormal: 12.6,
+      gripDrift: 3.36,
+      gripGrass: 5.6,
       driftTurnBoost: 1.5,
       grassMaxSpeedFactor: 0.5,
-      grassDrag: 900,
-      driftLateral: 70,
     },
-    storageKey: 'beryl-racing.manfield.bestLapMs.v1',
+    // How far you can see, as fractions of the world diagonal.
+    //
+    // A circuit wants to see the far side of itself — the default band erased
+    // the pit complex and the opposite straight, which are exactly what a race
+    // track is for. This used to say `{ near: 3200, far: 9000 }`, tuned when
+    // this world was 3,540 x 1,920 and still saying 3200/9000 when it became
+    // 50,799 x 27,552: a white wall 155 m in front of a car doing 220 km/h,
+    // which is two and a half seconds of visibility. Fractions cannot go stale
+    // that way, and they are directly comparable with the 0.3/0.9 default.
+    fogSpans: { near: 0.55, far: 1.4 },
+    storageKey: 'beryl-racing-3d.manfield.bestLapMs.v1',
     hud: { current: 'LAP TIME', progress: 'LAP 1', lapWord: 'LAP' },
     bestLabel: 'Best lap',
+    landmarks: [
+      [436, 1446, 'POST 1'],
+      [1110, 1143, 'POST 2'],
+      [1858, 1305, 'POST 3'],
+      [2366, 1275, 'POST 4'],
+      [2727, 1003, 'POST 5'],
+      [507, 572, 'POST 6'],
+      [3116, 1165, 'POST 7'],
+      [2534, 1680, 'POST 8'],
+    ],
   },
   {
     id: 'remutaka',
     name: 'Remutaka Hill Climb',
     tagline: 'Summit hill climb',
-    mode: 'sprint', // one run, foot of the hill to the summit
+    mode: 'sprint',
     theme: 'remutaka',
     world: { width: 5200, height: 3200 },
-    // Skeleton route (first cut): a compressed climb of SH2 from Te Marua in the
-    // broad, open west, running east through the lower sweepers and the Kaitoke
-    // bend, then tightening into summit switchbacks up to the Remutaka Summit
-    // sign in the high east. Open spline; coordinates are placeholders tuned so
-    // the hairpins don't self-overlap. Final art (guardrails, chevrons, the
-    // summit sign) is a later pass per docs/tracks/REMUTAKA-ART-BRIEF.md.
+    // The real hill road climbs ~10 km; this is 3.5 km of it, caricatured as
+    // docs/ART-DIRECTION.md asks rather than reproduced.
+    lengthScale: 25,
     geometry: {
       anchors: [
-        { x: 360, y: 2000 }, // Te Marua start — broad and low
+        { x: 360, y: 2000 },
         { x: 780, y: 1900 },
         { x: 1250, y: 1980 },
-        { x: 1750, y: 1780 }, // lower sweepers
+        { x: 1750, y: 1780 },
         { x: 2250, y: 1900 },
         { x: 2750, y: 1620 },
-        { x: 3200, y: 1500 }, // Kaitoke bend
+        { x: 3200, y: 1500 },
         { x: 3560, y: 1780 },
-        { x: 3720, y: 2160 }, // foot of the switchbacks
+        { x: 3720, y: 2160 },
         { x: 4080, y: 1980 },
-        { x: 3900, y: 1600 }, // hairpin 1
+        { x: 3900, y: 1600 },
         { x: 4280, y: 1460 },
-        { x: 4080, y: 1140 }, // hairpin 2
+        { x: 4080, y: 1140 },
         { x: 4500, y: 1040 },
-        { x: 4380, y: 780 }, // final charge
-        { x: 4820, y: 680 }, // Remutaka Summit finish
+        { x: 4380, y: 780 },
+        { x: 4820, y: 680 },
       ],
-      roadWidth: 150, // narrower and more technical than the coastal road
-      samplesPerSegment: 20,
+      // 240 was all the old switchback radius allowed — 1.1 car lengths, a
+      // single-track goat road on a state highway. The rescale lifts the
+      // ceiling to ~930, so this is now an ordinary two-lane road.
+      roadWidth: 420,
       numCheckpoints: 11,
       closed: false,
+      elevation: {
+        profile: [
+          { at: 0, h: 0 },
+          { at: 0.3, h: 45 },
+          { at: 0.55, h: 160 },
+          { at: 0.8, h: 320 },
+          { at: 1, h: 440 },
+        ],
+      },
     },
-    // Same Morris Minor character as Eastbourne (long acceleration, weak brakes,
-    // loose oversteer), scaled a little quicker for the hill and kept just
-    // grippy enough at low speed to hustle the summit hairpins. Tunable.
     physics: {
-      maxSpeed: 100, // decent top end for the lower sweepers
-      accel: 54, // long acceleration — ~2s to top speed
-      brakeDecel: 92, // poor brakes; the switchbacks need planning ahead
-      reverseAccel: 42,
-      maxReverse: 36,
-      coastDrag: 9, // slow to stop
-      overspeedDrag: 100,
+      topSpeedKmh: 85,
+      accel: 0.702,
+      brakeDecel: 1.196,
+      reverseAccel: 0.42,
+      maxReverse: 0.36,
+      coastDrag: 0.09,
+      overspeedDrag: 1.0,
+      grassDrag: 1.1,
+      driftLateral: 0.14,
+      gravity: 2.0,
       turnRate: 3.3,
-      lowSpeedTurn: 0.6, // a bit more low-speed steer so the hairpins stay doable
-      gripNormal: 5.8, // loose, oversteery — a touch more grip than the coast run
-      gripDrift: 2.6,
-      gripGrass: 3.4,
+      lowSpeedTurn: 0.6,
+      gripNormal: 8.12,
+      gripDrift: 3.64,
+      gripGrass: 4.76,
       driftTurnBoost: 1.5,
       grassMaxSpeedFactor: 0.5,
-      grassDrag: 110,
-      driftLateral: 14,
+      maxClimbPenalty: 0.78,
+      downhillOverspeed: 0.12,
     },
-    storageKey: 'beryl-racing.remutaka.bestTimeMs.v1',
+    storageKey: 'beryl-racing-3d.remutaka.bestTimeMs.v1',
     hud: { current: 'CLIMB TIME', progress: 'TO THE SUMMIT' },
     bestLabel: 'Best climb',
     results: {
@@ -219,70 +260,37 @@ export const TRACKS = [
   {
     id: 'otaki',
     name: 'Ōtaki Rally',
-    tagline: 'Gravel-to-coast rally',
-    mode: 'sprint', // one run, inland foothills down to the coast
+    tagline: 'Forks-to-coast road rally',
+    mode: 'sprint',
     theme: 'otaki',
-    world: { width: 5200, height: 5200 },
-    // Skeleton route (first cut): a compressed inland-to-coast dash. Start at
-    // Ōtaki Forks in the SE foothills, wind down the valley, blast the open
-    // farmland gravel with a couple of square rural turns, cross the Ōtaki River
-    // and the railway, thread the sealed township, then run out to Ōtaki Beach in
-    // the NW. Open spline; placeholder coordinates tuned so nothing self-overlaps.
-    geometry: {
-      anchors: [
-        { x: 4500, y: 4650 }, // Ōtaki Forks — inland start
-        { x: 4250, y: 4250 },
-        { x: 4380, y: 3820 }, // valley bend
-        { x: 4050, y: 3480 },
-        { x: 4180, y: 3050 },
-        { x: 3720, y: 2780 }, // out onto the farm flats
-        { x: 3120, y: 2760 }, // long gravel straight (west)
-        { x: 3150, y: 2260 }, // square rural turn (north)
-        { x: 2600, y: 2160 }, // turn back west toward the river
-        { x: 2120, y: 2060 }, // Ōtaki River crossing (kept straight)
-        { x: 1720, y: 1940 },
-        { x: 1500, y: 1620 }, // railway crossing / edge of town
-        { x: 1360, y: 1300 }, // into the sealed township
-        { x: 1520, y: 1020 }, // town turn
-        { x: 1140, y: 860 },
-        { x: 780, y: 700 }, // out toward the coast
-        { x: 470, y: 540 }, // Ōtaki Beach finish (NW)
-      ],
-      roadWidth: 160,
-      samplesPerSegment: 20,
-      numCheckpoints: 13,
-      closed: false,
-      // Gravel farmland/river/railway, sealed through town, loose again onto the
-      // beach approach. Fractions of the route length; drives both look and grip.
-      surfaceBands: [
-        { type: 'gravel', until: 0.66 },
-        { type: 'sealed', until: 0.93 },
-        { type: 'gravel', until: 1.0 },
-      ],
-    },
-    // Rally character: the fastest and loosest of the road courses, still
-    // Morris-Minor-flavoured (long acceleration, weak brakes, oversteer). Gravel
-    // is looser than the sealed town section. Tunable.
+    world: { ...OTAKI_LAYOUT.world },
+    // The Forks down to the beach is ~15 km in reality; 4.2 km here.
+    lengthScale: 10,
+    geometry: OTAKI_GEOMETRY,
+    layout: OTAKI_LAYOUT,
     physics: {
-      maxSpeed: 115, // open gravel straights want pace
-      accel: 62, // long acceleration
-      brakeDecel: 100, // poor brakes; plan ahead for the town and river
-      reverseAccel: 46,
-      maxReverse: 38,
-      coastDrag: 9, // slow to stop
-      overspeedDrag: 110,
+      topSpeedKmh: 95,
+      accel: 0.7009,
+      brakeDecel: 1.1304,
+      reverseAccel: 0.4,
+      maxReverse: 0.3304,
+      coastDrag: 0.0783,
+      overspeedDrag: 0.9565,
+      grassDrag: 0.9565,
+      driftLateral: 0.1217,
+      gravity: 2.6087,
       turnRate: 3.4,
       lowSpeedTurn: 0.6,
-      gripNormal: 6.0, // sealed / town on-road grip
-      gripGravel: 4.2, // gravel — looser, slidier, dusty
-      gripDrift: 2.6,
-      gripGrass: 3.2, // dry roadside grass off-track
+      gripNormal: 8.4,
+      gripGravel: 5.88,
+      gripDrift: 3.64,
+      gripGrass: 4.48,
       driftTurnBoost: 1.5,
       grassMaxSpeedFactor: 0.5,
-      grassDrag: 110,
-      driftLateral: 14,
+      maxClimbPenalty: 0.78,
+      downhillOverspeed: 0.15,
     },
-    storageKey: 'beryl-racing.otaki.bestTimeMs.v1',
+    storageKey: 'beryl-racing-3d.otaki.bestTimeMs.v2',
     hud: { current: 'RALLY TIME', progress: 'TO THE BEACH' },
     bestLabel: 'Best rally',
     results: {
@@ -290,75 +298,88 @@ export const TRACKS = [
       message: 'Made it! Save us a spot at the picnic.',
       retryLabel: '↻  RALLY AGAIN',
     },
-    landmarks: [
-      [4650, 4780, 'ŌTAKI FORKS'],
-      [3480, 2680, 'FARMLAND'],
-      [2120, 1840, 'ŌTAKI RIVER'],
-      [1780, 1480, 'RAILWAY'],
-      [1360, 1120, 'ŌTAKI'],
-      [470, 760, 'ŌTAKI BEACH'],
-    ],
-    arrows: [
-      { x: 3020, y: 2440, text: 'TURN  ➜', rot: -1.3 },
-      { x: 2400, y: 1980, text: 'RIVER  ➜', rot: 0.2 },
-    ],
-    finishLabel: 'FINISH • ŌTAKI BEACH',
-    // Code-drawn scenery hooks (see RaceScene.drawOtakiSetting). River & railway
-    // are placed across the road at these checkpoint indices; beach fills the NW.
+    // Recognition comes from the gorge, river, rail corridor, old-town grid and
+    // beach rather than generated labels or arrows.
+    // Checkpoint indices, not coordinates: the river and the level crossing are
+    // built where the route happens to cross them. The beach rectangle used to
+    // be copied in here as well and is not any more — it lives in
+    // `layout.zones`, and two copies of one rectangle scaled by two different
+    // code paths is the shape of the bug that put Ōtaki's farmhouses thousands
+    // of units from their own collision circles.
     scenery: {
       riverCp: 6,
-      railwayCp: 8,
-      beach: { x: 0, y: 0, w: 1050, h: 1050 },
+      railwayCp: 5,
     },
   },
 ];
 
-// --- Global feel tuning ----------------------------------------------------
-// Applied to every course at load. These are the knobs behind the overall
-// "longer and a little faster" feel:
-//   • LENGTH_SCALE stretches the route + world (and the scenery that lives in
-//     world coordinates) so each course is about twice as long to drive. Road
-//     width and the camera zoom are deliberately left alone, so the road looks
-//     the same on screen — there's just more of it.
-//   • SPEED_SCALE multiplies only the velocity-dimension handling values, so
-//     Beryl is about 1.5× faster while each car keeps its character (turn and
-//     grip rates are untouched).
-// (Beryl's sprite is separately drawn 1.25× larger in entities/Car.js.)
-const LENGTH_SCALE = 2;
-const SPEED_SCALE = 1.5;
-// Grip is nudged up by less than the speed increase. At 1.5× speed the car's
-// absolute sideways slide would grow 1.5× on the same-width roads and wash off
-// the tighter corners; lifting grip ~1.25× keeps it on the road while leaving
-// most of the loose, oversteery character intact.
-const GRIP_SCALE = 1.25;
-
-// Handling values measured in px/s or px/s² — everything that scales with speed.
-// Ratios (lowSpeedTurn, driftTurnBoost, grassMaxSpeedFactor) and turnRate are
-// intentionally excluded so the feel is preserved.
-const SPEED_FIELDS = [
-  'maxSpeed', 'accel', 'brakeDecel', 'reverseAccel', 'maxReverse',
-  'coastDrag', 'overspeedDrag', 'grassDrag', 'driftLateral',
+// --- Scaling ---------------------------------------------------------------
+//
+// Two numbers per course, and both of them mean something you can check against
+// the real place: `topSpeedKmh`, and `lengthScale` — how much bigger the course
+// is than its authored coordinates.
+//
+// This replaces three global multipliers (LENGTH_SCALE 2, SPEED_SCALE 1.8,
+// ACCEL_SCALE 1.3), a `preScaled` flag that made two of the four courses skip
+// the geometry pass entirely, and per-course top speeds written directly in
+// units per second. Under that arrangement Manfeild ran at 940 and Eastbourne at
+// 88 — which look equally plausible on the page and are 104 km/h and 10 km/h.
+// The layering is what hid it: no single line was wrong, and no two of them were
+// comparable.
+//
+// Everything else about the car is expressed as a multiple of its top speed, so
+// changing that number keeps the character — time to top speed, braking distance
+// in car lengths — and only changes the pace.
+const SPEED_RATIO_FIELDS = [
+  'accel', 'brakeDecel', 'reverseAccel', 'maxReverse',
+  'coastDrag', 'overspeedDrag', 'grassDrag', 'driftLateral', 'gravity',
 ];
-// Lateral-grip rates — scaled up modestly (GRIP_SCALE) to hold the road margin.
-const GRIP_FIELDS = ['gripNormal', 'gripGravel', 'gripDrift', 'gripGrass'];
 
+// One pass over every number in the definition, deciding what to do with each
+// by its declared kind rather than by a hand-written list of field names.
+//
+// The list is what kept failing. It skipped anything nobody remembered to add —
+// which is how Eastbourne's shoreline, the village places and Ōtaki's farmhouse
+// footprints each spent a while at a seventeenth of their proper distance — and
+// it multiplied anything wrongly on it, which is how a 20 m beach became 250 m
+// of open water. Both failures are silent. A number in the wrong units does not
+// throw; it just puts things in the wrong place.
+//
+// Now an undeclared number is a startup error naming the exact path, so the
+// failure happens at `npm run test:track-geometry`, in CI, and in the first
+// second of every playtest — instead of in a screenshot three months later.
+//
+// Scaled in place. `structures.js`, `src/coast.js` and the render themes all
+// import the route modules directly and hold references to these very objects;
+// handing back a scaled copy would leave whichever of them still read the
+// original placing houses at a seventeenth of the distance, which is precisely
+// the see-it-versus-hit-it split structures.js exists to prevent.
 function scaleCourse(def) {
-  const L = LENGTH_SCALE;
-  def.world = { width: Math.round(def.world.width * L), height: Math.round(def.world.height * L) };
-  const g = def.geometry;
-  g.anchors = g.anchors.map((a) => ({ x: a.x * L, y: a.y * L }));
-  // roadWidth intentionally NOT scaled (keeps the same on-screen road width).
-  if (def.landmarks) def.landmarks = def.landmarks.map(([x, y, t]) => [x * L, y * L, t]);
-  if (def.arrows) def.arrows = def.arrows.map((a) => ({ ...a, x: a.x * L, y: a.y * L }));
-  if (def.scenery && def.scenery.beach) {
-    const b = def.scenery.beach;
-    def.scenery.beach = { x: b.x * L, y: b.y * L, w: b.w * L, h: b.h * L };
+  const L = def.lengthScale;
+
+  walkNumbers(def, (path, value, parent, key) => {
+    const kind = kindOf(path);
+    if (kind === undefined) throw new UndeclaredNumberError(path, value, def.id);
+    if (!scales(kind)) return;
+    parent[key] = value * L;
+  });
+
+  // The two the renderer indexes a grid by, so they must land on whole units.
+  def.world.width = Math.round(def.world.width);
+  def.world.height = Math.round(def.world.height);
+  if (def.layout) {
+    def.layout.world.width = Math.round(def.layout.world.width);
+    def.layout.world.height = Math.round(def.layout.world.height);
   }
-  for (const f of SPEED_FIELDS) {
-    if (def.physics[f] != null) def.physics[f] *= SPEED_SCALE;
-  }
-  for (const f of GRIP_FIELDS) {
-    if (def.physics[f] != null) def.physics[f] *= GRIP_SCALE;
+
+  return scalePhysics(def);
+}
+
+function scalePhysics(def) {
+  const top = kmhToUnits(def.physics.topSpeedKmh);
+  def.physics.maxSpeed = top;
+  for (const field of SPEED_RATIO_FIELDS) {
+    if (def.physics[field] != null) def.physics[field] *= top;
   }
   return def;
 }
@@ -366,38 +387,33 @@ function scaleCourse(def) {
 TRACKS.forEach(scaleCourse);
 
 const SELECT_KEY = 'beryl-racing.selectedTrack.v1';
-
 let selectedId = TRACKS[0].id;
 
 export function getSelectedTrack() {
-  return TRACKS.find((t) => t.id === selectedId) || TRACKS[0];
+  return TRACKS.find((track) => track.id === selectedId) || TRACKS[0];
 }
 
 export function getSelectedTrackId() {
   return getSelectedTrack().id;
 }
 
-// Choose a course: remember it, and push its config into the live objects so
-// the next Race scene (and the title readout) reflects the choice.
 export function setSelectedTrack(id) {
-  if (!TRACKS.some((t) => t.id === id)) return;
+  if (!TRACKS.some((track) => track.id === id)) return;
   selectedId = id;
   try {
     localStorage.setItem(SELECT_KEY, id);
-  } catch (e) {
-    void e; // storage may be unavailable (private mode); selection still works
+  } catch (error) {
+    void error;
   }
   applyTrack(getSelectedTrack());
 }
 
-// Restore the last-used course on load and apply it immediately, so the config
-// objects are valid before any scene is created.
 (function initSelection() {
   try {
     const saved = localStorage.getItem(SELECT_KEY);
-    if (saved && TRACKS.some((t) => t.id === saved)) selectedId = saved;
-  } catch (e) {
-    void e;
+    if (saved && TRACKS.some((track) => track.id === saved)) selectedId = saved;
+  } catch (error) {
+    void error;
   }
   applyTrack(getSelectedTrack());
 })();

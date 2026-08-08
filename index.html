@@ -6,9 +6,9 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <title>Beryl Racing</title>
+    <title>Beryl Racing 3D</title>
     <link rel="icon" href="data:," />
-    <meta name="description" content="Drive Beryl, a classic turquoise Morris Minor, around a track and chase your best lap." />
+    <meta name="description" content="Drive Beryl, a classic turquoise Morris Minor, from behind the wheel and chase your best time." />
     <meta name="theme-color" content="#15314b" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -37,7 +37,14 @@
         inset: 0;
         touch-action: none;
       }
+      /* Two stacked canvases: the Three.js world underneath, the transparent
+         Phaser canvas (HUD, touch controls, overlays) on top. Absolute
+         positioning is required — as static blocks they would stack vertically.
+         Paint order follows document order, so no z-index juggling is needed. */
       #game canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
         display: block;
       }
       /* Rotate-to-landscape prompt for portrait mobile */

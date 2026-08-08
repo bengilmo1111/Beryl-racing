@@ -31,8 +31,18 @@ export class Hud {
       fontStyle: '700',
       color: '#ffd166',
     });
+    // No panel behind this one. It used to sit on a fixed-width rounded rect,
+    // which cannot work for copy that varies from "LAP 1" to "TO EASTBOURNE":
+    // the short label floated in a box too big for it and the long one spilled
+    // out of both ends. A chunky ink outline keeps it readable over sky, tarmac
+    // or grass at any length — the same treatment the roadside arrows use.
     this.lap = scene.add
-      .text(0, 0, this.hudCopy.progress || '', { ...panelStyle, fontStyle: '700' })
+      .text(0, 0, this.hudCopy.progress || '', {
+        ...panelStyle,
+        fontStyle: '700',
+        stroke: '#15314b',
+        strokeThickness: 8,
+      })
       .setOrigin(0.5);
 
     this.flash = scene.add
@@ -82,7 +92,7 @@ export class Hud {
     this.current.setFontSize(bigSize);
     this.last.setFontSize(rowSize);
     this.best.setFontSize(rowSize);
-    this.lap.setFontSize(lapSize);
+    this.lap.setFontSize(lapSize).setStroke('#15314b', Math.max(4, Math.round(8 * s)));
     this.flash.setFontSize(Math.round(64 * s)).setStroke('#15314b', Math.round(9 * s));
 
     const inX = Math.round(14 * s);
@@ -98,31 +108,14 @@ export class Hud {
     const panelW = Math.max(this.current.width, this.last.width, this.best.width) + px * 2;
     const panelH = rowsY + rowSize * 2 + Math.round(6 * s) + py - inY;
 
-    const lapPanelW = Math.round(150 * s);
-    const lapPanelH = lapSize + py * 2;
-    const lapX = w / 2;
-    const lapY = inY;
-    this.lap.setPosition(lapX, lapY + lapPanelH / 2);
+    // Centred at the top, on the same optical line the panel used to occupy.
+    this.lap.setPosition(w / 2, inY + py + lapSize / 2);
 
     this.bg.clear();
     this.bg.fillStyle(COLORS.ink, 0.82);
     this.bg.lineStyle(Math.max(2, Math.round(2 * s)), 0xfff8e7, 0.3);
     this.bg.fillRoundedRect(inX, inY, panelW, panelH, Math.round(16 * s));
     this.bg.strokeRoundedRect(inX, inY, panelW, panelH, Math.round(16 * s));
-    this.bg.fillRoundedRect(
-      lapX - lapPanelW / 2,
-      lapY,
-      lapPanelW,
-      lapPanelH,
-      Math.round(14 * s)
-    );
-    this.bg.strokeRoundedRect(
-      lapX - lapPanelW / 2,
-      lapY,
-      lapPanelW,
-      lapPanelH,
-      Math.round(14 * s)
-    );
 
     this.flash.setPosition(w / 2, h * 0.4);
     this.pin();

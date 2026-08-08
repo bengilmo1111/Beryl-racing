@@ -6,6 +6,8 @@
 // these objects/bindings (Car.js, track.js, RaceScene, TitleScene) always read
 // the active course without needing to know which one it is.
 
+import { atLeast, worldDiagonal } from './scale.js';
+
 export const DESIGN = {
   // Landscape design resolution; the Scale Manager fits this to any screen.
   width: 1280,
@@ -26,8 +28,7 @@ export const TRACK = {
     { x: 800, y: 400 },
     { x: 1280, y: 4740 },
   ],
-  roadWidth: 180,
-  samplesPerSegment: 20,
+  roadWidth: 360,
   numCheckpoints: 2,
   closed: false,
 };
@@ -54,7 +55,7 @@ export const CAR = {
 // Best-time storage key for the active course. It's a `let` (not `const`) so
 // applyTrack() can point it at the selected course's key; ES-module live
 // bindings mean importers see the update automatically.
-export let STORAGE_KEY = 'beryl-racing.eastbourne-pootle.bestTimeMs.v1';
+export let STORAGE_KEY = 'beryl-racing-3d.eastbourne-dash.bestTimeMs.v1';
 
 // Copy a course definition (see tracks.js) into the live config objects. TRACK
 // is fully replaced (old geometry keys cleared first) so no stale field from a
@@ -64,7 +65,45 @@ export function applyTrack(def) {
   Object.assign(CAR, def.physics);
   for (const k of Object.keys(TRACK)) delete TRACK[k];
   Object.assign(TRACK, def.geometry);
+  Object.assign(FOG, fogFor(def.world, def.fogSpans));
   STORAGE_KEY = def.storageKey;
+}
+
+// How far you can see, per course.
+//
+// Deliberately distant. Fog does not cull anything in Three — every mesh is
+// submitted to the GPU either way — so a tight band buys no performance at all;
+// it only decides how much of the world the player is allowed to see. At ~59
+// units/metre the old 1200–3000 band was about 20–50 m of visibility, which on a
+// summer afternoon read as sea fog rolling in.
+//
+// What is left is heat haze: it starts far enough out that the whole course is
+// legible, and fades to COLORS.haze rather than to the sky, so the horizon goes
+// milky while the sky above stays clean blue.
+//
+// Per-course because "how far should the player see" is a property of the place.
+// See the note on Manfeild's `fog` in tracks.js.
+// Scaled from the world so "how far can you see" stays the same *fraction* of a
+// course however long the course gets. The floors are the hand-tuned numbers
+// they replace, and every current world is small enough to sit on them, so
+// nothing changes today.
+const FOG_NEAR_SPANS = 0.3;
+const FOG_FAR_SPANS = 0.9;
+const DEFAULT_FOG = { near: 5000, far: 15000 };
+export const FOG = { ...DEFAULT_FOG };
+
+// A course may see further or less far than the default, but it says so in the
+// same units — fractions of its own diagonal. Absolute overrides are gone: they
+// are the one thing here that cannot survive the course being resized, and
+// Manfeild spent a while with 155 m of visibility because of one.
+function fogFor(world, spans = null) {
+  const span = worldDiagonal(world);
+  const near = (spans && spans.near) || FOG_NEAR_SPANS;
+  const far = (spans && spans.far) || FOG_FAR_SPANS;
+  return {
+    near: atLeast(DEFAULT_FOG.near, span * near),
+    far: atLeast(DEFAULT_FOG.far, span * far),
+  };
 }
 
 // Gilmore Games house palette (see gilmore-directory/docs/ART-DIRECTION.md).
@@ -91,4 +130,9 @@ export const COLORS = {
   gravel: 0x9a8b74, // warm grey-brown dusty gravel road
   sand: 0xe6d6a8, // dry beach sand
   river: 0x5a8f8c, // blue-green river / calm water
+  // Summer heat haze. Distance fades to this rather than to the sky, which is
+  // what makes it read as hot air rather than as weather: the sky above stays a
+  // clean blue while the horizon goes milky and slightly warm. Roughly the sky
+  // lifted 70% toward the warm white the sun light uses.
+  haze: 0xd4e7e9,
 };

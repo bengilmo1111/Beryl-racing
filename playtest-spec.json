@@ -17,18 +17,24 @@
     }
   },
   "courses": {
-    "eastbourne-pootle": {
-      "checkpointsTotal": 10,
+    "eastbourne-dash": {
+      "checkpointsTotal": 7,
       "waypointMustFinish": true,
-      "finishTimeMs": { "min": 50000, "max": 70000 },
+      "finishTimeMs": {
+        "min": 138000,
+        "max": 187000
+      },
       "minimumWaypointCheckpointRate": 1,
       "noSoftlock": true,
       "maxOutOfBoundsEvents": 0
     },
     "manfield": {
-      "checkpointsTotal": 6,
+      "checkpointsTotal": 18,
       "waypointMustFinish": true,
-      "finishTimeMs": { "min": 5000, "max": 10000 },
+      "finishTimeMs": {
+        "min": 45000,
+        "max": 61000
+      },
       "minimumWaypointCheckpointRate": 1,
       "noSoftlock": true,
       "maxOutOfBoundsEvents": 0
@@ -36,15 +42,21 @@
     "remutaka": {
       "checkpointsTotal": 11,
       "waypointMustFinish": true,
-      "finishTimeMs": { "min": 65000, "max": 90000 },
+      "finishTimeMs": {
+        "min": 106000,
+        "max": 144000
+      },
       "minimumWaypointCheckpointRate": 1,
       "noSoftlock": true,
       "maxOutOfBoundsEvents": 0
     },
     "otaki": {
-      "checkpointsTotal": 13,
+      "checkpointsTotal": 8,
       "waypointMustFinish": true,
-      "finishTimeMs": { "min": 65000, "max": 90000 },
+      "finishTimeMs": {
+        "min": 120000,
+        "max": 163000
+      },
       "minimumWaypointCheckpointRate": 1,
       "noSoftlock": true,
       "maxOutOfBoundsEvents": 0

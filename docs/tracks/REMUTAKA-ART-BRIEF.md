@@ -24,6 +24,19 @@ The track is not an exact road survey. The progression from valley approach to e
 
 ---
 
+> **Status note (3D port).** This brief predates the 3D chase-cam port, where
+> the climb is now real: the road has a height profile and gravity acts along
+> the slope, so Beryl visibly labours up the switchbacks and the summit run takes
+> ~42% longer than the flat version did. The line below — "the art should make
+> the climb visible before the physics make it felt" — has been overtaken. The
+> physics make it felt already; the art's job now is to *justify* what the player
+> is feeling: bush-covered slopes falling away, cliff barriers, chevrons on the
+> hairpins, and a summit that reads as somewhere you earned.
+>
+> Also note that this brief's props assume a top-down view. From behind the car,
+> anything specified as a flat overhead sprite needs re-thinking as a standing
+> object.
+
 ## 2. Visual story
 
 The art should make the climb visible before the physics make it felt.
