@@ -2022,3 +2022,8 @@ is driving a course that finally has a barrier along its seaward edge instead of
 an unmarked run-off into open grass, and a barrier there changes the line.
 Manfeild, Remutaka and Ōtaki are identical to the digit, which is the check that
 the ground palette, the foliage tint and the gravel kerbs are all render-side.
+
+Matrix **16/16**. The check that mattered here is Eastbourne's waypoint run:
+100% of gates and **0% off-road**, unchanged. A wall three metres off the seal
+for four and a half kilometres is the kind of thing that quietly turns a course
+into a gutter, and it has not.
