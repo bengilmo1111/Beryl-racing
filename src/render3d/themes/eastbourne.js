@@ -17,6 +17,7 @@ import { WORLD } from '../../config.js';
 import { EASTBOURNE_LAYOUT } from '../../eastbourneRoute.js';
 import { basic, lambert } from '../palette.js';
 import { eastbourneCoast } from '../../coast.js';
+import { resolvePlace, resolvePlaces } from '../../places.js';
 import { metres } from '../../scale.js';
 import { buildEastbourneVilla, villaPalette } from '../houses.js';
 import { bakeStatic } from '../bake.js';
@@ -136,7 +137,7 @@ function shoreXAt(coast, z) {
 }
 
 function addWharf(group, terrain, track) {
-  const z = EASTBOURNE_LAYOUT.places.wharfZ;
+  const z = resolvePlace(track, EASTBOURNE_LAYOUT.places.wharf).z;
   const shoreX = shoreXAt(eastbourneCoast(track), z);
   const sea = terrain.seaLevel || 0;
   const deck = lambert(0x72797c);
@@ -283,11 +284,15 @@ function addWindowBand(group, width, y, z) {
   }
 }
 
-function addVillage(group, terrain, structures) {
-  const places = EASTBOURNE_LAYOUT.places;
+function addVillage(group, terrain, structures, track) {
+  // Resolved against the road, like the footprints in structures.js. These are
+  // route-relative specs now, not coordinates: reading `.x` off one gives
+  // undefined, which places a lawn at NaN and draws nothing at all — silently,
+  // because a mesh at NaN is simply never rasterised.
+  const places = resolvePlaces(track, EASTBOURNE_LAYOUT.places);
   // Same rule as the houses: the resolved footprint is the truth. Flat ground
-  // decoration (the park lawn, the school field, the RSA forecourt) is not solid
-  // and stays keyed to the authored place.
+  // decoration (the park lawn, the school field) is not solid and stays keyed to
+  // the place rather than to the building's pushed-clear footprint.
   const at = (kind) => structures.find((s) => s.kind === kind);
 
   // Open green at Williams Park, a major break in the otherwise built-up edge.
@@ -372,7 +377,7 @@ export function buildEastbourne(track, def, terrain, structures = []) {
   addCoastalPines(group, terrain, track);
   addHills(group, terrain);
   addHouses(group, terrain, structures);
-  addVillage(group, terrain, structures);
+  addVillage(group, terrain, structures, track);
 
   // Distant real geometry supplies harbour and bush parallax beyond the detailed
   // foreground. It is decorative and carries no gameplay collision.

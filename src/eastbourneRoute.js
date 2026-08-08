@@ -36,16 +36,27 @@ export const EASTBOURNE_LAYOUT = {
   // primary's last heading onward instead ran the harbour diagonally across the
   // shops, and put Marine Parade underwater.
   coastal: [
-    { road: 'primary', from: 0.2, to: 0.76 },
-    { road: 'marine-parade', from: 0.04, to: 0.9 },
+    { road: 'primary', from: 0.2, to: 0.72 },
+    { road: 'marine-parade', from: 0.02, to: 0.9 },
   ],
+  // The village, as positions on the road network — a fraction along a named
+  // road and a setback in metres. See src/places.js.
+  //
+  // These were authored coordinates until `npm run test:placement` measured
+  // them: Williams Park's shelter stood 460 m from Marine Drive, the doctors
+  // 126 m and the school 97 m, all of them up a hillside and invisible from the
+  // course. Nobody put them there — they were written for a world a seventeenth
+  // of this size, and the rescale multiplied the gap along with everything else.
+  //
+  // Negative offsets are landward. The left normal points at the harbour, since
+  // the route runs broadly south down the coast.
   places: {
-    wharfZ: 5480,
-    williamsPark: { x: 3150, z: 7100 },
-    doctors: { x: 3470, z: 11450 },
-    shops: { x: 3460, z: 12040 },
-    school: { x: 3720, z: 12720 },
-    rsa: { x: 2920, z: 14350 },
+    wharf: { road: 'primary', at: 0.368, offsetMetres: 0 },
+    williamsPark: { road: 'primary', at: 0.459, offsetMetres: -30 },
+    doctors: { road: 'village-inland', at: 0.258, offsetMetres: -24 },
+    shops: { road: 'village-inland', at: 0.377, offsetMetres: -26 },
+    school: { road: 'village-inland', at: 0.563, offsetMetres: -32 },
+    rsa: { road: 'primary', at: 0.994, offsetMetres: -24 },
   },
 };
 

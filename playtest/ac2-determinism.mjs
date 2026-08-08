@@ -102,11 +102,21 @@ import { TRACKS } from '../src/tracks.js';
 //   Eastbourne moves; the other three are identical to the digit, which is the
 //   check that the per-course ground palette, the tree tint and the gravel kerbs
 //   in the same change are all render-side.
+// - Re-recorded 2026-08-07 for the village. `npm run test:placement` — added in
+//   the same change — measured Eastbourne's named places against the road for
+//   the first time and found Williams Park's shelter 460 m from Marine Drive,
+//   the doctors 126 m and the school 97 m, all authored for a world a
+//   seventeenth of this size. They are fractions along a named road plus a
+//   setback in metres now (src/places.js).
+//
+//   Only Eastbourne's fingerprint moves. Its finish time and final position are
+//   **identical to the digit**, which is the check that five buildings moved
+//   several hundred metres each and none of them landed on the racing line.
 const BASELINES = {
   'eastbourne-dash': {
     finishTimeMs: 160583.333333,
     pos: { x: 46489.226573488, y: 243324.686123008 },
-    obstacles: '1ead6a124048ceb1',
+    obstacles: 'af7fcfa6b8f716f4',
   },
   // Manfeild has no trees, so every circle on the circuit belongs to a building:
   // pit wall, garages, timing tower, paddock sheds, grandstand and marshal huts.

@@ -5,6 +5,7 @@
 
 import { applyTrack } from './config.js';
 import { kmhToUnits } from './scale.js';
+import { walkNumbers, kindOf, scales, UndeclaredNumberError } from './courseSchema.js';
 import { EASTBOURNE_GEOMETRY, EASTBOURNE_LAYOUT } from './eastbourneRoute.js';
 import { OTAKI_GEOMETRY, OTAKI_LAYOUT } from './otakiRoute.js';
 
@@ -146,7 +147,16 @@ export const TRACKS = [
       driftTurnBoost: 1.5,
       grassMaxSpeedFactor: 0.5,
     },
-    fog: { near: 3200, far: 9000 },
+    // How far you can see, as fractions of the world diagonal.
+    //
+    // A circuit wants to see the far side of itself — the default band erased
+    // the pit complex and the opposite straight, which are exactly what a race
+    // track is for. This used to say `{ near: 3200, far: 9000 }`, tuned when
+    // this world was 3,540 x 1,920 and still saying 3200/9000 when it became
+    // 50,799 x 27,552: a white wall 155 m in front of a car doing 220 km/h,
+    // which is two and a half seconds of visibility. Fractions cannot go stale
+    // that way, and they are directly comparable with the 0.3/0.9 default.
+    fogSpans: { near: 0.55, far: 1.4 },
     storageKey: 'beryl-racing-3d.manfield.bestLapMs.v1',
     hud: { current: 'LAP TIME', progress: 'LAP 1', lapWord: 'LAP' },
     bestLabel: 'Best lap',
@@ -325,114 +335,44 @@ const SPEED_RATIO_FIELDS = [
   'coastDrag', 'overspeedDrag', 'grassDrag', 'driftLateral', 'gravity',
 ];
 
+// One pass over every number in the definition, deciding what to do with each
+// by its declared kind rather than by a hand-written list of field names.
+//
+// The list is what kept failing. It skipped anything nobody remembered to add —
+// which is how Eastbourne's shoreline, the village places and Ōtaki's farmhouse
+// footprints each spent a while at a seventeenth of their proper distance — and
+// it multiplied anything wrongly on it, which is how a 20 m beach became 250 m
+// of open water. Both failures are silent. A number in the wrong units does not
+// throw; it just puts things in the wrong place.
+//
+// Now an undeclared number is a startup error naming the exact path, so the
+// failure happens at `npm run test:track-geometry`, in CI, and in the first
+// second of every playtest — instead of in a screenshot three months later.
+//
+// Scaled in place. `structures.js`, `src/coast.js` and the render themes all
+// import the route modules directly and hold references to these very objects;
+// handing back a scaled copy would leave whichever of them still read the
+// original placing houses at a seventeenth of the distance, which is precisely
+// the see-it-versus-hit-it split structures.js exists to prevent.
 function scaleCourse(def) {
   const L = def.lengthScale;
-  def.world = {
-    width: Math.round(def.world.width * L),
-    height: Math.round(def.world.height * L),
-  };
-  const g = def.geometry;
-  const scaleAnchors = (anchors) => anchors.map((a) => ({ x: a.x * L, y: a.y * L }));
-  g.anchors = scaleAnchors(g.anchors);
-  if (g.branches) {
-    g.branches = g.branches.map((b) => ({ ...b, anchors: scaleAnchors(b.anchors) }));
+
+  walkNumbers(def, (path, value, parent, key) => {
+    const kind = kindOf(path);
+    if (kind === undefined) throw new UndeclaredNumberError(path, value, def.id);
+    if (!scales(kind)) return;
+    parent[key] = value * L;
+  });
+
+  // The two the renderer indexes a grid by, so they must land on whole units.
+  def.world.width = Math.round(def.world.width);
+  def.world.height = Math.round(def.world.height);
+  if (def.layout) {
+    def.layout.world.width = Math.round(def.layout.world.width);
+    def.layout.world.height = Math.round(def.layout.world.height);
   }
 
-  // Elevation scales with length so the grade remains unchanged.
-  if (g.elevation) {
-    g.elevation = { ...g.elevation };
-    if (g.elevation.profile) {
-      g.elevation.profile = g.elevation.profile.map((p) => ({ at: p.at, h: p.h * L }));
-    }
-    if (g.elevation.river) {
-      const r = g.elevation.river;
-      g.elevation.river = {
-        cp: r.cp,
-        halfWidth: r.halfWidth * L,
-        halfLength: r.halfLength * L,
-        drop: r.drop * L,
-      };
-    }
-    // Sea regions come in two shapes. An axis-aligned rect is enough where the
-    // coast runs with the grid; an oriented one is what Eastbourne needs, since
-    // its harbour follows Marine Drive rather than a line of longitude and an
-    // upright box either floods the road or leaves the beach on a hillside.
-    // `angle` is a rotation and must not be multiplied by anything.
-    if (g.elevation.sea) {
-      g.elevation.sea = g.elevation.sea.map((r) => (
-        r.angle != null
-          ? {
-              cx: r.cx * L,
-              cy: r.cy * L,
-              angle: r.angle,
-              halfW: r.halfW * L,
-              halfL: r.halfL * L,
-              level: r.level * L,
-            }
-          : {
-              x: r.x * L,
-              y: r.y * L,
-              w: r.w * L,
-              h: r.h * L,
-              level: r.level * L,
-            }
-      ));
-    }
-  }
-
-  // roadWidth deliberately does not scale. It is a real-world width — about two
-  // car lengths for a two-lane road — and the whole point of scaling the route
-  // is that the road stops being wide relative to its own corners.
-  if (def.landmarks) def.landmarks = def.landmarks.map(([x, y, t]) => [x * L, y * L, t]);
-  if (def.arrows) def.arrows = def.arrows.map((a) => ({ ...a, x: a.x * L, y: a.y * L }));
-  if (def.scenery) scaleZones(def.scenery, L);
-  if (def.layout) scaleLayout(def.layout, L);
   return scalePhysics(def);
-}
-
-// Rect zones, in place. Anything without a numeric `w` is left alone, which is
-// what keeps `riverCp` and `railwayCp` — checkpoint indices, not coordinates —
-// from being multiplied into nonsense.
-function scaleZones(zones, L) {
-  for (const key of Object.keys(zones)) {
-    const r = zones[key];
-    if (!r || typeof r !== 'object' || typeof r.w !== 'number') continue;
-    zones[key] = { x: r.x * L, y: r.y * L, w: r.w * L, h: r.h * L };
-  }
-}
-
-// The route data files carry more than anchors: a shoreline polyline, named
-// places the village and the farm buildings are hung off, and the offset of the
-// coast. Every one of them is a world coordinate, and every one of them would
-// have stayed at 1/17th scale in a corner of the map — the village bunched into
-// a knot, the beach nowhere near the road — if only the anchors had been scaled.
-//
-// Written out field by field rather than walked generically, because a generic
-// walk would happily scale `yaw`, `level` and the 0-1 fractions in an elevation
-// profile too.
-//
-// Scaled in place, like the geometry above. `structures.js` and
-// `render3d/themes/eastbourne.js` both import the layout module directly, and
-// they must agree to the unit — one places the village's collision footprints
-// and the other places the buildings you see. Handing back a scaled copy would
-// leave whichever of them still read the original placing houses at a
-// seventeenth of the distance, which is precisely the see-it-versus-hit-it split
-// structures.js exists to prevent.
-function scaleLayout(layout, L) {
-  const point = (p) => ({ ...p, x: p.x * L, z: p.z * L });
-  layout.world = {
-    width: Math.round(layout.world.width * L),
-    height: Math.round(layout.world.height * L),
-  };
-  if (layout.shoreX != null) layout.shoreX *= L;
-  if (layout.coastX != null) layout.coastX *= L;
-  if (layout.shoreline) layout.shoreline = layout.shoreline.map(point);
-  if (layout.places) {
-    for (const [name, v] of Object.entries(layout.places)) {
-      layout.places[name] = typeof v === 'number' ? v * L : point(v);
-    }
-  }
-  if (layout.zones) scaleZones(layout.zones, L);
 }
 
 function scalePhysics(def) {

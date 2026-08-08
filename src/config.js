@@ -65,7 +65,7 @@ export function applyTrack(def) {
   Object.assign(CAR, def.physics);
   for (const k of Object.keys(TRACK)) delete TRACK[k];
   Object.assign(TRACK, def.geometry);
-  Object.assign(FOG, fogFor(def.world), def.fog || {});
+  Object.assign(FOG, fogFor(def.world, def.fogSpans));
   STORAGE_KEY = def.storageKey;
 }
 
@@ -92,11 +92,17 @@ const FOG_FAR_SPANS = 0.9;
 const DEFAULT_FOG = { near: 5000, far: 15000 };
 export const FOG = { ...DEFAULT_FOG };
 
-function fogFor(world) {
+// A course may see further or less far than the default, but it says so in the
+// same units — fractions of its own diagonal. Absolute overrides are gone: they
+// are the one thing here that cannot survive the course being resized, and
+// Manfeild spent a while with 155 m of visibility because of one.
+function fogFor(world, spans = null) {
   const span = worldDiagonal(world);
+  const near = (spans && spans.near) || FOG_NEAR_SPANS;
+  const far = (spans && spans.far) || FOG_FAR_SPANS;
   return {
-    near: atLeast(DEFAULT_FOG.near, span * FOG_NEAR_SPANS),
-    far: atLeast(DEFAULT_FOG.far, span * FOG_FAR_SPANS),
+    near: atLeast(DEFAULT_FOG.near, span * near),
+    far: atLeast(DEFAULT_FOG.far, span * far),
   };
 }
 

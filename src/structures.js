@@ -16,6 +16,7 @@
 import { EASTBOURNE_LAYOUT } from './eastbourneRoute.js';
 import { metres } from './scale.js';
 import { eastbourneSeaward } from './coast.js';
+import { resolvePlaces } from './places.js';
 
 // Clear air between the kerb and the nearest corner of a building.
 const SHOULDER = 70;
@@ -225,7 +226,9 @@ function housesAlong(
 }
 
 function eastbourneStructures(def, track) {
-  const places = EASTBOURNE_LAYOUT.places;
+  // Resolved against the road network, so a fraction and a setback in metres
+  // become a point. See src/places.js for why they are no longer coordinates.
+  const places = resolvePlaces(track, EASTBOURNE_LAYOUT.places);
 
   // Bush and bays at the Days Bay end, a solid street by the time the village
   // arrives. Seaward is beach and harbour, so the houses are inland only —
@@ -243,19 +246,33 @@ function eastbourneStructures(def, track) {
   return [
     ...houses,
     // Williams Park's shelter. The lawn itself is flat ground, not a structure.
+    //
+    // Square to the street, like everything else in the village: `facing` comes
+    // out of the resolver, so a building turns with the road instead of holding
+    // a yaw that was right for whichever direction the road ran when it was
+    // authored.
     {
-      kind: 'shelter', x: places.williamsPark.x + 170, z: places.williamsPark.z + 40,
-      w: 190, d: 135, yaw: 0,
+      kind: 'shelter', x: places.williamsPark.x, z: places.williamsPark.z,
+      w: 190, d: 135, yaw: places.williamsPark.facing,
     },
     // The clinic, shop strip and school in the order the map puts them.
-    { kind: 'clinic', x: places.doctors.x, z: places.doctors.z, w: 210, d: 430, yaw: Math.PI / 2 },
-    { kind: 'shops', x: places.shops.x, z: places.shops.z, w: 200, d: 860, yaw: Math.PI / 2 },
     {
-      kind: 'school', x: places.school.x + 80, z: places.school.z - 55,
-      w: 190, d: 620, yaw: Math.PI / 2,
+      kind: 'clinic', x: places.doctors.x, z: places.doctors.z,
+      w: 210, d: 430, yaw: places.doctors.facing,
+    },
+    {
+      kind: 'shops', x: places.shops.x, z: places.shops.z,
+      w: 200, d: 860, yaw: places.shops.facing,
+    },
+    {
+      kind: 'school', x: places.school.x, z: places.school.z,
+      w: 190, d: 620, yaw: places.school.facing,
     },
     // The RSA, which is the finish.
-    { kind: 'rsa', x: places.rsa.x, z: places.rsa.z, w: 520, d: 280, yaw: Math.PI },
+    {
+      kind: 'rsa', x: places.rsa.x, z: places.rsa.z,
+      w: 520, d: 280, yaw: places.rsa.facing,
+    },
   ];
 }
 

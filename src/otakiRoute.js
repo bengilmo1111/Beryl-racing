@@ -17,17 +17,13 @@
 export const OTAKI_LAYOUT = {
   world: { width: 19000, height: 11000 },
   coastX: 620,
-  places: {
-    forks: { x: 17600, z: 2200 },
-    upperGorge: { x: 14800, z: 3350 },
-    farmland: { x: 10800, z: 5000 },
-    railway: { x: 9000, z: 6600 },
-    river: { x: 9000, z: 7600 },
-    oldHighway: { x: 9000, z: 8200 },
-    oldTown: { x: 6500, z: 8900 },
-    beachTown: { x: 2750, z: 8650 },
-    finish: { x: 1100, z: 8000 },
-  },
+  // There was a `places` block here — nine named points from the Forks to the
+  // finish — read by nothing at all. It was authored for the first version of
+  // this route, survived the Forks-to-coast rebuild that replaced everything it
+  // described, and has been faithfully multiplied by `lengthScale` on every load
+  // since. Deleted rather than kept "in case": stale coordinates that nothing
+  // reads are the raw material of the bug in docs/architecture/WORLD-SCALE.md,
+  // because sooner or later somebody reads them.
   zones: {
     // Used only by authored scenery and deterministic placement filters.
     gorge: { x: 9300, y: 900, w: 9000, h: 5900 },

@@ -2027,3 +2027,125 @@ Matrix **16/16**. The check that mattered here is Eastbourne's waypoint run:
 100% of gates and **0% off-road**, unchanged. A wall three metres off the seal
 for four and a half kilometres is the kind of thing that quietly turns a course
 into a gutter, and it has not.
+
+## 2026-08-08 — A number has to say what kind of number it is
+
+The scale bug had five entries in `docs/architecture/WORLD-SCALE.md`, every one
+found by looking at a screenshot and none by any test. Fixing them one at a time
+was not working: each fix moved some numbers, and the next occurrence was always
+somewhere the previous fix had not looked.
+
+So this is the structural pass. Two mechanisms, because there are two different
+failures wearing the same clothes.
+
+### The silent skip
+
+`scaleCourse` was a hand-written list of field names. Anything nobody remembered
+to add was quietly left at a seventeenth of its proper distance; anything wrongly
+on the list was quietly multiplied. **Both are silent.** A number in the wrong
+units does not throw — it just puts the beach out to sea.
+
+`src/courseSchema.js` declares every numeric path in a course definition as one
+of `map`, `span`, `size`, `fraction`, `angle`, `count`, `physics` or `meta`. The
+scaling pass walks the definition generically and **throws on any number it finds
+that is not declared**, naming the exact path and listing the kinds.
+
+It fired on the first run: `engine.cylinders`, undeclared since the V8 landed.
+Harmless there, but it is exactly the shape of the bug — a field added to a
+course definition that the scaling pass had never heard of.
+
+The rewrite is a **provable no-op**. All four determinism baselines pass
+unchanged — finish times, positions and fingerprints identical — and
+`test:track-geometry` reports the same route lengths and corner radii. That was
+the acceptance criterion: machinery that moves numbers of its own cannot be told
+apart from a regression later.
+
+### The wrong number
+
+A schema cannot see a number that is declared correctly, scaled correctly, and
+still 400 m from where it belongs. That needs measuring against the thing it is
+supposed to be near.
+
+`npm run test:placement` checks the *result*, in metres: every building within a
+per-kind distance of a road, Eastbourne's beach the authored width from its
+coastal road at every sample, fog within a sane band of the world diagonal, roads
+between 3 and 14 m wide, the route inside its own world. Per kind, because a
+villa has street frontage by definition and a Kāpiti farmhouse genuinely is
+200 m up its own drive; one global threshold would be set by the loosest case and
+wave everything through.
+
+**It found three more on its first run**, on a course that had just been gone
+over by hand the day before:
+
+| | from the nearest road |
+|---|---:|
+| Williams Park's shelter | **460 m** |
+| the doctors | 126 m |
+| the school | 97 m |
+
+Williams Park is a park *on* Marine Drive. Its shelter was half a kilometre
+inland, up a hillside, invisible from the course. Nobody put it there: it was
+authored for a world a seventeenth of this size, and the rescale multiplied the
+gap along with everything else. The village is fractions along a named road plus
+a setback in metres now (`src/places.js`) — 21 to 29 m, all of it beside the
+road, and buildings turn with the street instead of holding a yaw that was right
+for whichever way the road ran when they were authored.
+
+### And a sixth occurrence that was live the whole time
+
+Writing the schema forced the question "what kind of number is `fog.near`?", and
+the answer turned out to be *a live bug*. Manfeild still carried
+`{ near: 3200, far: 9000 }` — absolute distances tuned when that world was
+3,540 × 1,920 and never touched when it became 50,799 × 27,552.
+
+| course | fog far, as a fraction of its own diagonal |
+|---|---:|
+| eastbourne-dash | 0.90 |
+| remutaka | 0.90 |
+| otaki | 0.90 |
+| **manfield** | **0.16** |
+
+155 metres of visibility, on a circuit, in a car doing 220 km/h. Two and a half
+seconds. Entry 3 in WORLD-SCALE.md had written this up as fixed with a
+`fogScale`; that never landed, and nobody noticed for weeks — including the
+person who wrote entry 3. It is `fogSpans: { near: 0.55, far: 1.4 }` now, in the
+same units as the default, so "this course sees further than most" is legible
+instead of being two numbers you have to divide by hand.
+
+Two more things fell out of writing the schema, which is what an exhaustive list
+is for — you have to look at every number, so you find out which ones nobody
+reads. Ōtaki carried a `places` block of nine named points from the Forks to the
+finish, read by nothing at all: authored for the first version of that route,
+survived the rebuild that replaced everything it described, and faithfully
+multiplied by `lengthScale` on every load since. Deleted rather than kept "in
+case" — stale coordinates nothing reads are the raw material of this whole
+document, because sooner or later somebody reads them. With it gone no layout
+has an authored coordinate for a place at all, so `layout.places.*.x` is not in
+the schema: writing one is now a startup error.
+
+And the walker visits each container once.
+It multiplies in place, so an object reachable by two paths would be scaled
+twice — `world: OTAKI_LAYOUT.world` instead of `{ ...OTAKI_LAYOUT.world }` is a
+one-character difference that would make a world a hundred times too big. Every
+definition spreads today, which is luck rather than a rule.
+
+### The guard has been seen to fire
+
+`test:placement` ends by smuggling an undeclared number into a fake course
+definition and asserting the walker refuses it, names the path, and explains the
+kinds — then that a declared number passes, so the guard is not simply refusing
+everything. A mechanism nobody has watched fail is a hope, not a guard.
+
+And **the fast Node checks now run in CI**, which they did not:
+`test:track-geometry`, `test:placement`, `test:road-index` and `test:audio` were
+all local-only. Seconds each, and they fail with the exact course and metric.
+
+### What this still cannot see
+
+Coordinates authored inside a render theme. Those need a browser to build, so
+neither mechanism reaches them — which is occurrence 2, and the reason
+`npm run shots` exists and the reason to keep looking.
+
+Only Eastbourne's fingerprint moves. Its finish time and final position are
+identical to the digit, which is the check that five buildings moved several
+hundred metres each and none of them landed on the racing line.

@@ -12,6 +12,7 @@
     "test:road-index": "node playtest/road-index.mjs",
     "test:tree-art": "node scripts/validate-nz-tree-models.mjs",
     "test:track-geometry": "node playtest/track-geometry.mjs",
+    "test:placement": "node playtest/placement.mjs",
     "test:audio": "node playtest/audio-check.mjs",
     "shots": "node playtest/shots.mjs"
   },
