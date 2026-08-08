@@ -2149,3 +2149,8 @@ neither mechanism reaches them — which is occurrence 2, and the reason
 Only Eastbourne's fingerprint moves. Its finish time and final position are
 identical to the digit, which is the check that five buildings moved several
 hundred metres each and none of them landed on the racing line.
+
+Matrix **16/16**, every waypoint run on 100% of gates, every finish time equal
+to its pinned baseline. Which is the point: the whole change is machinery, and
+machinery that moves gameplay numbers of its own cannot be told apart from a
+regression the next time somebody looks.
