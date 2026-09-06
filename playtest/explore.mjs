@@ -10,7 +10,9 @@ const manifest = await readJson('game-manifest.json');
 const course = manifest.courses.find(c => c.id === courseId);
 if (!course) throw new Error(`Unknown course ${courseId}`);
 const spec = await readJson('playtest-spec.json');
-const scenarios = ['lateBraking', 'steeringTaps', 'heldSteering'];
+const allScenarios = ['lateBraking', 'steeringTaps', 'heldSteering'];
+const scenarios = process.argv[3] ? allScenarios.filter(id => id === process.argv[3]) : allScenarios;
+if (!scenarios.length) throw new Error(`Unknown driver ${process.argv[3]}`);
 for (const id of scenarios) {
   BOT_MODULE_NAMES[id] = id;
   spec.global.botFrameLimits[id] = 12000;

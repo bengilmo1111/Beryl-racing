@@ -22,6 +22,7 @@ Every PR and overnight, run:
 1. **Playtest**: existing 16 course/bot combinations, mobile journey, gateway-path
    smoke check and Eastbourne/car reference screenshots.
 2. **Gameplay exploration**: 3 imperfect drivers × 2 fixed seeds × 4 courses.
+   Driver/course pairs run in parallel (12 jobs, two seeds each).
    Each run has a 200-second simulation limit. Artifacts retain ordered screenshots,
    a final 20-second state/input trace, JSON metrics and a Markdown summary for 14 days.
 3. **Determinism** on PRs: road contact, placement, geometry, handling, sound and

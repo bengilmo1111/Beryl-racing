@@ -11,13 +11,14 @@ concurrency:
   cancel-in-progress: true
 jobs:
   explore:
-    name: Explore — ${{ matrix.course }}
+    name: Explore — ${{ matrix.course }} / ${{ matrix.bot }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
         course: [eastbourne-dash, manfield, remutaka, otaki]
+        bot: [lateBraking, steeringTaps, heldSteering]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,10 +29,10 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:driving-trace
       - run: npm run build
-      - run: npm run playtest:explore -- ${{ matrix.course }}
+      - run: npm run playtest:explore -- ${{ matrix.course }} ${{ matrix.bot }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: exploration-${{ matrix.course }}
+          name: exploration-${{ matrix.course }}-${{ matrix.bot }}
           path: playtest-out/
           retention-days: 14
