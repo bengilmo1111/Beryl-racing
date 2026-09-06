@@ -366,12 +366,25 @@ function addVillage(group, terrain, structures, track) {
   const at = (kind) => structures.find((s) => s.kind === kind);
 
   // Open green at Williams Park, a major break in the otherwise built-up edge.
-  const lawn = box(metres(38), 5, metres(65), lambert(COLOUR.lawn));
-  placeAtGround(lawn, terrain, places.williamsPark.x, places.williamsPark.z, 2);
-  group.add(lawn);
-  const parkSign = nameboard('WILLIAMS PARK', metres(5), metres(0.85));
-  placeAtGround(parkSign, terrain, places.williamsPark.x, places.williamsPark.z - metres(26), metres(1.8));
-  parkSign.rotation.y = places.williamsPark.facing + Math.PI;
+  const lawnGeometry = new PlaneGeometry(metres(38), metres(65), 16, 24);
+  lawnGeometry.rotateX(-Math.PI / 2);
+  const vertices = lawnGeometry.attributes.position;
+  for (let i = 0; i < vertices.count; i++) {
+    const x = vertices.getX(i) + places.williamsPark.x;
+    const z = vertices.getZ(i) + places.williamsPark.z;
+    vertices.setXYZ(i, x, terrain.heightAt(x, z) + 2, z);
+  }
+  lawnGeometry.computeVertexNormals();
+  group.add(new Mesh(lawnGeometry, lambert(COLOUR.lawn)));
+  const entrance = resolvePlace(track, { road: 'primary', at: 0.369, offsetMetres: -10 });
+  const parkSign = nameboard('WILLIAMS PARK', metres(3.5), metres(0.65));
+  placeAtGround(parkSign, terrain, entrance.x, entrance.z, metres(1.65));
+  parkSign.rotation.y = entrance.facing + Math.PI;
+  for (const x of [-metres(1.5), metres(1.5)]) {
+    const post = box(8, metres(1.9), 8, lambert(COLOUR.white));
+    post.position.set(x, -metres(0.7), 0);
+    parkSign.add(post);
+  }
   group.add(parkSign);
   const shelterAt = at('shelter');
   const shelter = simpleGableBuilding(190, 135, 95, COLOUR.white, COLOUR.roofGreen);
@@ -455,7 +468,9 @@ export function buildEastbourne(track, def, terrain, structures = []) {
   group.name = 'eastbourne-layout-environment';
 
   addCoast(group, terrain, track);
-  addWharf(group, terrain, track);
+  const wharf = new Group();
+  addWharf(wharf, terrain, track);
+  group.add(bakeStatic(wharf) || wharf);
   addCoastalPines(group, terrain, track);
   addHills(group, terrain, track);
   addHouses(group, terrain, structures);

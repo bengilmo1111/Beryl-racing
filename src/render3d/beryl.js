@@ -339,8 +339,8 @@ function buildWheel(materials) {
 
 export function buildBeryl() {
   const materials = {
-    // Same colour constants as before; the normals are smooth rather than
-    // faceted so the compound curves actually read as curves.
+    // Photo-informed turquoise with restrained sunlight highlights. Phong needs
+    // no environment map and keeps the rounded body readable at chase distance.
     body: new MeshPhongMaterial({ color: 0x19bdd0, specular: 0x88c9ce, shininess: 65 }),
     glass: new MeshPhongMaterial({ color: 0x426b78, specular: 0xb3d4dc, shininess: 90, side: DoubleSide }),
     chrome: new MeshPhongMaterial({ color: 0xdbe6e3, specular: 0xffffff, shininess: 100 }),
@@ -514,12 +514,21 @@ export function buildBeryl() {
   chassis.add(box(W * 0.29, 10, 3, 0, 36, L * 0.505, materials.plate));
   const letters = ['110/101/110/101/110', '111/100/110/100/111',
     '110/101/110/101/101', '101/101/010/010/010', '100/100/100/100/111'];
+  // One mesh for the lettering, rather than a draw call per painted square.
+  const ink = [];
   letters.forEach((glyph, i) => glyph.split('/').forEach((row, y) => {
     [...row].forEach((pixel, x) => {
-      if (pixel === '1') chassis.add(box(0.85, 0.85, 0.3,
-        (i * 4 + x - 9.5) * 1.2, 38.4 - y * 1.2, L * 0.505 + 1.7, materials.chrome));
+      if (pixel !== '1') return;
+      const px = (i * 4 + x - 9.5) * 1.2, py = 38.4 - y * 1.2;
+      const z = L * 0.505 + 1.7, r = 0.425;
+      ink.push(px-r, py-r, z, px+r, py-r, z, px-r, py+r, z,
+        px-r, py+r, z, px+r, py-r, z, px+r, py+r, z);
     });
   }));
+  const lettering = new BufferGeometry();
+  lettering.setAttribute('position', new Float32BufferAttribute(ink, 3));
+  lettering.computeVertexNormals();
+  chassis.add(new Mesh(lettering, materials.chrome));
 
   // The red pinstripe along the shoulder, just under the belt line, laid on the
   // body skin in short segments so it follows the flank as it tapers.

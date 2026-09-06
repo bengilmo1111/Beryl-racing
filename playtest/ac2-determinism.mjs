@@ -116,11 +116,14 @@ import { TRACKS } from '../src/tracks.js';
 //   4.58 -> 2.15 km, steering ramp, gentler high-speed steering, road-mesh
 //   grades, progressive grass drag and small collision rebound. Three replay
 //   runs agree at 80.766667 s. The other courses' baselines remain pinned.
+// - Days Bay art pass: larger villa footprints, corrected civic-building axes,
+//   and park frontage change Eastbourne obstacles only. Measured finish time
+//   and final position remain exactly unchanged (80.766666667 seconds).
 const BASELINES = {
   'eastbourne-dash': {
     finishTimeMs: 80766.666667,
     pos: { x: 21614.626524238, y: 114416.897090633 },
-    obstacles: 'f5560dc2eb351b25',
+    obstacles: 'fa03743ee68739a2',
   },
   // Manfeild has no trees, so every circle on the circuit belongs to a building:
   // pit wall, garages, timing tower, paddock sheds, grandstand and marshal huts.

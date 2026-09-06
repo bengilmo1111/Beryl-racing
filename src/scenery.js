@@ -254,7 +254,7 @@ export function scatterScenery(track, def) {
           if (distanceToCenterline(x, y, line) < inner) continue;
           if (!dry(x, y)) continue;
           const sp = SPECIES[variant];
-          trees.push({ x, y, variant, canopyWidth: sp.canopy * size });
+          trees.push({ x, y, variant, canopyWidth: sp.canopy * size, trunkRadius: sp.trunk * size });
           if (solid && offset < SOLID_WITHIN) obstacles.push({ x, y, r: sp.trunk * size });
         }
       }

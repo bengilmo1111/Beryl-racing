@@ -102,7 +102,7 @@ export function buildTrees(trees, terrain, theme = null) {
       // and the collision circle is the trunk rather than a fraction of the
       // canopy. So what you hit is the trunk you can see standing under it,
       // instead of a bumper the width of the branches.
-      const width = tree.canopyWidth;
+      const width = tree.canopyWidth * (theme === 'eastbourne' ? 0.85 : 1);
       const height = width * (theme === 'eastbourne' ? 1.05 : spec.heightFactor);
       const yaw = hashAngle(tree.x, tree.y);
 
@@ -113,7 +113,8 @@ export function buildTrees(trees, terrain, theme = null) {
       canopy.setMatrixAt(i, dummy.matrix);
 
       dummy.position.set(tree.x, ground, tree.y);
-      dummy.scale.set(width, height * 0.4, width);
+      const trunkWidth = theme === 'eastbourne' ? tree.trunkRadius / 0.09 : width;
+      dummy.scale.set(trunkWidth, height * 0.4, trunkWidth);
       dummy.updateMatrix();
       trunk.setMatrixAt(i, dummy.matrix);
 

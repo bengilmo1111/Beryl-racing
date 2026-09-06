@@ -41,14 +41,14 @@ function addRidges(group, sea) {
   group.add(
     ridge(
       {
-        at: -W * 0.3,
+        at: -W * 1.3,
         start,
         end,
         segments: 42,
         bottom,
         driftAt: (t) => Math.sin(t * Math.PI * 5.2) * 70 + Math.sin(t * Math.PI * 13) * 28,
         heightAt: (t) =>
-          sea + metres(220 + Math.sin(t * Math.PI * 6.2 + 0.7) * 80 + Math.sin(t * Math.PI * 17) * 25),
+          sea + metres(180 + Math.sin(t * Math.PI * 4.2 + 0.7) * 55 + Math.sin(t * Math.PI * 11) * 15) * Math.sin(Math.PI * t) ** 0.4,
       },
       COLOUR.farHarbour
     )
@@ -56,14 +56,14 @@ function addRidges(group, sea) {
   group.add(
     ridge(
       {
-        at: -W * 0.18,
+        at: -W * 0.85,
         start,
         end,
         segments: 46,
         bottom,
         driftAt: (t) => Math.sin(t * Math.PI * 7 + 1.8) * 92 + Math.sin(t * Math.PI * 15) * 35,
         heightAt: (t) =>
-          sea + metres(130 + Math.sin(t * Math.PI * 7.4) * 55 + Math.sin(t * Math.PI * 19 + 0.3) * 20),
+          sea + metres(105 + Math.sin(t * Math.PI * 5.4) * 30 + Math.sin(t * Math.PI * 13 + 0.3) * 12) * Math.sin(Math.PI * t) ** 0.4,
       },
       COLOUR.harbourHeadland
     )
