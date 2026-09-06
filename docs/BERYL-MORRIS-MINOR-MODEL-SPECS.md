@@ -1,5 +1,7 @@
 # Beryl Racing — Morris Minor Reference Model Specifications
 
+**Current art pass:** See [Days Bay and Beryl](DAYS-BAY-AND-BERYL-ART-PASS.md). The measurements below record earlier revisions; the current cabin is narrower and wheel thickness is 12% of body width.
+
 **Source:** `Morris_Minor.zip` supplied for the Beryl Racing 3D car revision  
 **Reference files:** `Morris Minor.blend`, `Morris Minor.fbx`, and associated 4K PBR textures  
 **Game implementation:** `feature/model-informed-cute-beryl`, branched from `3d-port`  

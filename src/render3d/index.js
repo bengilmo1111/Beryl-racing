@@ -187,7 +187,10 @@ class RaceWorld {
       if (object.geometry) object.geometry.dispose();
       const material = object.material;
       if (Array.isArray(material)) material.forEach((m) => m.dispose());
-      else if (material) material.dispose();
+      else if (material) {
+        material.map?.dispose();
+        material.dispose();
+      }
     });
     this.scene3d.clear();
   }

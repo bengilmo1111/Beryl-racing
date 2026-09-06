@@ -20,6 +20,15 @@ for (const def of TRACKS) {
   meshes.push(...buildJunctions(terrain.roadSurface.patches).children);
   meshes.forEach((mesh) => mesh.updateMatrixWorld());
   const rig = buildBeryl();
+  rig.root.updateMatrixWorld(true);
+  for (const wheel of rig.wheels) {
+    const archRay = new Raycaster(new Vector3(200, wheel.position.y, wheel.position.z), new Vector3(-1, 0, 0));
+    assert.equal(archRay.intersectObject(rig.chassis, true).length, 0,
+      'bodywork must not pass through the wheel hubs');
+    archRay.ray.origin.y = wheel.position.y * 2 + 5;
+    assert.ok(archRay.intersectObject(rig.chassis, true).length > 0,
+      'a visible wing must remain above each wheel opening');
+  }
   for (const road of track.roads) {
     for (let i = 1; i < road.centerline.length - 1; i += 29) {
       const p = road.centerline[i];

@@ -73,6 +73,22 @@ for (const { course, frames } of jobs) {
     await writeFile(`${OUT}/${course}-f${frame}.png`, Buffer.from(data.split(',')[1], 'base64'));
   }
 
+  if (process.env.BERYL_ART_VIEWS === '1') {
+    for (const [name, eye] of [['front-quarter', [240, 150, -330]], ['rear-quarter', [-240, 145, 330]], ['side', [390, 100, 0]]]) {
+      const data = await page.evaluate(async (eye) => {
+        const { Vector3 } = await import('/node_modules/three/build/three.module.js');
+        const world = window.__BERYL_GAME__.scene.getScene('Race').world3d;
+        const camera = world.chase.camera.clone();
+        camera.fov = 45;
+        camera.updateProjectionMatrix();
+        camera.position.copy(world.beryl.root.localToWorld(new Vector3(...eye)));
+        camera.lookAt(world.beryl.root.localToWorld(new Vector3(0, 48, 0)));
+        world.renderer.render(world.scene3d, camera);
+        return world.renderer.domElement.toDataURL('image/png');
+      }, eye);
+      await writeFile(`${OUT}/beryl-${name}.png`, Buffer.from(data.split(',')[1], 'base64'));
+    }
+  }
   const counts = await page.evaluate(() => {
     const scene = window.__BERYL_GAME__.scene.getScene('Race');
     const kinds = {};
