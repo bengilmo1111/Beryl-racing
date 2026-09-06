@@ -1,6 +1,8 @@
-# Eastbourne Pootle — Track Art Brief
+# Eastbourne Dash — Track Art Brief
 
-**Course:** Eastbourne Pootle  
+**3D update:** [Days Bay and Beryl art pass](../DAYS-BAY-AND-BERYL-ART-PASS.md) supersedes the no-text-sign restriction below. Physical park/building signs support recognition.
+
+**Course:** Eastbourne Dash  
 **Route:** 28 Ferry Road → Marine Drive → Days Bay / Williams Park → Rona Bay → Eastbourne village → inland turn near Muritai Road / Oroua Street → Eastbourne RSA  
 **Time:** Warm late afternoon  
 **Mood:** Breezy, familiar, relaxed and gently celebratory
@@ -9,7 +11,7 @@ Read with:
 
 - `docs/ART-DIRECTION.md`
 - `docs/ART-PRODUCTION.md`
-- `docs/tracks/EASTBOURNE-POOTLE-PRD.md`
+- `docs/tracks/EASTBOURNE-DASH-PRD.md`
 
 ---
 

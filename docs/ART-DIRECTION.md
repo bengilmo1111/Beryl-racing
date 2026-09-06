@@ -1,5 +1,9 @@
 # Beryl Racing — Art Direction
 
+> Production on `main` uses a chase camera and three-dimensional assets. The top-down
+> camera and sprite requirements below describe the retired 2D build only. See
+> [the Eastbourne prototype](EASTBOURNE-ARCADE-PROTOTYPE.md) for the active driving direction.
+
 **Status:** Shared visual source of truth  
 **Applies to:** Beryl, all tracks, menus, HUD, landmarks and environment art
 
@@ -252,7 +256,7 @@ Do not falsely present the tracks as exact historical reconstructions. They are 
 
 ## 7. Track-specific visual identities
 
-### 7.1 Eastbourne Pootle
+### 7.1 Eastbourne Dash
 
 **Mood:** breezy, warm, coastal and relaxed  
 **Time:** late afternoon  

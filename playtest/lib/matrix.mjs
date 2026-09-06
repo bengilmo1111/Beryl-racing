@@ -23,10 +23,10 @@ function failure(code, scope, message) {
 async function captureShot(page, courseId, botId, frame, suffix = '') {
   const label = String(frame).padStart(6, '0');
   const fileName = `${courseId}--${botId}--f${label}${suffix}.png`;
-  const dataUrl = await page.evaluate(() => {
-    window.__h._render();
-    return window.__BERYL_GAME__.canvas.toDataURL('image/png');
-  });
+  // _screenshot renders and composites the 3D world canvas with the transparent
+  // Phaser HUD canvas. Reading the Phaser canvas directly would capture the HUD
+  // over nothing.
+  const dataUrl = await page.evaluate(() => window.__h._screenshot());
   const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
   await writeFile(path.join(SHOTS_DIR, fileName), Buffer.from(base64, 'base64'));
   return `shots/${fileName}`;

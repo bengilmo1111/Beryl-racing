@@ -37,6 +37,52 @@ function roundTime(value) {
   return Number(value.toFixed(6));
 }
 
+// A look-ahead point on the primary road, for the test driver only.
+//
+// Why this exists: a branching course has to keep its required gates *before*
+// the routes split, or one arbitrary street becomes the "correct" one. Ōtaki
+// does exactly that, which leaves 44% of the route with no gate at all — and a
+// bot that aims only at gates then drives a straight line across the paddocks
+// between them. Manfeild solved the same problem by adding gates (6 -> 18), but
+// Ōtaki cannot: its branches run up to 1,500 units off the primary, far beyond
+// the ~350-unit capture radius, so any gate placed in that span would invalidate
+// the very routes the sparse gates exist to protect.
+//
+// This is deliberately NOT course-specific. The first version keyed off
+// `def.id === 'otaki'`, which hard-codes one course into a harness that is meant
+// to know nothing about them; and a test driver that follows the road is the
+// better driver everywhere, because it makes the off-road percentage a real
+// signal about the course rather than about the bot's cornering.
+//
+// It changes no checkpoint, no player rule and no simulation — this field is
+// only read by playtest bots.
+function primaryDriveTarget(scene) {
+  if (scene.finished) return null;
+  const line = scene.track.centerline;
+  if (!line || !line.length) return null;
+
+  let nearest = 0;
+  let best = Infinity;
+  for (let i = 0; i < line.length; i++) {
+    const dx = line[i].x - scene.car.x;
+    const dy = line[i].y - scene.car.y;
+    const distanceSq = dx * dx + dy * dy;
+    if (distanceSq < best) {
+      best = distanceSq;
+      nearest = i;
+    }
+  }
+
+  // About half a second of road ahead: far enough to steer smoothly, close
+  // enough to respect gorge bends and town corners. A closed circuit wraps;
+  // a point-to-point clamps at the finish.
+  const ahead = nearest + 18;
+  const target = scene.track.closed
+    ? line[ahead % line.length]
+    : line[Math.min(line.length - 1, ahead)];
+  return { x: round(target.x), y: round(target.y) };
+}
+
 export function startHarness({ Phaser, config, createGame }) {
   const capturedErrors = captureHarnessErrors();
   const params = new URLSearchParams(window.location.search);
@@ -112,6 +158,13 @@ export function startHarness({ Phaser, config, createGame }) {
     absoluteTimeMs = 0;
 
     if (game.scene.isActive('Race')) game.scene.stop('Race');
+    // Stop Title explicitly. The player path gets this for free — TitleScene
+    // calls scene.start('Race'), which stops it — but the harness starts Race
+    // directly, so Title stayed active underneath. That was invisible while the
+    // race drew an opaque ground rect over the whole viewport; now that the
+    // Phaser canvas is a transparent HUD overlay, a live Title scene would paint
+    // its grass backdrop straight over the 3D world.
+    if (game.scene.isActive('Title')) game.scene.stop('Title');
     setSelectedTrack(id);
     game.scene.start('Race');
 
@@ -185,6 +238,7 @@ export function startHarness({ Phaser, config, createGame }) {
       checkpointsHit,
       checkpointsTotal,
       nextCheckpoint: next ? { x: round(next.x), y: round(next.y) } : null,
+      driveTarget: finished ? null : primaryDriveTarget(scene),
       lap: scene.lapNumber,
       finished,
       finishTimeMs:
@@ -204,6 +258,15 @@ export function startHarness({ Phaser, config, createGame }) {
     _stepNoRender: (frames) => stepFrames(frames, false),
     _stateLite: () => state(false),
     _render: renderFrame,
+    // Screenshots must composite both layers. The Phaser canvas is transparent
+    // now, so reading it alone yields HUD-on-nothing — which would leave CI
+    // green while quietly making every captured image useless.
+    _screenshot: () => {
+      renderFrame();
+      const render3d = game.registry.get('__render3d');
+      if (!render3d) return game.canvas.toDataURL('image/png');
+      return render3d.compositeCanvases(game.canvas);
+    },
     _botInput: (name, snapshot = state(false)) => {
       if (typeof bots[name] !== 'function') throw new Error(`Unknown bot: ${name}`);
       return bots[name](snapshot);

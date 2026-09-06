@@ -16,12 +16,13 @@ The authoritative art documents are:
 
 - **`beryl-photo.png`** — the real photo of Beryl, a turquoise 1960s Morris Minor 1000. Loaded via `BERYL_PHOTO_URL` in `src/art.js`, shown on the title screen and used as the primary identity reference for the gameplay sprite.
 - **`music-race.mp3`** — the current looping 1960s-inspired race music. Loaded in `BootScene` and played through `src/audio/sound.js`.
-- **`tarmac.png`** — seamless asphalt surface texture.
-- **`grass.png`** — seamless grass texture.
-- **`tree-1.png`, `tree-2.png`, `tree-3.png`** — top-down tree variants.
-- **`tyre-barrier.png`** — top-down tyre barrier.
-- **`hay-bale.png`** — top-down hay-bale prop.
-- **`start-gantry.png`** — start/finish gantry.
+- **`tarmac.png`** — seamless asphalt surface texture. Not currently loaded; kept for the 3D road material (see `src/render3d/road.js`, which generates the UVs for it).
+- **`grass.png`** — seamless grass texture. Used on the title screen and the 3D ground plane.
+- **`tree-1.png`, `tree-2.png`, `tree-3.png`** — top-down tree variants. `src/scenery.js` pins their 128×128 size as a constant, so tree collision radii do not depend on these textures being loaded.
+- **`start-gantry.png`** — start/finish gantry, top-down.
+
+`tyre-barrier.png` and `hay-bale.png` were removed: the code that placed them
+had been unreachable since the Manfield-only build.
 
 The driving engine sound is synthesised in code by `src/audio/EngineSound.js`.
 

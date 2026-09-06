@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "id": "beryl-racing",
-  "title": "Beryl Racing",
-  "description": "Drive Beryl, a classic turquoise Morris Minor, around a track and chase your best lap.",
+  "title": "Beryl Racing 3D",
+  "description": "Drive a turquoise Morris Minor through Wellington roads in 3D and chase your best time.",
   "slug": "beryl-racing",
   "origin": "https://beryl-racing.vercel.app",
   "canonicalUrl": "https://gilmore.games/beryl-racing/",
@@ -12,9 +12,25 @@
   "players": "1",
   "status": "in-development",
   "courses": [
-    { "id": "eastbourne-pootle", "title": "Eastbourne Pootle", "mode": "sprint" },
-    { "id": "manfield", "title": "Manfield Racetrack", "mode": "circuit" },
-    { "id": "remutaka", "title": "Remutaka Hill Climb", "mode": "sprint" },
-    { "id": "otaki", "title": "Ōtaki Rally", "mode": "sprint" }
+    {
+      "id": "eastbourne-dash",
+      "title": "Eastbourne Dash",
+      "mode": "sprint"
+    },
+    {
+      "id": "manfield",
+      "title": "Manfeild Circuit",
+      "mode": "circuit"
+    },
+    {
+      "id": "remutaka",
+      "title": "Remutaka Hill Climb",
+      "mode": "sprint"
+    },
+    {
+      "id": "otaki",
+      "title": "Ōtaki Rally",
+      "mode": "sprint"
+    }
   ]
 }

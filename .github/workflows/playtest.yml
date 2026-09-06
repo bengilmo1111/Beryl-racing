@@ -45,6 +45,9 @@ jobs:
       - run: npm run build
       - name: Run course matrix
         run: npm run playtest -- --skip-build --course=${{ matrix.course }} --no-journey --no-mobile
+      - name: Capture Beryl reference views
+        if: matrix.course == 'eastbourne-dash'
+        run: BERYL_ART_VIEWS=1 npm run shots -- eastbourne-dash:1440,1800,2100
       - name: Upload course artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -67,6 +70,8 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run build
+      - name: Verify Gilmore Games gateway path
+        run: npm run test:gateway
       - name: Run mobile inspection and journey
         run: npm run playtest -- --skip-build --mobile-only --journey
       - name: Upload shell artifacts

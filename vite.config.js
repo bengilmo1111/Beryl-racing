@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { readFileSync } from 'node:fs';
 
 // Relative base ('./') so the built asset URLs resolve correctly BOTH ways:
 //   • directly at https://beryl-racing.vercel.app/   (project root), and
@@ -13,6 +14,13 @@ import { defineConfig } from 'vite';
 // paths").
 export default defineConfig(() => ({
   base: './',
+  plugins: [{
+    name: 'publish-game-manifest',
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'game-manifest.json',
+        source: readFileSync(new URL('./game-manifest.json', import.meta.url), 'utf8') });
+    },
+  }],
   build: {
     outDir: 'dist',
     target: 'es2019',

@@ -1,7 +1,7 @@
-# Eastbourne Pootle — Track Product Requirements Document
+# Eastbourne Dash — Track Product Requirements Document
 
 **Game:** Beryl Racing  
-**Course ID:** `eastbourne-pootle`  
+**Course ID:** `eastbourne-dash`  
 **Format:** Point-to-point time trial  
 **Target duration:** Approximately two minutes  
 **Setting:** Days Bay and Eastbourne, Lower Hutt  
@@ -18,13 +18,13 @@ Read with:
 
 ## 1. Course fantasy
 
-**Eastbourne Pootle** is a relaxed but competitive coastal time trial from 28 Ferry Road in Days Bay to the Eastbourne RSA.
+**Eastbourne Dash** is a relaxed but competitive coastal time trial from 28 Ferry Road in Days Bay to the Eastbourne RSA.
 
 The player joins Marine Drive and follows one recognisable ribbon of coastal road south past Days Bay, Williams Park and Rona Bay, then reaches the Eastbourne village area, turns inland and completes a short technical final run to the RSA.
 
 The course should feel scenic, flowing and familiar. Most of the drive rewards carrying momentum through long waterfront bends. The final inland section changes the rhythm with tighter streets and sharper turns before the finish.
 
-“Pootle” describes the tone, not the scoring. Players are still trying to set the fastest time, but the course should never feel like a formal motorsport circuit.
+“Dash” describes the tone, not the scoring. Players are still trying to set the fastest time, but the course should never feel like a formal motorsport circuit.
 
 ---
 
