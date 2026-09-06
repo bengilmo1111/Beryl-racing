@@ -1,7 +1,7 @@
 # Beryl Racing — Art Direction
 
-> On `3d-port`, use a chase camera and three-dimensional assets. The top-down
-> camera and sprite requirements below describe the 2D build only. See
+> Production on `main` uses a chase camera and three-dimensional assets. The top-down
+> camera and sprite requirements below describe the retired 2D build only. See
 > [the Eastbourne prototype](EASTBOURNE-ARCADE-PROTOTYPE.md) for the active driving direction.
 
 **Status:** Shared visual source of truth  

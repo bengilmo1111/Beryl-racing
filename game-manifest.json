@@ -1,20 +1,36 @@
 {
   "schemaVersion": 1,
-  "id": "beryl-racing-3d",
+  "id": "beryl-racing",
   "title": "Beryl Racing 3D",
-  "description": "Drive Beryl, a classic turquoise Morris Minor, from behind the wheel and chase your best lap.",
-  "slug": "beryl-racing-3d",
-  "origin": "https://beryl-racing-3d.vercel.app",
-  "canonicalUrl": "https://gilmore.games/beryl-racing-3d/",
+  "description": "Drive a turquoise Morris Minor through Wellington roads in 3D and chase your best time.",
+  "slug": "beryl-racing",
+  "origin": "https://beryl-racing.vercel.app",
+  "canonicalUrl": "https://gilmore.games/beryl-racing/",
   "repository": "https://github.com/bengilmo1111/beryl-racing",
   "framework": "vite",
   "genre": "racing",
   "players": "1",
   "status": "in-development",
   "courses": [
-    { "id": "eastbourne-dash", "title": "Eastbourne Dash", "mode": "sprint" },
-    { "id": "manfield", "title": "Manfeild Circuit", "mode": "circuit" },
-    { "id": "remutaka", "title": "Remutaka Hill Climb", "mode": "sprint" },
-    { "id": "otaki", "title": "Ōtaki Rally", "mode": "sprint" }
+    {
+      "id": "eastbourne-dash",
+      "title": "Eastbourne Dash",
+      "mode": "sprint"
+    },
+    {
+      "id": "manfield",
+      "title": "Manfeild Circuit",
+      "mode": "circuit"
+    },
+    {
+      "id": "remutaka",
+      "title": "Remutaka Hill Climb",
+      "mode": "sprint"
+    },
+    {
+      "id": "otaki",
+      "title": "Ōtaki Rally",
+      "mode": "sprint"
+    }
   ]
 }

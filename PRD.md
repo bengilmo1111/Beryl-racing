@@ -4,13 +4,10 @@
 > supersedes the handling-parity requirement below for Eastbourne. The original
 > specification remains historical context; the other courses retain their handling.
 
-> **Branch note (3D port).** This branch renders the game as a 3D
-> behind-the-car driving view and deploys as its own Vercel project
-> (`beryl-racing-3d`). The shipping top-down 2D game is unchanged on `main`.
-> **Only the view changes** — courses, handling, checkpoints, timing, best times,
-> HUD, touch controls and game modes are all as specified below. Where this
-> document says "top-down", read it as describing the 2D build on `main`; §5's
-> driving model and §6's course rules still apply verbatim.
+> **Production:** The 3D chase-camera game ships from `main` at
+> `gilmore.games/beryl-racing/`, through the `beryl-racing` Vercel project.
+> The 2D game is retired. Top-down requirements below are historical context;
+> the active 3D briefs take precedence. Future work targets `main`.
 
 **Status:** Post-MVP — shipping, multi-course
 **Owner:** Ben Gilmore

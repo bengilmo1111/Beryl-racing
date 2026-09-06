@@ -3,16 +3,15 @@
 A lighthearted **time-trial** game where you drive **Beryl** — a classic
 turquoise Morris Minor 1000 — from behind the wheel, chasing your best time.
 
-> **This is the 3D port.** It is a separate deployment from the shipping
-> top-down 2D game, which continues to live on `main` and at
-> `gilmore.games/beryl-racing/`. Everything except the view is the same: same
-> courses, same handling model, same checkpoints, timing and best times. Best
-> times are stored under their own keys, so the two builds never collide.
+> **3D is the production game on `main`.** Play at
+> [gilmore.games/beryl-racing/](https://gilmore.games/beryl-racing/).
+> The former top-down 2D version is retired; its source remains in Git history.
+> Send future pull requests to `main`. `3d-port` is the historical development
+> branch, not the production branch.
 
 **Eastbourne now has its own arcade driving prototype:** a compact 2.15 km
 coastal run, smoother steering, progressive grass slowdown, road recovery and
-a named local top three. This supersedes the handling-parity description above
-for Eastbourne. See [the active prototype brief](docs/EASTBOURNE-ARCADE-PROTOTYPE.md).
+a named local top three. It has its own handling settings. See [the active prototype brief](docs/EASTBOURNE-ARCADE-PROTOTYPE.md).
 
 Part of the **[Gilmore Games](https://gilmore.games)** family.
 

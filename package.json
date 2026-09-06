@@ -16,7 +16,8 @@
     "test:audio": "node playtest/audio-check.mjs",
     "test:road-contact": "node playtest/road-contact.mjs",
     "test:arcade-driving": "node playtest/arcade-driving.mjs",
-    "shots": "node playtest/shots.mjs"
+    "shots": "node playtest/shots.mjs",
+    "test:gateway": "node playtest/gateway-smoke.mjs"
   },
   "dependencies": {
     "phaser": "^3.80.1",

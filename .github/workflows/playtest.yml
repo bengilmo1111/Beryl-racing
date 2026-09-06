@@ -70,6 +70,8 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run build
+      - name: Verify Gilmore Games gateway path
+        run: npm run test:gateway
       - name: Run mobile inspection and journey
         run: npm run playtest -- --skip-build --mobile-only --journey
       - name: Upload shell artifacts
