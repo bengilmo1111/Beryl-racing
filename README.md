@@ -62,3 +62,9 @@ need rewriting before the next art pass.
 See **[PRD.md](./PRD.md)** for the full product spec: gameplay, controls,
 driving model, art/asset spec, deployment under the Gilmore directory base path,
 and MVP acceptance criteria.
+
+## Gameplay improvement loop
+
+[Workflow and improvement queue](docs/GAMEPLAY-LOOP.md). Use
+[playtest mode](https://www.gilmore.games/beryl-racing/?playtest=1) to download
+a report of the last 20 seconds and share it in chat.

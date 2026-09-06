@@ -245,6 +245,8 @@ export function startHarness({ Phaser, config, createGame }) {
         scene.lastCompletionTimeMs == null ? null : roundTime(scene.lastCompletionTimeMs),
       frameTimesMs: includeFrameTimes ? frameTimesMs.map(round) : undefined,
       maxSpeed: CAR.maxSpeed,
+      contactEvents: scene.contactEvents,
+      recoveryCount: scene.recoveryCount || 0,
     };
   }
 

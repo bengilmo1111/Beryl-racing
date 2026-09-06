@@ -42,6 +42,29 @@ try {
   const manifest = await (await page.request.get(`${base}game-manifest.json`)).json();
   assert.equal(manifest.canonicalUrl, 'https://gilmore.games/beryl-racing/');
   assert.equal(manifest.id, 'beryl-racing');
+  assert.equal(await page.getByRole('button', { name: 'Report this moment', exact: true }).count(), 0);
+  await page.goto(`${base}?harness=1&course=eastbourne-dash&seed=780385&playtest=1`);
+  await page.waitForFunction(() => !!window.__h, null, { timeout: 30000 });
+  await page.evaluate(async () => {
+    await window.__h.ready;
+    window.__h.setInput({ throttle: 1, steer: 0 });
+    window.__h._stepNoRender(180);
+  });
+  const reportButton = page.getByRole('button', { name: 'Report this moment', exact: true });
+  const bounds = await reportButton.boundingBox();
+  assert.ok(bounds && bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= 915 && bounds.y + bounds.height <= 412);
+  const [download] = await Promise.all([page.waitForEvent('download'), reportButton.click()]);
+  const stream = await download.createReadStream();
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  const report = JSON.parse(Buffer.concat(chunks).toString());
+  assert.equal(report.kind, 'beryl-driving-trace');
+  assert.equal(report.courseId, 'eastbourne-dash');
+  assert.ok(report.samples.length > 0 && report.samples.length <= 6000);
+  assert.ok(report.obstacles.length > 0);
+  assert.ok(report.samples.at(-1).timeMs - report.samples[0].timeMs <= 20000);
+  await page.evaluate(() => window.__h.loadCourse('manfield', { seed: 1 }));
+  assert.equal(await page.getByRole('button', { name: 'Report this moment', exact: true }).count(), 1, 'old scene removes its report button');
   assert.deepEqual(errors, []);
   console.log('gateway PASS: 3D canvas, scripts, assets and canonical manifest load beneath /beryl-racing/');
 } finally {
