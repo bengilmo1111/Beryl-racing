@@ -5,7 +5,7 @@ export class RoadSurface {
   constructor(roads) {
     this.cells = new Map();
     this.cellSize = 512;
-    this.patches = [];
+    this.patches = findJunctions(roads);
     for (const road of roads) {
       const { left, right, heights, closed } = road;
       const vertex = (point, i) => ({ x: point.x, y: point.y, h: heights?.[i] || 0 });
@@ -56,4 +56,37 @@ export class RoadSurface {
     }
     return height;
   }
+}
+
+const JUNCTION_SPREAD = 1.15;
+
+export function findJunctions(roads) {
+  const out = [];
+  if (!roads || roads.length < 2) return out;
+  for (const road of roads.slice(1)) {
+    const line = road.centerline;
+    for (const point of [line[0], line[line.length - 1]]) {
+      let best = Infinity;
+      let host = null;
+      let index = 0;
+      for (const other of roads) {
+        if (other === road) continue;
+        for (let i = 0; i < other.centerline.length; i++) {
+          const c = other.centerline[i];
+          const d = Math.hypot(c.x - point.x, c.y - point.y);
+          if (d < best) { best = d; host = other; index = i; }
+        }
+      }
+      // Only an end that actually lands on another road is a junction. A branch
+      // that simply stops in a paddock is not, and must not get an apron.
+      if (!host || best > host.half) continue;
+      out.push({
+        x: point.x,
+        y: point.y,
+        radius: (host.half + road.half) * JUNCTION_SPREAD,
+        height: host.heights ? host.heights[index] : 0,
+      });
+    }
+  }
+  return out;
 }

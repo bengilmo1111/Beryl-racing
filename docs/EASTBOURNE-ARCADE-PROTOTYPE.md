@@ -15,7 +15,8 @@ first attempt and want another go.
 ## This iteration
 
 - Eastbourne is compressed from 4.58 km to 2.15 km, with a 6.9 m main road.
-  Target a roughly 90-second confident run; first-time drivers may take longer.
+  Target an 80–100-second confident run; the full seeded replay measured
+  80.77 seconds. First-time drivers may take longer.
   Ferry Road, the wharf, coastal drive, village alternatives and RSA remain.
 - Acceleration takes about 4.5 seconds to reach the flat-road top speed.
   Steering ramps in over a short hold, returns promptly, and is gentler at

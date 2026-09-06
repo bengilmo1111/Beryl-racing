@@ -72,7 +72,6 @@ class RaceWorld {
     // across the mouth of the turn. Junctions are found once and then left
     // undressed, with a patch of tarmac laid over the overlap.
     const junctions = findJunctions(roads);
-    this.terrain.roadSurface.patches = junctions;
     for (const road of roads) {
       const through = road === roads[0];
       const skip = junctionMask(junctions, road.centerline);

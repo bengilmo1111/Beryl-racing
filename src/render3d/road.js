@@ -4,6 +4,7 @@
 // filled as quads.
 import { BufferGeometry, BufferAttribute, Mesh, PlaneGeometry, CircleGeometry, Group, DoubleSide } from 'three';
 import { WORLD } from '../config.js';
+export { findJunctions } from '../roadSurface.js';
 import { atLeast, worldDiagonal } from '../scale.js';
 import { C, basic, lambert } from './palette.js';
 import { groundColours, groundBase, vergeColour, dustColour } from './ground.js';
@@ -180,38 +181,7 @@ function heightsFor(track, offset) {
 // A junction is therefore an object: a patch of tarmac laid over the overlap,
 // and a radius the road dressing knows to leave alone.
 const JUNCTION_LIFT = 0.06;
-const JUNCTION_SPREAD = 1.15;
 
-export function findJunctions(roads) {
-  const out = [];
-  if (!roads || roads.length < 2) return out;
-  for (const road of roads.slice(1)) {
-    const line = road.centerline;
-    for (const point of [line[0], line[line.length - 1]]) {
-      let best = Infinity;
-      let host = null;
-      let index = 0;
-      for (const other of roads) {
-        if (other === road) continue;
-        for (let i = 0; i < other.centerline.length; i++) {
-          const c = other.centerline[i];
-          const d = Math.hypot(c.x - point.x, c.y - point.y);
-          if (d < best) { best = d; host = other; index = i; }
-        }
-      }
-      // Only an end that actually lands on another road is a junction. A branch
-      // that simply stops in a paddock is not, and must not get an apron.
-      if (!host || best > host.half) continue;
-      out.push({
-        x: point.x,
-        y: point.y,
-        radius: (host.half + road.half) * JUNCTION_SPREAD,
-        height: host.heights ? host.heights[index] : 0,
-      });
-    }
-  }
-  return out;
-}
 
 // True when a sample sits inside a junction and should not be dressed.
 export function junctionMask(junctions, line) {

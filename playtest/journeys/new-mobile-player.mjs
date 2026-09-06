@@ -198,12 +198,18 @@ export async function runNewMobilePlayerJourney({ browser, baseUrl, outDir }) {
         failures.push(journeyFailure('podium-name-not-persisted', 'The local top-three name was not saved'));
       }
       await page.getByRole('button', { name: 'DASH AGAIN', exact: true }).tap();
+      await page.getByRole('dialog', { name: 'Eastbourne results' }).waitFor({ state: 'detached' });
       await page.waitForFunction(
         () => window.__BERYL_GAME__?.scene?.isActive('Race'),
         null,
         { timeout: 10000 }
       );
       await page.evaluate((ms) => window.advanceTime(ms), 150 * FIXED_DELTA_MS);
+      const retryStarted = await page.evaluate(() => {
+        const scene = window.__BERYL_GAME__.scene.getScene('Race');
+        return scene.timing && !scene.finished;
+      });
+      if (!retryStarted) failures.push(journeyFailure('retry-not-started', 'Retry did not start a fresh timed run'));
       retryBest = await page.evaluate(() => {
         const scene = window.__BERYL_GAME__.scene.getScene('Race');
         return {
