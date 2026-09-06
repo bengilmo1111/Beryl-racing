@@ -46,7 +46,8 @@ try {
   await page.goto(`${base}?harness=1&course=eastbourne-dash&seed=780385&playtest=1`);
   await page.waitForFunction(() => !!window.__h, null, { timeout: 30000 });
   await page.evaluate(async () => {
-    await window.__h.ready;
+    // Wait for the query-selected course as well as harness initialization.
+    await window.advanceTime(0);
     window.__h.setInput({ throttle: 1, steer: 0 });
     window.__h._stepNoRender(180);
   });
