@@ -17,6 +17,9 @@ import {
   Float32BufferAttribute,
   DoubleSide,
   Vector3,
+  MeshPhongMaterial,
+  TubeGeometry,
+  CatmullRomCurve3,
 } from 'three';
 import { CAR } from '../config.js';
 import { C, lambert, basic } from './palette.js';
@@ -31,7 +34,7 @@ export const BERYL = { width: 108.8, length: 217.6, height: 91 };
 const W = BERYL.width;
 const L = BERYL.length;
 const WHEEL_R = W * 0.205;
-const WHEEL_W = W * 0.15;
+const WHEEL_W = W * 0.12;
 const AXLE_FRONT = -L * 0.31;
 const AXLE_REAR = L * 0.255;
 const AXLE_X = W * 0.425;
@@ -39,7 +42,7 @@ const AXLE_X = W * 0.425;
 // Widest half-width of the greenhouse. Cabin stations and the screens that span
 // them are both expressed against this, so the roof and the glass in it stay in
 // proportion when one of them is retuned.
-const CABIN_HW = W * 0.465;
+const CABIN_HW = W * 0.405;
 // How far glass stands off the shell it is set into. Enough to beat depth
 // fighting at chase distance, small enough to read as flush.
 const GLASS_PROUD = 1.8;
@@ -321,8 +324,8 @@ function buildWheel(materials) {
   hub.add(new Mesh(dishGeom, materials.body));
 
   const capGeom = new CylinderGeometry(
-    WHEEL_R * 0.26,
-    WHEEL_R * 0.26,
+    WHEEL_R * 0.39,
+    WHEEL_R * 0.39,
     WHEEL_W + 3,
     14
   );
@@ -338,15 +341,15 @@ export function buildBeryl() {
   const materials = {
     // Same colour constants as before; the normals are smooth rather than
     // faceted so the compound curves actually read as curves.
-    body: lambert(C.berylBody, { flatShading: false }),
-    glass: lambert(C.glass, { flatShading: false, side: DoubleSide }),
-    chrome: lambert(C.chrome, { flatShading: false }),
+    body: new MeshPhongMaterial({ color: 0x19bdd0, specular: 0x88c9ce, shininess: 65 }),
+    glass: new MeshPhongMaterial({ color: 0x426b78, specular: 0xb3d4dc, shininess: 90, side: DoubleSide }),
+    chrome: new MeshPhongMaterial({ color: 0xdbe6e3, specular: 0xffffff, shininess: 100 }),
     accent: lambert(C.red, { flatShading: false }),
     lamp: lambert(0xfff2c4, { flatShading: false }),
     tyre: lambert(0x181a1d, { flatShading: false }),
     whitewall: lambert(0xe9e9e2, { flatShading: false }),
     grille: lambert(0x3f474d, { flatShading: false }),
-    plate: lambert(0xf2e3bd, { flatShading: false }),
+    plate: lambert(0x20292c, { flatShading: false }),
   };
 
   const root = new Group();
@@ -391,7 +394,8 @@ export function buildBeryl() {
     for (let i = 0; i <= steps; i += 1) {
       const u = i / steps;
       const z = zFront + (zRear - zFront) * u;
-      const half = halfFront + (halfRear - halfFront) * u;
+      const half = (halfFront + (halfRear - halfFront) * u)
+        * (0.88 + 0.12 * Math.sin(Math.PI * u));
       rows.push([-half, -half * 0.5, 0, half * 0.5, half].map((x) => {
         const n = topNormal(z, x);
         return [
@@ -402,6 +406,10 @@ export function buildBeryl() {
       }));
     }
     chassis.add(sheet(rows, materials.glass));
+    const outline = [...rows[0], ...rows.slice(1).map(r => r.at(-1)),
+      ...rows.at(-1).slice(0, -1).reverse(), ...rows.slice(1, -1).reverse().map(r => r[0])];
+    chassis.add(new Mesh(new TubeGeometry(new CatmullRomCurve3(
+      outline.map(p => new Vector3(...p)), true), 48, 0.7, 5, true), materials.chrome));
   };
 
   // A side window, as a bottom and top edge run along the cabin flank. Each
@@ -445,11 +453,11 @@ export function buildBeryl() {
       materials.body
     ));
     chassis.add(ellipsoid(
-      W * 0.13,
-      14,
-      L * 0.115,
-      sx * W * 0.37,
-      36,
+      W * 0.15,
+      18,
+      L * 0.15,
+      sx * W * 0.36,
+      35,
       AXLE_REAR,
       materials.body
     ));
@@ -503,7 +511,15 @@ export function buildBeryl() {
     chassis.add(ellipsoid(5, 6, 5.5, sx * W * 0.30, 47, L * 0.462, materials.accent));
   }
 
-  chassis.add(box(W * 0.25, 9, 3, 0, 36, L * 0.495, materials.plate));
+  chassis.add(box(W * 0.29, 10, 3, 0, 36, L * 0.505, materials.plate));
+  const letters = ['110/101/110/101/110', '111/100/110/100/111',
+    '110/101/110/101/101', '101/101/010/010/010', '100/100/100/100/111'];
+  letters.forEach((glyph, i) => glyph.split('/').forEach((row, y) => {
+    [...row].forEach((pixel, x) => {
+      if (pixel === '1') chassis.add(box(0.85, 0.85, 0.3,
+        (i * 4 + x - 9.5) * 1.2, 38.4 - y * 1.2, L * 0.505 + 1.7, materials.chrome));
+    });
+  }));
 
   // The red pinstripe along the shoulder, just under the belt line, laid on the
   // body skin in short segments so it follows the flank as it tapers.
@@ -511,6 +527,11 @@ export function buildBeryl() {
   // It starts at the front door, not the bonnet: ahead of that the flank is the
   // wing, which stands proud of the skin the stripe is laid on, and the stripe
   // would hang in the valley between the two.
+  for (const sx of [-1, 1]) {
+    for (const z of [L * 0.012, L * 0.205]) {
+      chassis.add(box(2, 2.5, 10, sx * (bodySkin(z, 54) + 0.7), 54, z, materials.chrome));
+    }
+  }
   const STRIPE_Y = 55;
   for (const sx of [-1, 1]) {
     for (const z of [-L * 0.07, L * 0.04, L * 0.15, L * 0.25]) {

@@ -103,7 +103,7 @@ export function buildTrees(trees, terrain, theme = null) {
       // canopy. So what you hit is the trunk you can see standing under it,
       // instead of a bumper the width of the branches.
       const width = tree.canopyWidth;
-      const height = width * spec.heightFactor;
+      const height = width * (theme === 'eastbourne' ? 1.05 : spec.heightFactor);
       const yaw = hashAngle(tree.x, tree.y);
 
       dummy.position.set(tree.x, ground + height * 0.34, tree.y);

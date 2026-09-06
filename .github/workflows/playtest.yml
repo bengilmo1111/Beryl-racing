@@ -69,6 +69,8 @@ jobs:
       - run: npm run build
       - name: Run mobile inspection and journey
         run: npm run playtest -- --skip-build --mobile-only --journey
+      - name: Capture Beryl reference views
+        run: BERYL_ART_VIEWS=1 npm run shots -- eastbourne-dash:1440,1800,2100
       - name: Upload shell artifacts
         if: always()
         uses: actions/upload-artifact@v4

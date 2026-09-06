@@ -1,7 +1,7 @@
 // Eastbourne Dash environment: Wellington Harbour, the narrow beach strip,
 // steep bush hills and a recognisable run of mostly white seaside buildings.
 //
-// There are deliberately no floating labels or road signs in this theme. The
+// Signs belong to buildings and the park entrance. The
 // place is communicated through geography and architecture: Ferry Road drops
 // hard to the coast, Marine Drive follows the beach, the village thickens around
 // the shops and school, and several streets converge on the RSA.
@@ -12,6 +12,11 @@ import {
   Group,
   Mesh,
   PlaneGeometry,
+  CanvasTexture,
+  SRGBColorSpace,
+  DoubleSide,
+  BufferGeometry,
+  Float32BufferAttribute,
 } from 'three';
 import { WORLD } from '../../config.js';
 import { EASTBOURNE_LAYOUT } from '../../eastbourneRoute.js';
@@ -20,6 +25,7 @@ import { eastbourneCoast } from '../../coast.js';
 import { resolvePlace, resolvePlaces } from '../../places.js';
 import { metres } from '../../scale.js';
 import { buildEastbourneVilla, villaPalette } from '../houses.js';
+import { ridge } from './parallax.js';
 import { bakeStatic } from '../bake.js';
 import { buildEastbourneParallax } from './eastbourneParallax.js';
 
@@ -146,35 +152,58 @@ function addWharf(group, terrain, track) {
 
   // Days Bay Wharf: the stem projects at right angles from the beach and ends
   // in a clear T. White railings are its strongest recognisable colour cue.
-  const stem = box(600, 16, 78, deck);
-  stem.position.set(shoreX - 300, sea + 22, z);
+  const length = metres(65);
+  const width = metres(3.2);
+  const deckY = sea + metres(2.1);
+  const stem = box(length, metres(0.3), width, deck);
+  stem.position.set(shoreX - length / 2, deckY, z);
   group.add(stem);
-  const head = box(165, 16, 250, deck);
-  head.position.set(shoreX - 600, sea + 22, z);
+  const head = box(metres(9), metres(0.3), metres(17), deck);
+  head.position.set(shoreX - length, deckY, z);
   group.add(head);
-
-  for (let x = shoreX - 55; x >= shoreX - 610; x -= 76) {
-    for (const dz of [-28, 28]) {
-      const pile = new Mesh(new CylinderGeometry(7, 8, 55, 8), piles);
-      pile.position.set(x, sea - 2, z + dz);
+  for (let x = shoreX - metres(2); x > shoreX - length; x -= metres(4)) {
+    for (const dz of [-width * 0.42, width * 0.42]) {
+      const pile = new Mesh(new CylinderGeometry(10, 13, metres(3.3), 8), piles);
+      pile.position.set(x, sea + metres(0.55), z + dz);
       group.add(pile);
-    }
-  }
-  for (const dz of [-34, 34]) {
-    const rail = box(570, 5, 5, white);
-    rail.position.set(shoreX - 300, sea + 57, z + dz);
-    group.add(rail);
-    for (let x = shoreX - 30; x >= shoreX - 575; x -= 48) {
-      const post = box(5, 44, 5, white);
-      post.position.set(x, sea + 40, z + dz);
+      const post = box(8, metres(1.05), 8, white);
+      post.position.set(x, deckY + metres(0.6), z + dz);
       group.add(post);
     }
   }
-  for (const dz of [-116, 116]) {
-    const rail = box(150, 5, 5, white);
-    rail.position.set(shoreX - 600, sea + 57, z + dz);
+  for (const dz of [-width * 0.42, width * 0.42]) {
+    for (const h of [0.5, 1.05]) {
+      const rail = box(length, 7, 7, white);
+      rail.position.set(shoreX - length / 2, deckY + metres(h), z + dz);
+      group.add(rail);
+    }
+  }
+  for (const dz of [-metres(8), metres(8)]) {
+    const rail = box(metres(9), 7, 7, white);
+    rail.position.set(shoreX - length, deckY + metres(1.05), z + dz);
     group.add(rail);
   }
+  // A small cream-and-red harbour ferry gives the wharf its purpose and scale.
+  const ferry = new Group();
+  const hull = box(metres(4.5), metres(1.5), metres(14), lambert(0xeee5cd));
+  hull.position.y = metres(0.45);
+  ferry.add(hull);
+  const cabin = box(metres(3.8), metres(1.8), metres(8), white);
+  cabin.position.y = metres(2);
+  ferry.add(cabin);
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 5; i++) {
+      const pane = box(4, metres(0.7), metres(1), lambert(COLOUR.glass));
+      pane.position.set(side * metres(1.93), metres(2.2), metres(-3 + i * 1.5));
+      ferry.add(pane);
+    }
+  }
+  const roof = box(metres(4.2), metres(0.25), metres(9), lambert(COLOUR.roofRed));
+  roof.position.y = metres(3.05);
+  ferry.add(roof);
+  ferry.position.set(shoreX - length - metres(8), sea + 4, z);
+  group.add(ferry);
+
 }
 
 function addNorfolkPine(group, terrain, x, z, scale = 1) {
@@ -214,24 +243,58 @@ function addCoastalPines(group, terrain, track) {
   }
 }
 
-function addHills(group, terrain) {
-  const W = WORLD.width;
-  const H = WORLD.height;
-  const colours = [COLOUR.hill, COLOUR.hillDark, COLOUR.bush];
+function addHills(group, terrain, track) {
+  // A continuous folded bush slope, tied to the road rather than world fractions.
+  // The first row sits beyond the settlement; no decorative hill crosses a road.
+  const points = track.centerline.filter((_, i) => i % 8 === 0);
+  const positions = [];
+  const indices = [];
+  points.forEach((p, i) => {
+    const wave = Math.sin(i * 0.53) * 0.5 + Math.sin(i * 1.31) * 0.2;
+    for (const [offset, height] of [[80, 0], [160, 70], [260, 125], [390, 95]]) {
+      const inlandEdge = Math.max(p.x, ...track.roads.flatMap(road =>
+        road.centerline.filter(q => Math.abs(q.y - p.y) < metres(90)).map(q => q.x + road.half)));
+      const x = inlandEdge + metres(offset);
+      positions.push(x, terrain.heightAt(x, p.y) + metres(height * (1 + wave * 0.22)), p.y);
+    }
+    if (i > 0) for (let c = 0; c < 3; c++) {
+      const a = (i - 1) * 4 + c, b = i * 4 + c;
+      indices.push(a, b, a + 1, a + 1, b, b + 1);
+    }
+  });
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  group.add(new Mesh(geometry, lambert(0x46765a, { side: DoubleSide, flatShading: true })));
+  group.add(ridge({ at: WORLD.width * 0.82, start: -WORLD.height * 0.2,
+    end: WORLD.height * 1.2, segments: 64, bottom: -200,
+    driftAt: t => metres(50) * Math.sin(t * 21),
+    heightAt: t => metres(185 + 45 * Math.sin(t * 24) + 18 * Math.sin(t * 51)),
+  }, 0x638573));
+}
 
-  // The eastern side of the settlement rises abruptly. Broad overlapping cones
-  // are deliberately exaggerated in height: from the road they read as the
-  // steep, bush-covered East Harbour hills rather than distant gentle farmland.
-  for (let i = 0; i < 15; i += 1) {
-    const z = H * (0.06 + i * 0.067);
-    const x = W * (0.72 + (i % 3) * 0.055);
-    const radius = 620 + (i % 4) * 130;
-    const height = 820 + (i % 5) * 170;
-    const hill = new Mesh(new ConeGeometry(radius, height, 8), lambert(colours[i % colours.length]));
-    hill.position.set(x, terrain.heightAt(x, z) + height / 2 - 80, z);
-    hill.rotation.y = (i % 2) * 0.25;
-    group.add(hill);
-  }
+// Painted, physical signs. Text is authored here and remains crisp on a phone.
+function nameboard(text, width, height, colour = '#315b51') {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = Math.round(1024 * height / width);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = colour;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = '#f4edda';
+  ctx.lineWidth = 8;
+  ctx.strokeRect(9, 9, canvas.width - 18, canvas.height - 18);
+  ctx.fillStyle = '#f4edda';
+  ctx.font = `bold ${Math.round(canvas.height * 0.49)}px Georgia`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 512, canvas.height * 0.52, 960);
+  const map = new CanvasTexture(canvas);
+  map.colorSpace = SRGBColorSpace;
+  const sign = new Mesh(new PlaneGeometry(width, height), basic(0xffffff, { map, side: DoubleSide, fog: true }));
+  sign.name = text;
+  return sign;
 }
 
 // Houses come from the resolved structure list, not from a copy of the
@@ -250,9 +313,16 @@ function addHouses(group, terrain, structures) {
       variant: s.variant,
       palette: villaPalette(s.palette),
     });
+    house.scale.setScalar(s.scale || 1);
     placeAtGround(house, terrain, s.x, s.z, 1);
     house.rotation.y = s.yaw;
     street.add(house);
+    // A doorstep path connects each verandah to its own plot, seated on terrain.
+    const path = box(metres(0.9), 3, metres(2.2), lambert(COLOUR.concrete));
+    const d = s.d / 2 + metres(0.5);
+    placeAtGround(path, terrain, s.x - Math.sin(s.yaw) * d, s.z - Math.cos(s.yaw) * d, 2);
+    path.rotation.y = s.yaw;
+    street.add(path);
   }
   const baked = bakeStatic(street);
   group.add(baked || street);
@@ -296,13 +366,21 @@ function addVillage(group, terrain, structures, track) {
   const at = (kind) => structures.find((s) => s.kind === kind);
 
   // Open green at Williams Park, a major break in the otherwise built-up edge.
-  const lawn = box(760, 5, 540, lambert(COLOUR.lawn));
+  const lawn = box(metres(38), 5, metres(65), lambert(COLOUR.lawn));
   placeAtGround(lawn, terrain, places.williamsPark.x, places.williamsPark.z, 2);
   group.add(lawn);
+  const parkSign = nameboard('WILLIAMS PARK', metres(5), metres(0.85));
+  placeAtGround(parkSign, terrain, places.williamsPark.x, places.williamsPark.z - metres(26), metres(1.8));
+  parkSign.rotation.y = places.williamsPark.facing + Math.PI;
+  group.add(parkSign);
   const shelterAt = at('shelter');
   const shelter = simpleGableBuilding(190, 135, 95, COLOUR.white, COLOUR.roofGreen);
   placeAtGround(shelter, terrain, shelterAt.x, shelterAt.z, 4);
   shelter.rotation.y = shelterAt.yaw;
+  const pavilionSign = nameboard('DAYS BAY', 175, 34);
+  pavilionSign.position.set(0, 85, -70);
+  pavilionSign.rotation.y = Math.PI;
+  shelter.add(pavilionSign);
   group.add(shelter);
 
   // Doctors / clinic: a low white civic-looking building immediately north of
@@ -362,6 +440,10 @@ function addVillage(group, terrain, structures, track) {
   placeAtGround(rsa, terrain, rsaAt.x, rsaAt.z, 2);
   rsa.rotation.y = rsaAt.yaw;
   addWindowBand(rsa, 390, 82, -145);
+  const rsaSign = nameboard('EASTBOURNE RSA', 410, 52);
+  rsaSign.position.set(0, 145, -146);
+  rsaSign.rotation.y = Math.PI;
+  rsa.add(rsaSign);
   group.add(rsa);
   const forecourt = box(540, 6, 260, lambert(COLOUR.concrete));
   placeAtGround(forecourt, terrain, rsaAt.x, rsaAt.z - 260, 2);
@@ -375,7 +457,7 @@ export function buildEastbourne(track, def, terrain, structures = []) {
   addCoast(group, terrain, track);
   addWharf(group, terrain, track);
   addCoastalPines(group, terrain, track);
-  addHills(group, terrain);
+  addHills(group, terrain, track);
   addHouses(group, terrain, structures);
   addVillage(group, terrain, structures, track);
 

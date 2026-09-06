@@ -24,6 +24,8 @@ const SHOULDER = 70;
 // Footprints of the four villa variants in render3d/houses.js, plus the room a
 // verandah and weatherboard base add. Kept slightly generous: over-estimating a
 // footprint costs a little clearance, under-estimating puts a wall in the road.
+export const EASTBOURNE_VILLA_SCALE = 2.3;
+
 const VILLA_FOOTPRINT = {
   villa: { w: 196, d: 176 },
   bungalow: { w: 226, d: 160 },
@@ -241,10 +243,13 @@ function eastbourneStructures(def, track) {
     settledAt: (f) => 0.30 + Math.min(1, Math.max(0, (f - 0.12) / 0.5)) * 0.62,
     sides: [0, 1],
     facing: -eastbourneSeaward(track),
+    frontTaken: [0.345, 0.415],
+    rowDepth: metres(15),
   });
 
   return [
-    ...houses,
+    ...houses.map(s => ({ ...s, scale: EASTBOURNE_VILLA_SCALE,
+      w: s.w * EASTBOURNE_VILLA_SCALE, d: s.d * EASTBOURNE_VILLA_SCALE })),
     // Williams Park's shelter. The lawn itself is flat ground, not a structure.
     //
     // Square to the street, like everything else in the village: `facing` comes
@@ -258,15 +263,15 @@ function eastbourneStructures(def, track) {
     // The clinic, shop strip and school in the order the map puts them.
     {
       kind: 'clinic', x: places.doctors.x, z: places.doctors.z,
-      w: 210, d: 430, yaw: places.doctors.facing,
+      w: 430, d: 210, yaw: places.doctors.facing,
     },
     {
       kind: 'shops', x: places.shops.x, z: places.shops.z,
-      w: 200, d: 860, yaw: places.shops.facing,
+      w: 900, d: 240, yaw: places.shops.facing,
     },
     {
       kind: 'school', x: places.school.x, z: places.school.z,
-      w: 190, d: 620, yaw: places.school.facing,
+      w: 620, d: 190, yaw: places.school.facing,
     },
     // The RSA, which is the finish.
     {

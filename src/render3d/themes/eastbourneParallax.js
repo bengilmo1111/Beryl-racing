@@ -17,6 +17,7 @@
 // free as Beryl follows Marine Drive. Everything lives beyond the playable
 // route, carries no collision, and uses a handful of flat-colour meshes.
 import { Group, Mesh, MeshBasicMaterial, SphereGeometry } from 'three';
+import { metres } from '../../scale.js';
 import { WORLD } from '../../config.js';
 import { addCloud, markDecorative, ridge } from './parallax.js';
 
@@ -47,7 +48,7 @@ function addRidges(group, sea) {
         bottom,
         driftAt: (t) => Math.sin(t * Math.PI * 5.2) * 70 + Math.sin(t * Math.PI * 13) * 28,
         heightAt: (t) =>
-          sea + 120 + Math.sin(t * Math.PI * 6.2 + 0.7) * 54 + Math.sin(t * Math.PI * 17) * 20,
+          sea + metres(220 + Math.sin(t * Math.PI * 6.2 + 0.7) * 80 + Math.sin(t * Math.PI * 17) * 25),
       },
       COLOUR.farHarbour
     )
@@ -55,14 +56,14 @@ function addRidges(group, sea) {
   group.add(
     ridge(
       {
-        at: W * 0.015,
+        at: -W * 0.18,
         start,
         end,
         segments: 46,
         bottom,
         driftAt: (t) => Math.sin(t * Math.PI * 7 + 1.8) * 92 + Math.sin(t * Math.PI * 15) * 35,
         heightAt: (t) =>
-          sea + 185 + Math.sin(t * Math.PI * 7.4) * 82 + Math.sin(t * Math.PI * 19 + 0.3) * 28,
+          sea + metres(130 + Math.sin(t * Math.PI * 7.4) * 55 + Math.sin(t * Math.PI * 19 + 0.3) * 20),
       },
       COLOUR.harbourHeadland
     )
@@ -77,16 +78,16 @@ function addSky(group, sea) {
   // A low-poly late-afternoon sun over the harbour. It is a sphere rather than
   // a camera-facing sprite, so it remains stable as the route curves inland.
   const sun = new Mesh(
-    new SphereGeometry(92, 12, 8),
+    new SphereGeometry(metres(16), 12, 8),
     new MeshBasicMaterial({ color: COLOUR.sun, fog: false })
   );
-  sun.position.set(-W * 0.18, sea + 820, H * 0.48);
+  sun.position.set(-W * 0.18, sea + metres(180), H * 0.48);
   group.add(sun);
 
-  addCloud(group, { x: -W * 0.12, y: sea + 760, z: H * 0.18, scale: 105, colour: COLOUR.cloudWarm });
-  addCloud(group, { x: W * 0.45, y: sea + 900, z: H * 0.42, scale: 82, colour: COLOUR.cloudShade });
-  addCloud(group, { x: -W * 0.2, y: sea + 690, z: H * 0.72, scale: 118, colour: COLOUR.cloudWarm });
-  addCloud(group, { x: W * 0.5, y: sea + 840, z: H * 1.02, scale: 92, colour: COLOUR.cloudShade });
+  addCloud(group, { x: -W * 0.12, y: sea + metres(230), z: H * 0.18, scale: metres(35), colour: COLOUR.cloudWarm });
+  addCloud(group, { x: W * 0.45, y: sea + metres(280), z: H * 0.42, scale: metres(26), colour: COLOUR.cloudShade });
+  addCloud(group, { x: -W * 0.2, y: sea + metres(200), z: H * 0.72, scale: metres(40), colour: COLOUR.cloudWarm });
+  addCloud(group, { x: W * 0.5, y: sea + metres(255), z: H * 1.02, scale: metres(31), colour: COLOUR.cloudShade });
 }
 
 export function buildEastbourneParallax(sea = 0) {
