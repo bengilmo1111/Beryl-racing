@@ -218,6 +218,14 @@ export async function runNewMobilePlayerJourney({ browser, baseUrl, outDir }) {
         };
       });
       screenshots.push(await screenshot(page, journeyDir, '06-retry'));
+      const cameraAspect = await page.evaluate(() => {
+        const scene = window.__BERYL_GAME__.scene.getScene('Race');
+        return { actual: scene.world3d.chase.camera.aspect,
+          expected: scene.game.canvas.width / scene.game.canvas.height };
+      });
+      if (Math.abs(cameraAspect.actual - cameraAspect.expected) > 1e-6) {
+        failures.push(journeyFailure('retry-camera-aspect', JSON.stringify(cameraAspect)));
+      }
       const beforeRecovery = await page.evaluate(() => {
         const scene = window.__BERYL_GAME__.scene.getScene('Race');
         const rect = scene.game.canvas.getBoundingClientRect();

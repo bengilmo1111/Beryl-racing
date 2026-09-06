@@ -44,6 +44,10 @@ yaw, rolling the car sideways on east/west headings. YXZ makes pitch local to
 the car. Road pitch follows contact immediately; the suspension still eases.
 Wheel support lifts the model above the surface at crests.
 
+Retry also synchronises the new camera's aspect ratio even when the shared
+canvas has not resized. Previously a retry could use a square projection and
+make Beryl look stretched across a landscape phone.
+
 ## Verification
 
 - `npm run test:road-contact`: compares the support query against raycasts on
