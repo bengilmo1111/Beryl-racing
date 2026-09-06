@@ -512,7 +512,13 @@ export function buildBeryl() {
   }
 
   for (const mesh of chassis.children) {
-    if (mesh.geometry?.type === 'SphereGeometry') mesh.geometry = wheelArches(mesh.geometry);
+    if (mesh.geometry?.type !== 'SphereGeometry') continue;
+    mesh.updateMatrix();
+    mesh.geometry.applyMatrix4(mesh.matrix);
+    mesh.position.set(0, 0, 0);
+    mesh.scale.set(1, 1, 1);
+    mesh.rotation.set(0, 0, 0);
+    mesh.geometry = wheelArches(mesh.geometry);
   }
 
   // Windscreen, then the two side windows, then the rear screen. The shell
