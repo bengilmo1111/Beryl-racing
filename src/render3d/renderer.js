@@ -57,8 +57,15 @@ export function syncSize(phaserCanvas, camera) {
   const h = phaserCanvas.height;
   const cw = phaserCanvas.style.width;
   const ch = phaserCanvas.style.height;
-  if (w === lastSize.w && h === lastSize.h && cw === lastSize.cw && ch === lastSize.ch) return;
   if (w === 0 || h === 0) return;
+  // A retry creates a fresh camera but reuses this renderer and canvas. The
+  // canvas can be unchanged while the new camera still has its default 1:1
+  // aspect. Synchronise the camera before the renderer's resize fast path.
+  if (camera && camera.aspect !== w / h) {
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  if (w === lastSize.w && h === lastSize.h && cw === lastSize.cw && ch === lastSize.ch) return;
 
   // Phaser's canvas dimensions are already backing-store pixels (it has applied
   // devicePixelRatio itself), so we must not apply DPR a second time.
@@ -66,10 +73,6 @@ export function syncSize(phaserCanvas, camera) {
   renderer.setSize(w, h, false);
   canvas.style.width = cw;
   canvas.style.height = ch;
-  if (camera) {
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-  }
   lastSize.w = w;
   lastSize.h = h;
   lastSize.cw = cw;

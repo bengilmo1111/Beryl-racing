@@ -3,6 +3,7 @@ import { PerspectiveCamera, Vector3 } from 'three';
 import { CAR, WORLD } from '../config.js';
 import { CAMERA_NEAR, cameraFarFor } from './palette.js';
 import { alphaFor, angleDelta, forwardXZ, yawFor } from './coords.js';
+import { nearestRoadPose, roadAhead } from '../driveRoute.js';
 
 // Beryl is 217.6 units long (~70 units per metre), which sets the scale of
 // everything here. The compact/phone variant pulls in and widens out, the same
@@ -33,7 +34,8 @@ const A_LENS = 0.05;
 const LOOK_SLOPE_FOLLOW = 0.45;
 
 export class ChaseCamera {
-  constructor(compact) {
+  constructor(compact, track = null) {
+    this.track = track;
     this.camera = new PerspectiveCamera(RIG.desktop.fov, 1, CAMERA_NEAR, cameraFarFor(WORLD));
     this.setCompact(compact);
 
@@ -90,7 +92,18 @@ export class ChaseCamera {
     // flank rather than nailing the camera to her tail. Body heading, not
     // velocity heading — velocity heading swings wildly on the handbrake.
     const slip = Math.max(-1, Math.min(1, car.lateral / (CAR.driftLateral * 3)));
-    const targetYaw = yawFor(car.rotation) + slip * 0.18;
+    let targetYaw = yawFor(car.rotation) + slip * 0.18;
+    if (CAR.arcade && this.track && car.speed > CAR.maxSpeed * 0.08) {
+      const pose = nearestRoadPose(this.track, car.x, car.y);
+      if (pose && pose.distance < pose.road.half * 2) {
+        const ahead = roadAhead(pose, Math.max(700, car.speed * 1.6));
+        const routeYaw = yawFor(Math.atan2(ahead.x - car.x, -(ahead.y - car.y)));
+        // A hint of the bend, bounded so branches and reversing never whip the
+        // camera around. Keep the car's heading as the main frame of reference.
+        targetYaw = yawFor(car.rotation)
+          + Math.max(-0.28, Math.min(0.28, angleDelta(yawFor(car.rotation), routeYaw) * 0.35));
+      }
+    }
 
     const speedRatio = Math.min(1, Math.abs(car.speed) / CAR.maxSpeed);
     const targetFov = rig.fov * (1 + FOV_GAIN * speedRatio);

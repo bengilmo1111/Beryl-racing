@@ -112,11 +112,15 @@ import { TRACKS } from '../src/tracks.js';
 //   Only Eastbourne's fingerprint moves. Its finish time and final position are
 //   **identical to the digit**, which is the check that five buildings moved
 //   several hundred metres each and none of them landed on the racing line.
+// - Re-recorded 2026-09-06 for the authorised Eastbourne arcade prototype:
+//   4.58 -> 2.15 km, steering ramp, gentler high-speed steering, road-mesh
+//   grades, progressive grass drag and small collision rebound. Three replay
+//   runs agree at 80.766667 s. The other courses' baselines remain pinned.
 const BASELINES = {
   'eastbourne-dash': {
-    finishTimeMs: 160583.333333,
-    pos: { x: 46489.226573488, y: 243324.686123008 },
-    obstacles: 'af7fcfa6b8f716f4',
+    finishTimeMs: 80766.666667,
+    pos: { x: 21614.626524238, y: 114416.897090633 },
+    obstacles: 'f5560dc2eb351b25',
   },
   // Manfeild has no trees, so every circle on the circuit belongs to a building:
   // pit wall, garages, timing tower, paddock sheds, grandstand and marshal huts.
@@ -280,6 +284,8 @@ try {
         obstacles: baseline.fingerprint,
       };
     } else {
+      console.log('Measured baseline:', JSON.stringify({ course: course.id,
+        finishTimeMs: baseline.state.finishTimeMs, pos: baseline.state.pos, obstacles: baseline.fingerprint }));
       assert.ok(pinned, `${course.id}: no recorded baseline — add one to BASELINES`);
       assert.equal(
         baseline.state.finishTimeMs,

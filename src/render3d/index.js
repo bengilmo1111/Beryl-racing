@@ -129,7 +129,7 @@ class RaceWorld {
     this.beryl = buildBeryl();
     this.scene3d.add(this.beryl.root);
 
-    this.chase = new ChaseCamera(isCompact(scene));
+    this.chase = new ChaseCamera(isCompact(scene), scene.track);
     showCanvas(true);
 
     // Phaser emits POST_RENDER from both step() and headlessStep(). The latter
@@ -170,8 +170,9 @@ class RaceWorld {
 
     const ground = this.terrain.heightAt(car.x, car.y);
     const f = car.forward;
-    const grade = this.terrain.gradeAlong(car.x, car.y, f.x, f.y);
-    updateBeryl(this.beryl, car, this.scene.lastInput, dt, ground, grade);
+    const grade = this.terrain.roadGradeAlong(car.x, car.y, f.x, f.y);
+    updateBeryl(this.beryl, car, this.scene.lastInput, dt, ground, grade,
+      (x, y) => this.terrain.heightAt(x, y));
     this.puffs.update(dt);
     this.chase.update(car, dt, this.terrain);
     if (this.otakiParallax) updateOtakiParallax(this.otakiParallax, car, dt);

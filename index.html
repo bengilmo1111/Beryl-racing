@@ -100,6 +100,34 @@
         background: #246b45;
         transition: opacity 0.4s ease;
       }
+      .coastal-results {
+        position: absolute; inset: 0; z-index: 20;
+        display: grid; place-items: center; padding: 12px;
+        background: #15314b66; color: #fff8e7;
+        overflow: auto; touch-action: pan-y;
+      }
+      .coastal-results-card {
+        width: min(100%, 560px); max-height: 100%; overflow: auto;
+        border: 3px solid #ffd166; border-radius: 22px;
+        background: #15314bf5; padding: 20px; text-align: center;
+      }
+      .coastal-results h1 { font: 700 clamp(22px, 4vw, 36px) Fredoka, sans-serif; color: #ffd166; margin: 0 0 8px; }
+      .coastal-results h2 { font-size: 16px; margin: 14px 0 8px; }
+      .coastal-results p { margin: 8px 0; }
+      .coastal-result-time { display: block; font-size: 34px; color: #2ec4d6; }
+      .coastal-results ol { margin: 8px auto; padding-left: 28px; max-width: 310px; text-align: left; }
+      .coastal-current-score { color: #ffd166; }
+      .coastal-results label { display: block; margin: 12px 0; }
+      .coastal-results input { width: 145px; font: inherit; border-radius: 6px; padding: 8px; border: 2px solid #2ec4d6; }
+      .coastal-results button { cursor: pointer; min-height: 44px; margin: 6px; padding: 10px 18px; border: 0; border-radius: 8px; font: 700 18px Fredoka, sans-serif; color: #15314b; background: #ffd166; }
+      .coastal-results button:last-child { background: #fff8e7; }
+      @media (max-height: 480px) {
+        .coastal-results-card { padding: 12px 20px; }
+        .coastal-results h1 { font-size: 25px; }
+        .coastal-results p, .coastal-results label, .coastal-results ol { margin: 5px 0; }
+        .coastal-results ol { margin-inline: auto; }
+        .coastal-result-time { font-size: 26px; }
+      }
     </style>
   </head>
   <body>

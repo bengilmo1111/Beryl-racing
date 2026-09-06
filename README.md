@@ -9,6 +9,11 @@ turquoise Morris Minor 1000 — from behind the wheel, chasing your best time.
 > courses, same handling model, same checkpoints, timing and best times. Best
 > times are stored under their own keys, so the two builds never collide.
 
+**Eastbourne now has its own arcade driving prototype:** a compact 2.15 km
+coastal run, smoother steering, progressive grass slowdown, road recovery and
+a named local top three. This supersedes the handling-parity description above
+for Eastbourne. See [the active prototype brief](docs/EASTBOURNE-ARCADE-PROTOTYPE.md).
+
 Part of the **[Gilmore Games](https://gilmore.games)** family.
 
 - **Platform:** web (desktop + landscape mobile), fullscreen supported.

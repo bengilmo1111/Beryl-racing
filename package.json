@@ -14,6 +14,8 @@
     "test:track-geometry": "node playtest/track-geometry.mjs",
     "test:placement": "node playtest/placement.mjs",
     "test:audio": "node playtest/audio-check.mjs",
+    "test:road-contact": "node playtest/road-contact.mjs",
+    "test:arcade-driving": "node playtest/arcade-driving.mjs",
     "shots": "node playtest/shots.mjs"
   },
   "dependencies": {

@@ -1,5 +1,9 @@
 # Beryl Racing — Product Requirements Document
 
+> **Active 3D direction:** [Eastbourne arcade prototype](docs/EASTBOURNE-ARCADE-PROTOTYPE.md)
+> supersedes the handling-parity requirement below for Eastbourne. The original
+> specification remains historical context; the other courses retain their handling.
+
 > **Branch note (3D port).** This branch renders the game as a 3D
 > behind-the-car driving view and deploys as its own Vercel project
 > (`beryl-racing-3d`). The shipping top-down 2D game is unchanged on `main`.

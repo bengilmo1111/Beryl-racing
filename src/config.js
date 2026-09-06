@@ -50,7 +50,10 @@ export const CAR = {
   grassMaxSpeedFactor: 0.5,
   grassDrag: 100,
   driftLateral: 14,
+  arcade: false,
 };
+
+const CAR_DEFAULTS = { ...CAR };
 
 // Best-time storage key for the active course. It's a `let` (not `const`) so
 // applyTrack() can point it at the selected course's key; ES-module live
@@ -62,7 +65,8 @@ export let STORAGE_KEY = 'beryl-racing-3d.eastbourne-dash.bestTimeMs.v1';
 // previously selected course can leak through.
 export function applyTrack(def) {
   Object.assign(WORLD, def.world);
-  Object.assign(CAR, def.physics);
+  for (const key of Object.keys(CAR)) delete CAR[key];
+  Object.assign(CAR, CAR_DEFAULTS, def.physics);
   for (const k of Object.keys(TRACK)) delete TRACK[k];
   Object.assign(TRACK, def.geometry);
   Object.assign(FOG, fogFor(def.world, def.fogSpans));

@@ -6,6 +6,7 @@
 // pinned into the same field so alternate streets neither float nor disappear.
 import { remutakaRoadProfile, remutakaVisualHeight } from './remutakaTerrain.js';
 import { metres } from './scale.js';
+import { RoadSurface } from './roadSurface.js';
 
 // Grid resolution, in world units per cell.
 //
@@ -115,6 +116,7 @@ function fbm(x, y) {
 export class Terrain {
   constructor(track, world, def = null) {
     const roads = track.roads || [track];
+    this.roadSurface = new RoadSurface(roads);
     this.flat = !roads.some((road) => road.heights);
     if (this.flat) return;
 
@@ -340,8 +342,15 @@ export class Terrain {
   }
 
   heightAt(x, y) {
+    const road = this.roadSurface.heightAt(x, y);
+    if (road !== null) return road;
     if (this.flat) return 0;
     return this.#sample(this.grid, x, y);
+  }
+
+  roadGradeAlong(x, y, fwdX, fwdY, step = GRADE_STEP) {
+    return (this.heightAt(x + fwdX * step, y + fwdY * step)
+      - this.heightAt(x - fwdX * step, y - fwdY * step)) / (step * 2);
   }
 
   physicsHeightAt(x, y) {

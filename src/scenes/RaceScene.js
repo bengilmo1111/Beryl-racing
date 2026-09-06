@@ -16,6 +16,8 @@ import { startMusic, unlockAudio, isMuted } from '../audio/sound.js';
 import { EngineSound } from '../audio/EngineSound.js';
 import { CAR } from '../config.js';
 import { FONT, uiScale, isCompact } from '../ui/format.js';
+import { nearestRoadPose, roadAhead } from '../driveRoute.js';
+import { showCoastalResults } from '../ui/CoastalResults.js';
 
 export class RaceScene extends Phaser.Scene {
   constructor() {
@@ -136,6 +138,8 @@ export class RaceScene extends Phaser.Scene {
     const render3d = this.game.registry.get('__render3d');
     this.world3d = render3d.createRaceWorld(this);
 
+    if (CAR.arcade) this.createRecovery();
+
     this.input.keyboard.once('keydown-ESC', () => this.scene.start('Title'));
     this.startCountdown();
   }
@@ -143,6 +147,75 @@ export class RaceScene extends Phaser.Scene {
   onResize() {
     // Keep the camera pull-back sensible if the device rotates or resizes.
     if (this.world3d) this.world3d.setCompact(isCompact(this));
+    if (this.recoverButton) {
+      const s = Math.min(1, this.scale.height / 600);
+      this.recoverButton.setScale(Math.max(0.8, s)).setPosition(this.scale.width - 76, 16);
+    }
+  }
+
+  createRecovery() {
+    this.lastSafe = { ...this.track.start };
+    this.recoveryCount = 0;
+    this.nextRecoveryAt = 0;
+    this.routeUpdateAt = 0;
+    this.previousBest = this.best;
+    this.recoverButton = this.add.text(0, 0, 'BACK ON ROAD', {
+      fontFamily: FONT, fontSize: '18px', fontStyle: '700', color: '#15314b',
+      backgroundColor: '#fff8e7', padding: { x: 12, y: 12 },
+    }).setOrigin(1, 0).setDepth(1000).setInteractive({ useHandCursor: true });
+    this.recoverButton.on('pointerup', () => this.recover());
+    const recoverKey = (event) => { if (!event.repeat) this.recover(); };
+    this.input.keyboard.on('keydown-R', recoverKey);
+    this.events.once('shutdown', () => this.input.keyboard.off('keydown-R', recoverKey));
+    this.onResize();
+  }
+
+  recover() {
+    if (!this.timing || this.finished || this.time.now < this.nextRecoveryAt) return;
+    this.car.reset(this.lastSafe.x, this.lastSafe.y, this.lastSafe.rotation);
+    this.lastSkid = null;
+    this.lapStartTime -= 3000;
+    this.recoveryCount++;
+    this.nextRecoveryAt = this.time.now + 1500;
+    this.world3d.chase.snap();
+    this.hud.showMessage('BACK ON ROAD · +3s');
+  }
+
+  updateRouteHelp(time) {
+    if (!CAR.arcade || !this.timing || time < this.routeUpdateAt) return;
+    this.routeUpdateAt = time + 200;
+    const pose = nearestRoadPose(this.track, this.car.x, this.car.y);
+    if (!pose) return;
+    const primaryPose = pose.road === this.track.roads[0] ? pose
+      : nearestRoadPose({ roads: [this.track.roads[0]] }, this.car.x, this.car.y);
+    const next = this.track.checkpoints[this.expected];
+    const previous = this.track.checkpoints[Math.max(0, this.expected - 1)];
+    const headingError = Math.atan2(Math.sin(pose.rotation - this.car.rotation), Math.cos(pose.rotation - this.car.rotation));
+    const safelyBeforeGate = primaryPose.index <= next.index && primaryPose.index >= previous.index;
+    if (safelyBeforeGate && pose.distance < pose.road.half - this.car.collideRadius
+      && Math.abs(headingError) < 0.65 && this.car.speed > 0) {
+      // Only remember an unobstructed centre-road pose in the validated section.
+      const clear = this.obstacles.every((o) => [-1, 1].every((sign) =>
+        Math.hypot(pose.x + Math.sin(pose.rotation) * this.car.axleOffset * sign - o.x,
+          pose.y - Math.cos(pose.rotation) * this.car.axleOffset * sign - o.y)
+          > o.r + this.car.collideRadius + 10));
+      if (clear) this.lastSafe = { x: pose.x, y: pose.y, rotation: pose.rotation };
+    }
+    const fraction = Math.min(next.index, primaryPose.index) / (this.track.centerline.length - 1);
+    const place = fraction < 0.2 ? 'FERRY ROAD' : fraction < 0.48 ? 'DAYS BAY'
+      : fraction < 0.73 ? 'COASTAL CRUISE' : 'TO THE RSA';
+    let hint = `${place} · ${Math.floor(fraction * 100)}%`;
+    if (!safelyBeforeGate && primaryPose.index > next.index + 10) hint = 'MISSED TURN? BACK ON ROAD';
+    else if (Math.abs(headingError) > 1.8) hint = 'TURN AROUND · OR BACK ON ROAD';
+    else {
+      const ahead = roadAhead(pose, Math.max(500, Math.abs(this.car.speed) * 1.4));
+      const turn = Math.atan2(ahead.x - pose.x, -(ahead.y - pose.y)) - pose.rotation;
+      const bend = Math.atan2(Math.sin(turn), Math.cos(turn));
+      if (Math.abs(bend) > 0.45 && this.car.speed > CAR.maxSpeed * 0.4) {
+        hint = `EASE OFF · ${bend < 0 ? 'LEFT' : 'RIGHT'} BEND`;
+      }
+    }
+    this.hud.lap.setText(hint);
   }
 
   // --- Collision-only setpieces ----------------------------------------------
@@ -291,7 +364,9 @@ export class RaceScene extends Phaser.Scene {
     // Slope along Beryl's heading. Flat courses return a hard 0, which the guard
     // in Car.update uses to skip the gravity term entirely.
     const f = this.car.forward;
-    const grade = this.terrain.gradeAlong(this.car.x, this.car.y, f.x, f.y);
+    const grade = CAR.arcade
+      ? this.terrain.roadGradeAlong(this.car.x, this.car.y, f.x, f.y)
+      : this.terrain.gradeAlong(this.car.x, this.car.y, f.x, f.y);
 
     this.car.update(dt, input, onTrack, surface, grade);
     this.resolveObstacles();
@@ -316,6 +391,7 @@ export class RaceScene extends Phaser.Scene {
     if (this.timing) {
       this.hud.setCurrent(time - this.lapStartTime);
       this.checkLap();
+      this.updateRouteHelp(time);
     }
   }
 
@@ -351,6 +427,11 @@ export class RaceScene extends Phaser.Scene {
         if (vn < 0) {
           car.vx -= vn * nx;
           car.vy -= vn * ny;
+          if (CAR.arcade) {
+            // A small comic rebound; preserve motion along a glancing contact.
+            car.vx -= vn * nx * 0.12;
+            car.vy -= vn * ny * 0.12;
+          }
         }
       }
     }
@@ -466,6 +547,11 @@ export class RaceScene extends Phaser.Scene {
   }
 
   showResults(timeMs) {
+    if (CAR.arcade) {
+      this.recoverButton?.setVisible(false);
+      showCoastalResults(this, timeMs, this.previousBest);
+      return;
+    }
     const w = this.scale.width;
     const h = this.scale.height;
     const copy = this.def.results || {
