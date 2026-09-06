@@ -198,6 +198,9 @@ export async function runNewMobilePlayerJourney({ browser, baseUrl, outDir }) {
         failures.push(journeyFailure('podium-name-not-persisted', 'The local top-three name was not saved'));
       }
       await page.getByRole('button', { name: 'DASH AGAIN', exact: true }).tap();
+      // The harness pauses the game loop. Flush Phaser's queued scene restart
+      // before waiting for the old results DOM to be removed on shutdown.
+      await page.evaluate(() => window.advanceTime(0));
       await page.getByRole('dialog', { name: 'Eastbourne results' }).waitFor({ state: 'detached' });
       await page.waitForFunction(
         () => window.__BERYL_GAME__?.scene?.isActive('Race'),
