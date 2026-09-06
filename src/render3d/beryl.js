@@ -258,6 +258,52 @@ function loft(stations, material) {
   return new Mesh(loftGeometry(stations), material);
 }
 
+// Subtract two convex axle tunnels from the shell. The old solid wing ellipsoids
+// cut through the tyres and hubcaps; simply moving the wheels outward leaves a
+// kart-like stance. Clip triangles at the actual wheel circles instead.
+function wheelArches(geometry) {
+  const source = geometry.index ? geometry.toNonIndexed() : geometry.clone();
+  const p = source.attributes.position, n = source.attributes.normal;
+  let triangles = [];
+  for (let i = 0; i < p.count; i += 3) triangles.push([0, 1, 2].map(j => ({
+    p: [p.getX(i+j), p.getY(i+j), p.getZ(i+j)],
+    n: [n.getX(i+j), n.getY(i+j), n.getZ(i+j)],
+  })));
+  for (const axle of [AXLE_FRONT, AXLE_REAR]) {
+    const out = [];
+    for (const triangle of triangles) {
+      let remaining = triangle;
+      for (let i = 0; i < 24 && remaining.length; i++) {
+        const angle = i / 24 * Math.PI * 2;
+        const distance = v => (v.p[1] - WHEEL_R) * Math.cos(angle)
+          + (v.p[2] - axle) * Math.sin(angle) - WHEEL_R * 1.09;
+        const inside = [], outside = [];
+        for (let j = 0; j < remaining.length; j++) {
+          const a = remaining[j], b = remaining[(j + 1) % remaining.length];
+          const da = distance(a), db = distance(b);
+          (da <= 0 ? inside : outside).push(a);
+          if ((da <= 0) !== (db <= 0)) {
+            const t = da / (da - db);
+            const v = { p: a.p.map((x, k) => x + (b.p[k] - x) * t),
+              n: a.n.map((x, k) => x + (b.n[k] - x) * t) };
+            inside.push(v); outside.push(v);
+          }
+        }
+        for (let j = 1; j < outside.length - 1; j++) out.push([outside[0], outside[j], outside[j+1]]);
+        remaining = inside;
+      }
+    }
+    triangles = out;
+  }
+  const result = new BufferGeometry();
+  result.setAttribute('position', new Float32BufferAttribute(triangles.flatMap(t => t.flatMap(v => v.p)), 3));
+  result.setAttribute('normal', new Float32BufferAttribute(triangles.flatMap(t => t.flatMap(v => v.n)), 3));
+  result.normalizeNormals();
+  source.dispose();
+  geometry.dispose();
+  return result;
+}
+
 function ellipsoid(rx, ry, rz, x, y, z, material) {
   const mesh = new Mesh(new SphereGeometry(1, 16, 8), material);
   mesh.scale.set(rx, ry, rz);
@@ -359,7 +405,9 @@ export function buildBeryl() {
 
   const body = BODY_STATIONS.map((s) => ({ ...s, profile: BODY_PROFILE }));
   const cabin = CABIN_STATIONS.map((s) => ({ ...s, profile: CABIN_PROFILE }));
-  chassis.add(loft(body, materials.body));
+  const shell = loft(body, materials.body);
+  shell.geometry = wheelArches(shell.geometry);
+  chassis.add(shell);
   chassis.add(loft(cabin, materials.body));
 
   // Where the flank of the greenhouse is, at any point glass has to sit on it.
@@ -463,6 +511,10 @@ export function buildBeryl() {
     ));
   }
 
+  for (const mesh of chassis.children) {
+    if (mesh.geometry?.type === 'SphereGeometry') mesh.geometry = wheelArches(mesh.geometry);
+  }
+
   // Windscreen, then the two side windows, then the rear screen. The shell
   // between them is what the eye reads as the A, B and C pillars — they are not
   // separate meshes, which is why they can never float free of the roof.
@@ -471,12 +523,12 @@ export function buildBeryl() {
   sideGlass([
     { z: -L * 0.132, y: BELT },
     { z: -L * 0.102, y: 78 },
-    { z: L * 0.026, y: 81 },
-    { z: L * 0.026, y: BELT },
+    { z: L * 0.050, y: 81 },
+    { z: L * 0.050, y: BELT },
   ]);
   sideGlass([
-    { z: L * 0.082, y: BELT },
-    { z: L * 0.082, y: 81 },
+    { z: L * 0.072, y: BELT },
+    { z: L * 0.072, y: 81 },
     { z: L * 0.196, y: 78 },
     { z: L * 0.208, y: BELT - 1 },
   ]);

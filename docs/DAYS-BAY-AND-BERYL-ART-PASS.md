@@ -12,7 +12,7 @@ The intended look is a New Zealand holiday postcard you can drive through: recog
 
 The route and driving settings are unchanged. Williams Park moves alongside the Days Bay section, and nearby front-row houses make room for its open frontage. House meshes and collision footprints share the same scale. Clinic, school and shop footprints now use the same local axes as their visible models.
 
-Beryl uses a narrower cabin, rounded glass surrounds, more pronounced rear wings, chrome hubcaps, door handles and a dark BERYL plate. A small Phong paint/chrome material adds directional highlights without environment maps or large downloaded assets. Road contact still comes from the same tested wheel supports.
+Beryl uses a narrower cabin, rounded glass surrounds, more pronounced rear wings with actual wheel openings, chrome hubcaps, door handles and a dark BERYL plate. A small Phong paint/chrome material adds directional highlights without environment maps or large downloaded assets. Wharf/ferry geometry and plate lettering are batched to keep draw calls down. Road contact still comes from the same tested wheel supports.
 
 Named signs are attached to the park and buildings. They supersede the old blanket ban on text signs in the Eastbourne art brief; floating landmark labels remain unnecessary. The ferry and wharf are decorative beyond the coastal wall. Distant ridges are intentionally exaggerated enough to survive the driving camera.
 
