@@ -64,6 +64,7 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 | 1 | Repeated contact or missed gates may explain frustrating recovery | Await first imperfect-driver artifacts; no conclusion yet | Inspect the worst Eastbourne trace and screenshots; distinguish driver error from trapping geometry |
 | 2 | Steering taps may feel more predictable with a different return rate | Subjective experiment pending, do not merge unjudged | A/B one steering parameter on the same Days Bay route |
 | 3 | More distinct landmarks improve recognition without visual clutter | Earlier Days Bay/Beryl art shipped; player judgement needed | Ask where the player thinks they are at wharf, park and RSA reference views |
+| Done | Long test runs duplicated the growing timing history every frame | Fixed internal steps to return current state; final report retains all timings | Verify lightweight-step contract and deterministic baselines |
 | Done | Reports and controlled mistakes shorten diagnosis | This release adds opt-in trace downloads and 24 exploration runs | Verify CI and obtain first player report |
 
 For every iteration append: date, problem, hypothesis, baseline commit and metrics,

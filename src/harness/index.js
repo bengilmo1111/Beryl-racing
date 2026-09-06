@@ -202,7 +202,9 @@ export function startHarness({ Phaser, config, createGame }) {
     }
     for (let i = 0; i < count; i++) advanceOneFrame();
     if (render) renderFrame();
-    return state();
+    // Internal bot steps must not copy the growing timing history per frame.
+    // The final state() call still supplies all timings for performance checks.
+    return state(render);
   }
 
   const step = (frames) => stepFrames(frames, true);

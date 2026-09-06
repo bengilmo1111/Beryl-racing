@@ -50,6 +50,12 @@ try {
     window.__h.setInput({ throttle: 1, steer: 0 });
     window.__h._stepNoRender(180);
   });
+  const timingShape = await page.evaluate(() => ({
+    liteHasHistory: window.__h._stepNoRender(1).frameTimesMs !== undefined,
+    fullCount: window.__h.state().frameTimesMs.length,
+  }));
+  assert.equal(timingShape.liteHasHistory, false, 'bot steps must not duplicate timing history');
+  assert.ok(timingShape.fullCount >= 181, 'full state retains timings for final metrics');
   const reportButton = page.getByRole('button', { name: 'Report this moment', exact: true });
   const bounds = await reportButton.boundingBox();
   assert.ok(bounds && bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= 915 && bounds.y + bounds.height <= 412);
