@@ -280,6 +280,8 @@ try {
         obstacles: baseline.fingerprint,
       };
     } else {
+      console.log('Measured baseline:', JSON.stringify({ course: course.id,
+        finishTimeMs: baseline.state.finishTimeMs, pos: baseline.state.pos, obstacles: baseline.fingerprint }));
       assert.ok(pinned, `${course.id}: no recorded baseline — add one to BASELINES`);
       assert.equal(
         baseline.state.finishTimeMs,

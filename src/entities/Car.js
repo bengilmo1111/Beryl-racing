@@ -1,8 +1,9 @@
 // Beryl. Arcade top-down handling with drift: she carries a velocity vector, so
 // the sideways component can slide. Grip on that component is high on tarmac and
 // drops on the handbrake, which is what makes her drift.
-import Phaser from 'phaser';
 import { CAR, WORLD } from '../config.js';
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 // Fraction of top speed above which a sideways slide counts as a drift. Matched
 // to the `CAR.maxSpeed * 0.3` gate applyFx already uses for handbrake skids, so
@@ -37,6 +38,7 @@ export class Car {
     this.lateral = 0; // sideways speed, for drift fx
     this.drifting = false;
     this.onTrack = true;
+    this.steer = 0;
     // Sprite is ~256px long; scale so Beryl reads well on the road. Doubled
     // (0.425 → 0.85) so she takes up noticeably more of the lane.
     this.sprite.setScale(0.85);
@@ -57,6 +59,9 @@ export class Car {
     this.vx = 0;
     this.vy = 0;
     this.speed = 0;
+    this.steer = 0;
+    this.lateral = 0;
+    this.drifting = false;
     this.sync();
   }
 
@@ -85,7 +90,7 @@ export class Car {
 
     // Throttle / brake / reverse along the forward axis.
     if (input.throttle > 0) {
-      vForward += CAR.accel * dt;
+      vForward += CAR.accel * dt * (CAR.arcade ? clamp(input.throttle, 0, 1) : 1);
     } else if (input.throttle < 0) {
       if (vForward > 0) vForward -= CAR.brakeDecel * dt;
       else vForward -= CAR.reverseAccel * dt;
@@ -121,12 +126,24 @@ export class Car {
     if (vForward > maxV) {
       vForward = approach(vForward, maxV, (onTrack ? CAR.overspeedDrag : CAR.grassDrag) * dt);
     }
-    vForward = Phaser.Math.Clamp(vForward, -CAR.maxReverse, maxV);
+    // In the prototype, excess speed bleeds away through drag above. Clamping
+    // to the grass cap here used to remove half the speed in a single frame.
+    vForward = clamp(vForward, -CAR.maxReverse, CAR.arcade ? Math.max(maxV, vForward) : maxV);
     this.speed = vForward;
 
     // Steering: scales with speed, flips when reversing, sharper mid-drift.
-    const speedRatio = Phaser.Math.Clamp(Math.abs(vForward) / CAR.maxSpeed, 0, 1);
-    const effectiveness = CAR.lowSpeedTurn + (1 - CAR.lowSpeedTurn) * speedRatio;
+    const speedRatio = clamp(Math.abs(vForward) / CAR.maxSpeed, 0, 1);
+    let effectiveness = CAR.lowSpeedTurn + (1 - CAR.lowSpeedTurn) * speedRatio;
+    let steer = input.steer;
+    if (CAR.arcade) {
+      const rate = input.steer === 0 ? CAR.steerReturn : CAR.steerResponse;
+      this.steer = approach(this.steer, clamp(input.steer, -1, 1), rate * dt);
+      steer = this.steer;
+      // No stationary pivot. Full authority at manoeuvring speed, gentler
+      // corrections at pace; a short tap no longer swings the whole camera.
+      effectiveness = Math.min(1, speedRatio / 0.18)
+        * (1 - (1 - CAR.highSpeedSteer) * speedRatio);
+    }
     // Steering only inverts once she is genuinely reversing. Taking the raw sign
     // of vForward makes this chatter whenever speed hovers around zero: a car
     // nudged back and forth — stopped on a hill, or resting against scenery —
@@ -135,7 +152,7 @@ export class Car {
     // stationary car steer consistently forwards.
     const dir = vForward < -CAR.maxSpeed * 0.01 ? -1 : 1;
     const driftBoost = handbrake ? CAR.driftTurnBoost : 1;
-    this.rotation += input.steer * CAR.turnRate * effectiveness * dir * driftBoost * dt;
+    this.rotation += steer * CAR.turnRate * effectiveness * dir * driftBoost * dt;
 
     // Sideways grip: bleed lateral velocity toward zero. Low grip => slide.
     // On-road grip can vary by surface — gravel (if the course defines it) is

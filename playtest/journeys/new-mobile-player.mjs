@@ -187,7 +187,17 @@ export async function runNewMobilePlayerJourney({ browser, baseUrl, outDir }) {
 
       await page.evaluate((ms) => window.advanceTime(ms), 60 * FIXED_DELTA_MS);
       screenshots.push(await screenshot(page, journeyDir, '05-results'));
-      await page.touchscreen.tap(LANDSCAPE.width / 2, LANDSCAPE.height / 2 + 80);
+      const name = page.getByRole('textbox', { name: 'Name for local top three' });
+      await name.fill('COAST TEST');
+      await name.dispatchEvent('input');
+      const localScore = await page.evaluate(() => {
+        const scene = window.__BERYL_GAME__.scene.getScene('Race');
+        return JSON.parse(localStorage.getItem(`${scene.def.storageKey}.podium`));
+      });
+      if (!localScore.some((row) => row.name === 'COAST TEST')) {
+        failures.push(journeyFailure('podium-name-not-persisted', 'The local top-three name was not saved'));
+      }
+      await page.getByRole('button', { name: 'DASH AGAIN', exact: true }).tap();
       await page.waitForFunction(
         () => window.__BERYL_GAME__?.scene?.isActive('Race'),
         null,
@@ -202,6 +212,22 @@ export async function runNewMobilePlayerJourney({ browser, baseUrl, outDir }) {
         };
       });
       screenshots.push(await screenshot(page, journeyDir, '06-retry'));
+      const beforeRecovery = await page.evaluate(() => {
+        const scene = window.__BERYL_GAME__.scene.getScene('Race');
+        const rect = scene.game.canvas.getBoundingClientRect();
+        return { oldStart: scene.lapStartTime, expected: scene.expected,
+          x: rect.left + (scene.recoverButton.x - scene.recoverButton.displayWidth / 2) / scene.scale.width * rect.width,
+          y: rect.top + (scene.recoverButton.y + scene.recoverButton.displayHeight / 2) / scene.scale.height * rect.height };
+      });
+      await page.touchscreen.tap(beforeRecovery.x, beforeRecovery.y);
+      const recovered = await page.evaluate((before) => {
+        const scene = window.__BERYL_GAME__.scene.getScene('Race');
+        return { penalty: before.oldStart - scene.lapStartTime,
+          checkpointUnchanged: scene.expected === before.expected, speed: scene.car.speed };
+      }, beforeRecovery);
+      if (recovered.penalty !== 3000 || !recovered.checkpointUnchanged || recovered.speed !== 0) {
+        failures.push(journeyFailure('recovery-contract', JSON.stringify(recovered)));
+      }
       if (
         retryBest.sceneBest !== persistedBest ||
         retryBest.storedBest !== persistedBest

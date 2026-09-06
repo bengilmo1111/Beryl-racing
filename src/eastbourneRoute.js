@@ -156,7 +156,7 @@ export const EASTBOURNE_GEOMETRY = {
   // Two lanes, about 6m at ~59 units/metre. Comfortably under the ceiling
   // buildEdges in track.js describes — this route's tightest bend is the Ferry
   // Road hairpin onto the coast, which still clears 360 with room.
-  roadWidth: 360,
+  roadWidth: 400,
   numCheckpoints: 7,
   // All required gates except the finish sit before the road network splits.
   // Players may therefore choose any village route without being pulled back

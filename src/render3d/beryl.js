@@ -568,12 +568,16 @@ const MAX_ROLL = 0.1;
 const MAX_PITCH = 0.035;
 const MAX_STEER = 0.42;
 const _pos = new Vector3();
+const _wheelPos = new Vector3();
 
-export function updateBeryl(rig, car, input, dt, ground = 0, grade = 0) {
+export function updateBeryl(rig, car, input, dt, ground = 0, grade = 0, surfaceHeight = null) {
   const { root, chassis, wheels, state } = rig;
 
   toThree(car.x, car.y, ground, _pos);
   root.position.copy(_pos);
+  // Pitch around the car's local axle, then yaw into its heading. XYZ pitched
+  // around world X, so an east/west-facing car rolled sideways into the road.
+  root.rotation.order = 'YXZ';
   root.rotation.y = yawFor(car.rotation);
 
   const a = alphaFor(0.2, dt);
@@ -591,7 +595,8 @@ export function updateBeryl(rig, car, input, dt, ground = 0, grade = 0) {
 
   // Terrain grade tilts the whole car so the wheels and shell remain together.
   const targetSlope = Math.atan(grade);
-  state.slope += (targetSlope - state.slope) * a;
+  // The contact plane must not lag behind a crest; only suspension motion eases.
+  state.slope = targetSlope;
   root.rotation.x = state.slope;
 
   chassis.rotation.z = state.roll;
@@ -603,6 +608,18 @@ export function updateBeryl(rig, car, input, dt, ground = 0, grade = 0) {
   for (const wheel of wheels) {
     if (wheel.userData.steers) wheel.rotation.y = state.steer;
     wheel.userData.hub.rotation.x += spin;
+  }
+  if (surfaceHeight) {
+    // At a crest the front and rear axles need not lie on the centre tangent.
+    // Resolve visual wheel contact against the actual surface instead of
+    // burying the wheels while the suspension pitch catches up.
+    root.updateMatrixWorld(true);
+    let lift = 0;
+    for (const wheel of wheels) {
+      wheel.getWorldPosition(_wheelPos);
+      lift = Math.max(lift, surfaceHeight(_wheelPos.x, _wheelPos.z) + WHEEL_R - _wheelPos.y);
+    }
+    root.position.y += lift + 0.5;
   }
 }
 

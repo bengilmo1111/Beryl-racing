@@ -3,7 +3,7 @@
 // in an inverse-zoom layer so its screen-edge positions are unaffected by the
 // following race camera.
 import { formatTime, FONT, uiScale, isCompact, pinUiLayer } from './format.js';
-import { COLORS } from '../config.js';
+import { COLORS, CAR } from '../config.js';
 
 export class Hud {
   constructor(scene) {
@@ -86,7 +86,7 @@ export class Hud {
     const labelSize = Math.round(20 * s);
     const bigSize = Math.round(46 * s);
     const rowSize = Math.round(22 * s);
-    const lapSize = Math.round(28 * s);
+    const lapSize = CAR.arcade ? Math.round(19 * s) : Math.round(28 * s);
 
     this.currentLabel.setFontSize(labelSize);
     this.current.setFontSize(bigSize);
