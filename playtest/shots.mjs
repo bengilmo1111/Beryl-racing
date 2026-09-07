@@ -89,6 +89,27 @@ for (const { course, frames } of jobs) {
   }
 
   if (process.env.BERYL_ART_VIEWS === '1') {
+    if (course === 'eastbourne-dash') {
+      for (const kind of ['shops', 'villa', 'shelter']) {
+        const data = await page.evaluate(async kind => {
+          const { Vector3 } = await import('/node_modules/three/build/three.module.js');
+          const scene = window.__BERYL_GAME__.scene.getScene('Race');
+          const s = scene.structures.find(s => s.kind === kind);
+          const world = scene.world3d;
+          const camera = world.chase.camera.clone();
+          const front = new Vector3(-Math.sin(s.yaw), 0, -Math.cos(s.yaw));
+          const target = new Vector3(s.x, scene.terrain.heightAt(s.x, s.z) + 120, s.z);
+          camera.position.copy(target).addScaledVector(front, 1700);
+          camera.position.x += Math.cos(s.yaw) * 700;
+          camera.position.z -= Math.sin(s.yaw) * 700;
+          camera.position.y += 450;
+          camera.lookAt(target);
+          world.renderer.render(world.scene3d, camera);
+          return world.renderer.domElement.toDataURL('image/png');
+        }, kind);
+        await writeFile(`${OUT}/eastbourne-${kind}.png`, Buffer.from(data.split(',')[1], 'base64'));
+      }
+    }
     for (const [name, eye] of [['front-quarter', [240, 150, -330]], ['rear-quarter', [-240, 145, 330]], ['side', [390, 100, 0]]]) {
       const data = await page.evaluate(async (eye) => {
         const { Vector3 } = await import('/node_modules/three/build/three.module.js');

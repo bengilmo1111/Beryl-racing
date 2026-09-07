@@ -243,11 +243,19 @@ function eastbourneStructures(def, track) {
     from: 0.10,
     to: 0.92,
     settledAt: (f) => 0.30 + Math.min(1, Math.max(0, (f - 0.12) / 0.5)) * 0.62,
-    sides: [0, 1],
+    sides: [0],
+    depth0: metres(12),
     facing: -eastbourneSeaward(track),
     frontTaken: [0.21, 0.29],
     rowDepth: metres(15),
   });
+
+  for (const road of track.roads.filter(r => ['muritai-road', 'village-inland'].includes(r.id))) {
+    houses.push(...housesAlong(road, {
+      from: 0.12, to: 0.88, settledAt: () => 0.85,
+      sides: [0, 2], depth0: metres(12),
+    }));
+  }
 
   return [
     ...houses.map(s => ({ ...s, scale: EASTBOURNE_VILLA_SCALE,
@@ -269,7 +277,7 @@ function eastbourneStructures(def, track) {
     },
     {
       kind: 'shops', x: places.shops.x, z: places.shops.z,
-      w: 900, d: 240, yaw: places.shops.facing,
+      w: 1800, d: 480, yaw: places.shops.facing,
     },
     {
       kind: 'school', x: places.school.x, z: places.school.z,
@@ -464,6 +472,40 @@ export function buildStructures(def, track) {
   // the pit wall, so it is exempt from the push-out; everything else gets seated
   // clear of the carriageway.
   if (def.theme !== 'manfield') for (const s of list) pushClear(roads, s);
+  if (def.theme === 'eastbourne') {
+    const park = resolvePlaces(track, EASTBOURNE_LAYOUT.places).williamsPark;
+    // Civic sites own their land first. Reject overlapping housing instead of
+    // pushing it into a second property or generating an inaccessible back row.
+    const accepted = list.filter(s => s.kind !== 'villa');
+    for (const s of list.filter(s => s.kind === 'villa')) {
+      const near = roadSideAt(roads, s.x, s.z);
+      s.yaw = Math.atan2(near.dx, near.dz); // local -Z is the front door
+      pushClear(roads, s);
+      if (Math.abs(s.x - park.x) < metres(24) && Math.abs(s.z - park.z) < metres(39)) continue;
+      const b = boundsOf(s), gap = metres(5);
+      if (accepted.some(other => {
+        const a = boundsOf(other);
+        return b.minX < a.maxX + gap && b.maxX > a.minX - gap
+          && b.minZ < a.maxZ + gap && b.maxZ > a.minZ - gap;
+      })) continue;
+      accepted.push(s);
+    }
+    list = accepted;
+    for (const s of list.filter(s => s.kind === 'villa' || s.kind === 'shops')) {
+      const near = roadSideAt(roads, s.x, s.z);
+      s.yaw = Math.atan2(near.dx, near.dz);
+      // Door and kerb endpoints are shared with scenery clearance and art.
+      let road = roads[0], best = Infinity;
+      for (const r of roads) for (const p of r.centerline) {
+        const d = Math.hypot(p.x - s.x, p.y - s.z);
+        if (d < best) { best = d; road = r; }
+      }
+      s.frontage = {
+        x: near.c.x + near.dx * (road.half + metres(0.5)),
+        z: near.c.y + near.dz * (road.half + metres(0.5)),
+      };
+    }
+  }
   return list;
 }
 

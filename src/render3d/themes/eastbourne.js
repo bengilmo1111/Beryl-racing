@@ -27,7 +27,7 @@ import { eastbourneCoast } from '../../coast.js';
 import { resolvePlace, resolvePlaces } from '../../places.js';
 import { metres } from '../../scale.js';
 import { buildEastbourneVilla, villaPalette } from '../houses.js';
-import { ridge } from './parallax.js';
+import { HILL_OFFSETS, hillElevation } from '../../eastbourneHills.js';
 import { bakeStatic } from '../bake.js';
 import { buildEastbourneParallax } from './eastbourneParallax.js';
 import { seawallGeometry, harbourGeometry } from '../coastalGeometry.js';
@@ -240,34 +240,39 @@ function addCoastalPines(group, terrain, track, structures) {
 }
 
 function addHills(group, terrain, track) {
-  // A continuous folded bush slope, tied to the road rather than world fractions.
-  // The first row sits beyond the settlement; no decorative hill crosses a road.
-  const points = track.centerline.filter((_, i) => i % 8 === 0);
-  const positions = [];
-  const indices = [];
-  points.forEach((p, i) => {
-    const wave = Math.sin(i * 0.53) * 0.5 + Math.sin(i * 1.31) * 0.2;
-    for (const [offset, height] of [[80, 0], [160, 70], [260, 125], [390, 95]]) {
-      const inlandEdge = Math.max(p.x, ...track.roads.flatMap(road =>
-        road.centerline.filter(q => Math.abs(q.y - p.y) < metres(90)).map(q => q.x + road.half)));
-      const x = inlandEdge + metres(offset);
-      positions.push(x, terrain.heightAt(x, p.y) + metres(height * (1 + wave * 0.22)), p.y);
+  // One north/south surface, rather than a ribbon folded around every road bend.
+  // Profile origins are mapped beyond the inland-most street; measured eastward
+  // distances and absolute heights then preserve the much gentler viewing angle.
+  const start = track.centerline[0].y - metres(220);
+  const end = track.centerline.at(-1).y + metres(350);
+  const rows = 90, columns = HILL_OFFSETS.length + 2;
+  const positions = [], indices = [];
+  for (let i = 0; i <= rows; i++) {
+    const z = start + (end - start) * i / rows;
+    const fraction = (z - track.centerline[0].y) / (track.centerline.at(-1).y - track.centerline[0].y);
+    const nearest = track.centerline.reduce((a, b) => Math.abs(a.y - z) < Math.abs(b.y - z) ? a : b);
+    const local = track.roads.flatMap(r => r.centerline.filter(p => Math.abs(p.y - z) < metres(140)).map(p => p.x + r.half));
+    const edge = Math.max(nearest.x, ...local) + metres(45);
+    const taper = Math.min(1, i / 10, (rows - i) / 10);
+    for (let c = 0; c < columns; c++) {
+      const distance = HILL_OFFSETS[c] ?? (c === columns - 2 ? 850 : 1100);
+      const x = edge + metres(distance);
+      const ground = terrain.heightAt(x, z);
+      const measured = hillElevation(fraction, Math.min(c, HILL_OFFSETS.length - 1));
+      // Beyond the measured 600 m section, return the backdrop gently to ground.
+      const tail = c === columns - 1 ? 0 : c === columns - 2 ? 0.75 : 1;
+      const h = (terrain.seaLevel || 0) + metres(measured) * taper * tail;
+      positions.push(x, c === 0 || c === columns - 1 ? ground - 4 : Math.max(ground - 4, h), z);
+      if (i && c) {
+        const b = i * columns + c, a = b - columns;
+        indices.push(a - 1, b - 1, a, a, b - 1, b);
+      }
     }
-    if (i > 0) for (let c = 0; c < 3; c++) {
-      const a = (i - 1) * 4 + c, b = i * 4 + c;
-      indices.push(a, b, a + 1, a + 1, b, b + 1);
-    }
-  });
+  }
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  group.add(new Mesh(geometry, lambert(0x46765a, { side: DoubleSide, flatShading: true })));
-  group.add(ridge({ at: WORLD.width * 0.82, start: -WORLD.height * 0.2,
-    end: WORLD.height * 1.2, segments: 64, bottom: -200,
-    driftAt: t => metres(50) * Math.sin(t * 21),
-    heightAt: t => metres(185 + 45 * Math.sin(t * 24) + 18 * Math.sin(t * 51)) * Math.sqrt(Math.max(0, Math.sin(Math.PI * t))),
-  }, 0x638573));
+  geometry.setIndex(indices); geometry.computeVertexNormals();
+  group.add(new Mesh(geometry, lambert(0x537d60, { side: DoubleSide })));
 }
 
 // Painted, physical signs. Text is authored here and remains crisp on a phone.
@@ -301,6 +306,27 @@ function nameboard(text, width, height, colour = '#315b51') {
 // Baked into one mesh at the end. A villa is about twenty boxes and there are
 // 270 of them along Marine Drive, which is 5,400 draw calls a frame for a street
 // that never moves — see render3d/bake.js.
+function groundRibbon(group, terrain, a, b, width, colour) {
+  const dx = b.x - a.x, dz = b.z - a.z;
+  const length = Math.hypot(dx, dz);
+  if (length < 1) return;
+  const nx = -dz / length * width / 2, nz = dx / length * width / 2;
+  const count = Math.max(1, Math.ceil(length / metres(1)));
+  const positions = [], indices = [];
+  for (let i = 0; i <= count; i++) {
+    for (const sign of [-1, 1]) {
+      const x = a.x + dx * i / count + nx * sign;
+      const z = a.z + dz * i / count + nz * sign;
+      positions.push(x, terrain.heightAt(x, z) + 3, z);
+    }
+    if (i) { const k = i * 2; indices.push(k - 2, k, k - 1, k - 1, k, k + 1); }
+  }
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices); geometry.computeVertexNormals();
+  group.add(new Mesh(geometry, lambert(colour, { side: DoubleSide })));
+}
+
 function addHouses(group, terrain, structures) {
   const street = new Group();
   for (const s of structures) {
@@ -313,12 +339,25 @@ function addHouses(group, terrain, structures) {
     placeAtGround(house, terrain, s.x, s.z, 1);
     house.rotation.y = s.yaw;
     street.add(house);
-    // A doorstep path connects each verandah to its own plot, seated on terrain.
-    const path = box(metres(0.9), 3, metres(2.2), lambert(COLOUR.concrete));
-    const d = s.d / 2 + metres(0.5);
-    placeAtGround(path, terrain, s.x - Math.sin(s.yaw) * d, s.z - Math.cos(s.yaw) * d, 2);
-    path.rotation.y = s.yaw;
-    street.add(path);
+    if (s.frontage) {
+      const door = { x: s.x - Math.sin(s.yaw) * s.d / 2,
+        z: s.z - Math.cos(s.yaw) * s.d / 2 };
+      groundRibbon(street, terrain, s.frontage, door, metres(1.2), COLOUR.concrete);
+      // Low painted garden boundary with a real opening at the path.
+      const across = { x: Math.cos(s.yaw), z: -Math.sin(s.yaw) };
+      const outward = { x: Math.sin(s.yaw), z: Math.cos(s.yaw) };
+      const origin = { x: s.frontage.x + outward.x * metres(1.5),
+        z: s.frontage.z + outward.z * metres(1.5) };
+      for (const side of [-1, 1]) {
+        for (let d = metres(1.1); d <= s.w / 2 + metres(1); d += metres(0.5)) {
+          const x = origin.x + across.x * d * side, z = origin.z + across.z * d * side;
+          const picket = box(metres(0.1), metres(0.75), metres(0.08), lambert(COLOUR.white));
+          placeAtGround(picket, terrain, x, z, metres(0.375));
+          picket.rotation.y = s.yaw;
+          street.add(picket);
+        }
+      }
+    }
   }
   const baked = bakeStatic(street);
   group.add(baked || street);
@@ -410,11 +449,10 @@ function addVillage(group, terrain, structures, track) {
   addWindowBand(clinic, 330, 72, -110);
   group.add(clinic);
 
-  // Eastbourne's shops are grouped in one continuous strip between the clinic
-  // and Muritai School. No shop names are drawn; awnings, glazed fronts and the
-  // denser building rhythm do the work.
+  // A continuous village strip: generic shop types, not unverified business replicas.
   const shopRoot = new Group();
   const shopWidths = [150, 175, 160, 185, 155];
+  const shopNames = ['DAIRY', 'BAKERY', 'BOOKS', 'FISH & CHIPS', 'CAFE'];
   let cursor = -shopWidths.reduce((a, b) => a + b, 0) / 2 - 16;
   shopWidths.forEach((width, i) => {
     const module = box(width, 135 + (i % 2) * 18, 150, lambert(i === 2 ? COLOUR.paleBlue : COLOUR.white));
@@ -429,6 +467,16 @@ function addVillage(group, terrain, structures, track) {
     const awning = box(width + 8, 8, 54, lambert(i % 2 ? COLOUR.roofGreen : COLOUR.roofRed));
     awning.position.set(cursor + width / 2, 92, -102);
     shopRoot.add(awning);
+    const sign = nameboard(shopNames[i], width - 12, 26, i % 2 ? '#725547' : '#315b51');
+    sign.position.set(cursor + width / 2, 120, -80);
+    sign.rotation.y = Math.PI;
+    shopRoot.add(sign);
+    const door = box(24, 75, 8, lambert(COLOUR.roofGreen));
+    door.position.set(cursor + width * 0.82, 38, -80);
+    shopRoot.add(door);
+    const doorGlass = box(16, 48, 3, lambert(COLOUR.glass));
+    doorGlass.position.set(cursor + width * 0.82, 47, -85);
+    shopRoot.add(doorGlass);
     cursor += width + 8;
   });
   const footpath = box(900, 7, 105, lambert(COLOUR.concrete));
@@ -437,6 +485,12 @@ function addVillage(group, terrain, structures, track) {
   const shopsAt = at('shops');
   placeAtGround(shopRoot, terrain, shopsAt.x, shopsAt.z, 2);
   shopRoot.rotation.y = shopsAt.yaw;
+  shopRoot.scale.setScalar(2);
+  if (shopsAt.frontage) {
+    const front = { x: shopsAt.x - Math.sin(shopsAt.yaw) * 350,
+      z: shopsAt.z - Math.cos(shopsAt.yaw) * 350 };
+    groundRibbon(group, terrain, shopsAt.frontage, front, metres(4), COLOUR.concrete);
+  }
   group.add(shopRoot);
 
   // Muritai School: a spread-out white classroom block and open field directly
