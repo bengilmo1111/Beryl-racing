@@ -11,7 +11,7 @@ export function rsaArrival(road) {
     x: end.x + metres(x) * Math.cos(yaw) + metres(y) * Math.sin(yaw),
     y: end.y - metres(x) * Math.sin(yaw) + metres(y) * Math.cos(yaw), h,
   });
-  return { yaw, h, point, triangle: [point(-16, -34), point(18, -34), point(8, 18)],
+  return { yaw, h, point, triangle: [point(-16, -34), point(18, -34), point(0, 34)],
     building: point(22, 7) };
 }
 

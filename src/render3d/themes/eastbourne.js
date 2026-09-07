@@ -329,11 +329,20 @@ function simpleGableBuilding(width, depth, wallHeight, wallColour, roofColour) {
   const wall = box(width, wallHeight, depth, lambert(wallColour));
   wall.position.y = wallHeight / 2;
   root.add(wall);
-  const roof = new Mesh(new ConeGeometry(Math.hypot(width / 2, 65), 92, 4), lambert(roofColour));
-  roof.position.y = wallHeight + 34;
-  roof.rotation.y = Math.PI / 4;
-  roof.scale.z = depth / width;
-  root.add(roof);
+  const half = width / 2 + 12, rise = 92;
+  for (const side of [-1, 1]) {
+    const roof = box(Math.hypot(half, rise), 8, depth + 24, lambert(roofColour));
+    roof.position.set(side * half / 2, wallHeight + rise / 2, 0);
+    roof.rotation.z = -side * Math.atan2(rise, half);
+    root.add(roof);
+  }
+  const ends = new BufferGeometry();
+  ends.setAttribute('position', new Float32BufferAttribute([
+    -width / 2, wallHeight, -depth / 2, 0, wallHeight + rise, -depth / 2, width / 2, wallHeight, -depth / 2,
+    -width / 2, wallHeight, depth / 2, width / 2, wallHeight, depth / 2, 0, wallHeight + rise, depth / 2,
+  ], 3));
+  ends.computeVertexNormals();
+  root.add(new Mesh(ends, lambert(wallColour)));
   return root;
 }
 

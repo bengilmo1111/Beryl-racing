@@ -16,7 +16,7 @@ try {
     await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/?harness=1&course=eastbourne-dash&seed=779425`);
     await page.waitForFunction(() => !!window.__h);
     await page.evaluate(async route => {
-      await window.__h.ready;
+      await window.advanceTime(0);
       const scene = window.__BERYL_GAME__.scene.getScene('Race');
       const roads = scene.track.roads, primary = roads[0].centerline;
       const muritai = roads.find(r => r.id === 'muritai-road').centerline;
