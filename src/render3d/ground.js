@@ -148,7 +148,13 @@ export function groundColours(info, theme, seaLevel = null) {
       }
 
       // The last few metres before the water. Sand, not lawn.
-      if (shore && seaLevel != null) {
+      if (shore && seaLevel != null && info.coastalProfile) {
+        // Low coastal gardens are still gardens. Material follows geography,
+        // independently of height, and is fully sandy on the actual beach.
+        const { wallX } = info.coastalProfile(z);
+        const t = Math.min(1, Math.max(0, (wallX - x) / (cell * 0.65)));
+        scratchA.lerp(shore, t);
+      } else if (shore && seaLevel != null && theme !== 'eastbourne') {
         const above = h - seaLevel;
         if (above < BEACH_HEIGHT) {
           const t = Math.min(1, Math.max(0, 1 - above / BEACH_HEIGHT));

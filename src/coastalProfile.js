@@ -1,4 +1,4 @@
-import { eastbourneCoast, WALL_SETBACK } from './coast.js';
+import { eastbourneCoast } from './coast.js';
 import { metres } from './scale.js';
 
 // Extend open water north/south, not along a road heading that turns inland.
@@ -18,11 +18,9 @@ export function visualCoast(track) {
 // also joins the short overlapping primary/Marine Parade sampling ranges.
 export function coastalProfile(track) {
   const coast = visualCoast(track);
-  const rows = coast.points.map(p => ({
-    z: p.z, shoreX: p.x,
-    wallX: p.x - p.nx * (coast.beach - WALL_SETBACK),
-  })).sort((a, b) => a.z - b.z);
-  return z => {
+  const shoreline = coast.points.map(p => ({ z: p.z, x: p.x })).sort((a, b) => a.z - b.z);
+  const wall = coast.wall.slice().sort((a, b) => a.z - b.z);
+  const interpolate = (rows, z, key) => {
     let lo = 0, hi = rows.length - 1;
     while (lo + 1 < hi) {
       const mid = (lo + hi) >> 1;
@@ -30,9 +28,10 @@ export function coastalProfile(track) {
     }
     const a = rows[lo], b = rows[hi];
     const t = Math.max(0, Math.min(1, (z - a.z) / Math.max(1, b.z - a.z)));
-    return { shoreX: a.shoreX + (b.shoreX - a.shoreX) * t,
-      wallX: a.wallX + (b.wallX - a.wallX) * t };
+    return a[key] + (b[key] - a[key]) * t;
   };
+  return z => ({ shoreX: interpolate(shoreline, z, 'x'),
+    wallX: interpolate(wall, z, 'x'), wallHeight: interpolate(wall, z, 'roadHeight') });
 }
 
 export function coastalGroundHeight(x, shoreX, wallX, wallHeight, sea) {
