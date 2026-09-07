@@ -61,7 +61,8 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 
 | Priority | Hypothesis | Evidence / status | Next test |
 |---|---|---|---|
-| 1 | Repeated contact or missed gates may explain frustrating recovery | Await first imperfect-driver artifacts; no conclusion yet | Inspect the worst Eastbourne trace and screenshots; distinguish driver error from trapping geometry |
+| Done | Coarse terrain can obscure climbing roads despite correct wheel support | PR #38: Remutaka clearance regression and matched screenshots verified; 7,486 sampled intrusions removed | Player check on later uphill bends; separately reproduce the much smaller Otaki overlaps |
+| 2 | Repeated contact or missed gates may explain frustrating recovery | Exploration artifacts now exist; Remutaka lateBraking passes both seeds, not evidence about Eastbourne recovery | Inspect the worst Eastbourne trace and screenshots; distinguish driver error from trapping geometry |
 | 2 | Steering taps may feel more predictable with a different return rate | Subjective experiment pending, do not merge unjudged | A/B one steering parameter on the same Days Bay route |
 | 3 | More distinct landmarks improve recognition without visual clutter | Earlier Days Bay/Beryl art shipped; player judgement needed | Ask where the player thinks they are at wharf, park and RSA reference views |
 | Done | Long test runs duplicated the growing timing history every frame | Fixed internal steps to return current state; final report retains all timings | Verify lightweight-step contract and deterministic baselines |
@@ -98,3 +99,59 @@ zones, property entrances/fences and more legible shops. Terrain is not yet a
 measured reconstruction. References:
 - https://opendata.gw.govt.nz/maps/058ad87d107944a59974db6c6ffab1dc/about
 - https://www.gw.govt.nz/assets/Documents/2009/07/East-Harbour-northen-block-map.pdf
+
+## 2026-09-08: Remutaka road/terrain clearance
+
+Baseline: main `accbe65363ea5793625ca91f5c6405f0c5964870` (PR #37).
+No open issues/PRs at the start; reuse the existing Remutaka intrusion finding,
+not another guardrail polish pass. PR #37 already fixed the non-Eastbourne
+garage roof, guardrail heights, street-facing facades and crop-ground contact.
+
+Evidence checked through workflow collections, not only commit-filtered runs:
+- Scheduled Playtest [34152765893](https://github.com/bengilmo1111/Beryl-racing/actions/runs/34152765893),
+  Sept 7 UTC, passed on `0e25d77c`. Previous successful scheduled run
+  [34047292920](https://github.com/bengilmo1111/Beryl-racing/actions/runs/34047292920)
+  on `c3091e4c`: Remutaka waypoint/seed 779425 takes 124383.333333 ms in both,
+  all 11 gates, zero off-road fraction/runtime errors. Both frame-6000 screenshots
+  show the same hillside triangle covering the right lane. Older reports lack
+  contact/recovery counters and input traces: missing evidence, not zero events.
+- Scheduled exploration [34152942990](https://github.com/bengilmo1111/Beryl-racing/actions/runs/34152942990)
+  passed on `0e25d77c`; no earlier scheduled exploration in the collection.
+  Inspected Remutaka lateBraking reports for seeds 779425/779426 and compared
+  with the newer successful PR #37 run 34160199252: both finish in 124383.333333 ms,
+  zero contacts/recoveries/off-road fraction. These bots do not detect occlusion
+  and cannot establish fun or player recovery quality.
+- Latest Determinism [34160199174](https://github.com/bengilmo1111/Beryl-racing/actions/runs/34160199174)
+  passed for PR #37. This workflow has no schedule, so there is no scheduled
+  Determinism result to claim. Latest scheduled runs predate current main.
+- PR #37 Playtest 34160199175 reproduces the intrusion at the same frame/seed;
+  it is not a regression introduced by that merge.
+
+Hypothesis: pinning nearest road heights at coarse grid vertices does not keep
+the intervening ground triangles below a curved, sloping road. A local geometry
+reproduction finds 7,486 intrusions among 83,025 positions, worst 197.02 units
+(about 3.4 m). Wheel-contact checks previously tested only the road mesh.
+
+Change: Remutaka-only clearance constraints at every road/ground intersection
+polygon vertex. Lower only affected ground vertices; preserve physicsGrid and
+drivingGrid, road geometry, handling, route, random stream and replay baselines.
+Adjacent scenery reads the corrected visual field. No Eastbourne/2D changes.
+
+Result ([PR #38](https://github.com/bengilmo1111/Beryl-racing/pull/38)): new regression passes all 83,025 positions and 175 raycasts against
+the rendered mesh, with both winding directions and tiny interior overlaps
+covered. Production build passes. CI now runs this regression. On code commit
+`c63e6c9`, Determinism 34161565024 and Exploration 34161565027 pass; all Playtest
+34161565052 jobs pass, including mobile/gateway and combined report. All four
+course replay/obstacle baselines remain unchanged. Remutaka's four standard bot
+reports and lateBraking's two seeds have identical metrics to PR #37. Matching
+waypoint/seed-779425 frames 2160 and 6000 show continuous edge lines and no former
+grass wedges, exposed road holes or new floating scenery in those views.
+Decision: accept this objective geometry fix once the final documentation commit
+also passes required checks. No handling/art preference inferred from bot times.
+PR records final check and merge status.
+
+Next test: drive Remutaka's later uphill bends and check that tarmac/white edge
+lines stay continuous with no grass wedges. Inspect matched frame 2160 and 6000
+for exposed road edges or floating scenery. Keep tree-density/camera preferences
+for a separate player-judged preview; small Otaki terrain/road overlaps remain
+queued rather than expanding this fix to another course without rendered review.

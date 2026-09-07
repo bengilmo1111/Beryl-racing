@@ -43,6 +43,8 @@ jobs:
         run: node playtest/eastbourne-coast.mjs
       - name: Course art geometry
         run: node playtest/course-art.mjs
+      - name: Remutaka terrain clears the road
+        run: node playtest/terrain-clearance.mjs
       - name: Road index
         run: npm run test:road-index
       - name: Car contact with the rendered road

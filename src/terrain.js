@@ -8,6 +8,7 @@ import { remutakaRoadProfile, remutakaVisualHeight } from './remutakaTerrain.js'
 import { metres } from './scale.js';
 import { RoadSurface } from './roadSurface.js';
 import { coastalProfile, coastalGroundHeight } from './coastalProfile.js';
+import { clearRoadTerrain } from './terrainClearance.js';
 
 // Grid resolution, in world units per cell.
 //
@@ -246,6 +247,7 @@ export class Terrain {
 
     this.grid = this.#addRelief(this.grid, pinned, roadDistance);
     this.drivingGrid = this.grid;
+    if (remutaka) this.grid = clearRoadTerrain(this, this.roadSurface);
     if (def?.theme === 'eastbourne') {
       const profile = coastalProfile(track);
       this.coastalProfile = profile;
