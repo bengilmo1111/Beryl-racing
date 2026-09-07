@@ -30,7 +30,7 @@ import { buildEastbourneVilla, villaPalette } from '../houses.js';
 import { HILL_OFFSETS, hillElevation } from '../../eastbourneHills.js';
 import { bakeStatic } from '../bake.js';
 import { buildEastbourneParallax } from './eastbourneParallax.js';
-import { seawallGeometry, harbourGeometry } from '../coastalGeometry.js';
+import { seawallGeometry, harbourGeometry, shoreBandGeometry } from '../coastalGeometry.js';
 import { visualCoast } from '../../coastalProfile.js';
 
 const COLOUR = {
@@ -95,12 +95,10 @@ function addCoast(group, terrain, track) {
   water.position.y = sea + 2;
   group.add(water);
 
-  const shallow = lambert(COLOUR.shallow);
-  const foam = basic(COLOUR.foam, { fog: true });
-  for (let i = 0; i < points.length - 1; i += 1) {
-    // An inshore shelf, then the foam line right on the sand.
-    addSegment(group, points[i], points[i + 1], metres(9), 7, sea + 3, shallow);
-    addSegment(group, points[i], points[i + 1], metres(1.1), 4, sea + 5, foam);
+  for (const [width, colour, height] of [[9, COLOUR.shallow, 3], [0.7, COLOUR.foam, 5]]) {
+    const band = new Mesh(shoreBandGeometry(points, metres(width)), basic(colour, { fog: true }));
+    band.position.y = sea + height;
+    group.add(band);
   }
 
   // The low wall along the seaward edge of the road. Its collision circles are

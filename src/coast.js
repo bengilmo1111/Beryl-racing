@@ -119,6 +119,7 @@ export function eastbourneCoast(track) {
       wall.push({
         x: line[i].x + nrm.x * sign * wallOffset,
         z: line[i].y + nrm.z * sign * wallOffset,
+        roadHeight: road.heights[i],
       });
     }
   }

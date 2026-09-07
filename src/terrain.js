@@ -248,12 +248,12 @@ export class Terrain {
     this.drivingGrid = this.grid;
     if (def?.theme === 'eastbourne') {
       const profile = coastalProfile(track);
+      this.coastalProfile = profile;
       const visual = Float32Array.from(this.grid);
       this.waterMask = new Uint8Array(visual.length);
       for (let r = 0; r < this.rows; r++) {
         const z = this.minY + r * CELL;
-        const { shoreX, wallX } = profile(z);
-        const wallHeight = this.heightAt(wallX, z);
+        const { shoreX, wallX, wallHeight } = profile(z);
         for (let c = 0; c < this.cols; c++) {
           const x = this.minX + c * CELL;
           // Protect all road corridors, including the village branches.
@@ -417,6 +417,7 @@ export class Terrain {
       minY: this.minY,
       grid: this.grid,
       waterMask: this.waterMask,
+      coastalProfile: this.coastalProfile,
     };
   }
 }
