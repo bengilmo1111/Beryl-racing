@@ -426,7 +426,7 @@ export function scatterScenery(track, def) {
   if (track.pavedAreas?.length) {
     const end = track.centerline.at(-1);
     const clear = p => Math.hypot(p.x - end.x, p.y - end.y) > metres(48);
-    return { trees: trees.filter(clear), props: props.filter(clear), obstacles: obstacles.filter(clear) };
+    return { trees: trees.filter(clear), props: props.filter(p => clear(p) && clearsBuildings(p.x, p.y, metres(1))), obstacles: obstacles.filter(clear) };
   }
   return { trees, props, obstacles };
 }

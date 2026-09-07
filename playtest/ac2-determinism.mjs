@@ -119,13 +119,16 @@ import { TRACKS } from '../src/tracks.js';
 // - Days Bay art pass: larger villa footprints, corrected civic-building axes,
 //   and park frontage change Eastbourne obstacles only. Measured finish time
 //   and final position remain exactly unchanged (80.766666667 seconds).
+// - Re-recorded 2026-09-07 for street-facing Eastbourne plots and front-garden
+//   tree clearance. Only its obstacle fingerprint changes; finish time and
+//   position remain identical. All other course baselines are unchanged.
 const BASELINES = {
   // Re-recorded 2026-09-07: shorter Ferry Road, Marine Parade primary route,
   // triangular parking finish, and tree/building clearance. Other courses unchanged.
   'eastbourne-dash': {
     finishTimeMs: 67716.666667,
     pos: { x: 14966.803766184, y: 114401.175632789 },
-    obstacles: '05d503d1ad069ae2',
+    obstacles: '8c834ec883f2f285',
   },
   // Manfeild has no trees, so every circle on the circuit belongs to a building:
   // pit wall, garages, timing tower, paddock sheds, grandstand and marshal huts.

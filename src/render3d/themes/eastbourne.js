@@ -306,7 +306,7 @@ function nameboard(text, width, height, colour = '#315b51') {
 // Baked into one mesh at the end. A villa is about twenty boxes and there are
 // 270 of them along Marine Drive, which is 5,400 draw calls a frame for a street
 // that never moves — see render3d/bake.js.
-function groundRibbon(group, terrain, a, b, width, colour) {
+export function groundRibbon(group, terrain, a, b, width, colour) {
   const dx = b.x - a.x, dz = b.z - a.z;
   const length = Math.hypot(dx, dz);
   if (length < 1) return;
@@ -319,7 +319,7 @@ function groundRibbon(group, terrain, a, b, width, colour) {
       const z = a.z + dz * i / count + nz * sign;
       positions.push(x, terrain.heightAt(x, z) + 3, z);
     }
-    if (i) { const k = i * 2; indices.push(k - 2, k, k - 1, k - 1, k, k + 1); }
+    if (i) { const k = i * 2; indices.push(k - 2, k - 1, k, k - 1, k + 1, k); }
   }
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
@@ -349,6 +349,15 @@ function addHouses(group, terrain, structures) {
       const origin = { x: s.frontage.x + outward.x * metres(1.5),
         z: s.frontage.z + outward.z * metres(1.5) };
       for (const side of [-1, 1]) {
+        const a = { x: origin.x + across.x * metres(1.1) * side,
+          z: origin.z + across.z * metres(1.1) * side };
+        const b = { x: origin.x + across.x * (s.w / 2 + metres(1)) * side,
+          z: origin.z + across.z * (s.w / 2 + metres(1)) * side };
+        for (const h of [0.22, 0.57]) {
+          const rail = addSegment(street, a, b, metres(0.07), metres(0.08),
+            (terrain.heightAt(a.x, a.z) + terrain.heightAt(b.x, b.z)) / 2 + metres(h), lambert(COLOUR.white));
+          rail.rotation.x = -Math.atan2(terrain.heightAt(b.x, b.z) - terrain.heightAt(a.x, a.z), Math.hypot(b.x - a.x, b.z - a.z));
+        }
         for (let d = metres(1.1); d <= s.w / 2 + metres(1); d += metres(0.5)) {
           const x = origin.x + across.x * d * side, z = origin.z + across.z * d * side;
           const picket = box(metres(0.1), metres(0.75), metres(0.08), lambert(COLOUR.white));
@@ -489,7 +498,7 @@ function addVillage(group, terrain, structures, track) {
   if (shopsAt.frontage) {
     const front = { x: shopsAt.x - Math.sin(shopsAt.yaw) * 350,
       z: shopsAt.z - Math.cos(shopsAt.yaw) * 350 };
-    groundRibbon(group, terrain, shopsAt.frontage, front, metres(4), COLOUR.concrete);
+    groundRibbon(group, terrain, shopsAt.frontage, front, shopsAt.w, COLOUR.concrete);
   }
   group.add(shopRoot);
 
