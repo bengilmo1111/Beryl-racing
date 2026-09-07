@@ -245,6 +245,7 @@ export class Terrain {
     }
 
     this.grid = this.#addRelief(this.grid, pinned, roadDistance);
+    this.drivingGrid = this.grid;
     if (def?.theme === 'eastbourne') {
       const profile = coastalProfile(track);
       const visual = Float32Array.from(this.grid);
@@ -366,8 +367,13 @@ export class Terrain {
   }
 
   roadGradeAlong(x, y, fwdX, fwdY, step = GRADE_STEP) {
-    return (this.heightAt(x + fwdX * step, y + fwdY * step)
-      - this.heightAt(x - fwdX * step, y - fwdY * step)) / (step * 2);
+    const height = (px, py) => {
+      const road = this.roadSurface.heightAt(px, py);
+      if (road !== null) return road;
+      return this.flat ? 0 : this.#sample(this.drivingGrid || this.grid, px, py);
+    };
+    return (height(x + fwdX * step, y + fwdY * step)
+      - height(x - fwdX * step, y - fwdY * step)) / (step * 2);
   }
 
   physicsHeightAt(x, y) {

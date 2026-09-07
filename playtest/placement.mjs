@@ -101,6 +101,7 @@ for (const def of TRACKS) {
   const structures = buildStructures(def, track);
   if (def.theme === 'eastbourne') {
     const terrain = new Terrain(track, WORLD, def);
+    const previousTerrain = new Terrain(track, WORLD, { ...def, theme: 'before-coastal-visuals' });
     for (const s of structures) {
       check(def.id, 'coastal buildings stay on land', s.x > coastalProfile(track)(s.z).shoreX && terrain.heightAt(s.x, s.z) >= terrain.seaLevel,
         `${s.kind} at ${s.x},${s.z} below sea level`);
@@ -109,6 +110,10 @@ for (const def of TRACKS) {
     const coast = eastbourneCoast(track);
     for (let i = 100; i < coast.wall.length - 100; i += 70) {
       const p = coast.wall[i], { shoreX } = profile(p.z);
+      for (const dx of [-terrain.cell, 0, terrain.cell]) {
+        assert.equal(terrain.roadGradeAlong(p.x + dx, p.z, 0.6, 0.8),
+          previousTerrain.roadGradeAlong(p.x + dx, p.z, 0.6, 0.8), 'coastal art must not change driving grade');
+      }
       const offshore = terrain.heightAt(shoreX - terrain.cell * 2, p.z);
       check(def.id, 'seabed below water', offshore < terrain.seaLevel, `${offshore} at ${p.z}`);
     }
