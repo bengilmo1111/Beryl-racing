@@ -17,7 +17,9 @@
     "test:road-contact": "node playtest/road-contact.mjs",
     "test:arcade-driving": "node playtest/arcade-driving.mjs",
     "shots": "node playtest/shots.mjs",
-    "test:gateway": "node playtest/gateway-smoke.mjs"
+    "test:gateway": "node playtest/gateway-smoke.mjs",
+    "playtest:explore": "node playtest/explore.mjs",
+    "test:driving-trace": "node playtest/driving-trace.mjs"
   },
   "dependencies": {
     "phaser": "^3.80.1",

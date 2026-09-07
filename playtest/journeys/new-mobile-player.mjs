@@ -82,10 +82,10 @@ export async function runNewMobilePlayerJourney({ browser, baseUrl, outDir }) {
 
     const defaultCourse = await canvasObjectPoint(page, 'Title', 'default-course');
     await page.touchscreen.tap(defaultCourse.x, defaultCourse.y);
-    await page.evaluate((ms) => window.advanceTime(ms), 2 * FIXED_DELTA_MS);
+    await page.evaluate(async (ms) => { await window.advanceTime(ms); }, 2 * FIXED_DELTA_MS);
     const play = await canvasObjectPoint(page, 'Title', 'play');
     await page.touchscreen.tap(play.x, play.y);
-    await page.evaluate((ms) => window.advanceTime(ms), 2 * FIXED_DELTA_MS);
+    await page.evaluate(async (ms) => { await window.advanceTime(ms); }, 2 * FIXED_DELTA_MS);
     await page.waitForFunction(
       () => window.__BERYL_GAME__?.scene?.isActive('Race'),
       null,
@@ -93,7 +93,7 @@ export async function runNewMobilePlayerJourney({ browser, baseUrl, outDir }) {
     );
 
     for (let i = 0; i < 8; i++) {
-      await page.evaluate((ms) => window.advanceTime(ms), 30 * FIXED_DELTA_MS);
+      await page.evaluate(async (ms) => { await window.advanceTime(ms); }, 30 * FIXED_DELTA_MS);
       const timing = await page.evaluate(
         () => window.__BERYL_GAME__.scene.getScene('Race').timing
       );
@@ -143,7 +143,7 @@ export async function runNewMobilePlayerJourney({ browser, baseUrl, outDir }) {
         currentTouchSignature = signature;
       }
 
-      await page.evaluate((ms) => window.advanceTime(ms), 5 * FIXED_DELTA_MS);
+      await page.evaluate(async (ms) => { await window.advanceTime(ms); }, 5 * FIXED_DELTA_MS);
       commandFrames += 5;
       state = await page.evaluate(() => window.__h._stateLite());
       if (state.frame % 30 < 5) timeline.push(state);
@@ -185,7 +185,7 @@ export async function runNewMobilePlayerJourney({ browser, baseUrl, outDir }) {
         );
       }
 
-      await page.evaluate((ms) => window.advanceTime(ms), 60 * FIXED_DELTA_MS);
+      await page.evaluate(async (ms) => { await window.advanceTime(ms); }, 60 * FIXED_DELTA_MS);
       screenshots.push(await screenshot(page, journeyDir, '05-results'));
       const name = page.getByRole('textbox', { name: 'Name for local top three' });
       await name.fill('COAST TEST');
@@ -207,7 +207,7 @@ export async function runNewMobilePlayerJourney({ browser, baseUrl, outDir }) {
         null,
         { timeout: 10000 }
       );
-      await page.evaluate((ms) => window.advanceTime(ms), 150 * FIXED_DELTA_MS);
+      await page.evaluate(async (ms) => { await window.advanceTime(ms); }, 150 * FIXED_DELTA_MS);
       const retryStarted = await page.evaluate(() => {
         const scene = window.__BERYL_GAME__.scene.getScene('Race');
         return scene.timing && !scene.finished;

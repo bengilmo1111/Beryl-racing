@@ -1,0 +1,20 @@
+name: Gameplay feedback
+description: A moment that felt wrong, or a comparison between previews
+title: "Gameplay: "
+body:
+  - type: textarea
+    id: experience
+    attributes:
+      label: What happened, and what did you expect?
+      description: One sentence is enough. Include the course and keyboard or touch controls.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Attach a Report this moment JSON from ?playtest=1, or a screenshot/video. Include the preview URL for experiments.
+  - type: textarea
+    id: preference
+    attributes:
+      label: If comparing A and B, which would you play again?

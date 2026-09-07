@@ -41,6 +41,8 @@ export async function runSimulation({
   headed,
 }) {
   const scope = `${course.id}/${botId}`;
+  const artifactBotId = `${botId}--seed${spec.seed}`;
+  const trace = [];
   const courseSpec = spec.courses[course.id];
   const limit = spec.global.botFrameLimits[BOT_MODULE_NAMES[botId]] ??
     spec.global.botFrameLimits[botId];
@@ -88,7 +90,7 @@ export async function runSimulation({
       );
     }
 
-    while (finalState && finalState.frame < limit && !(botId === 'waypoint' && finalState.finished)) {
+    while (finalState && finalState.frame < limit && !finalState.finished) {
       let samples;
       try {
         samples = await page.evaluate(
@@ -115,6 +117,11 @@ export async function runSimulation({
 
       for (const sample of samples) {
         const state = sample.state;
+        trace.push(sample);
+        if (trace.length > 1200) trace.shift();
+        if (![state.pos.x, state.pos.y, state.speed, state.heading].every(Number.isFinite)) {
+          throw new Error(`Non-finite driving state at frame ${state.frame}`);
+        }
         finalState = state;
         sampledFrames += 1;
         maxCheckpoints = Math.max(maxCheckpoints, state.checkpointsHit);
@@ -160,7 +167,7 @@ export async function runSimulation({
             Math.floor((finalState.frame - samples.length) / screenshotEvery))
       ) {
         try {
-          screenshots.push(await captureShot(page, course.id, botId, finalState.frame));
+          screenshots.push(await captureShot(page, course.id, artifactBotId, finalState.frame));
         } catch (error) {
           failures.push(failure('screenshot-capture', scope, error.message));
         }
@@ -170,7 +177,7 @@ export async function runSimulation({
     if (finalState) {
       try {
         screenshots.push(
-          await captureShot(page, course.id, botId, finalState.frame, '--final')
+          await captureShot(page, course.id, artifactBotId, finalState.frame, '--final')
         );
       } catch (error) {
         failures.push(failure('screenshot-capture', scope, error.message));
@@ -213,6 +220,8 @@ export async function runSimulation({
   const checkpointsTotal = finalState?.checkpointsTotal || courseSpec.checkpointsTotal;
   const checkpointReachRate = checkpointsTotal > 0 ? maxCheckpoints / checkpointsTotal : 0;
   const metrics = {
+    contactEvents: finalState?.contactEvents ?? 0,
+    recoveryCount: finalState?.recoveryCount ?? 0,
     finished: !!finalState?.finished,
     finishTimeMs: finalState?.finishTimeMs ?? null,
     checkpointsHit: maxCheckpoints,
@@ -298,6 +307,10 @@ export async function runSimulation({
     }
   }
 
+  await writeFile(path.join(SHOTS_DIR, `${course.id}--${artifactBotId}--trace.json`), JSON.stringify({
+    schemaVersion: 1, courseId: course.id, botId, seed: spec.seed,
+    commit: process.env.GITHUB_SHA || 'development', samples: trace, screenshots,
+  }));
   await context.close();
   return {
     courseId: course.id,

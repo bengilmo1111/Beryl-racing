@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs';
 // paths").
 export default defineConfig(() => ({
   base: './',
+  define: { __BUILD_SHA__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'development') },
   plugins: [{
     name: 'publish-game-manifest',
     generateBundle() {

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { installDrivingReport } from '../diagnostics.js';
 import { WORLD, TRACK, COLORS, STORAGE_KEY } from '../config.js';
 import { getSelectedTrack } from '../tracks.js';
 import { buildTrack, distanceToCenterline, surfaceAt } from '../track.js';
@@ -128,6 +129,9 @@ export class RaceScene extends Phaser.Scene {
     this.timing = false;
     this.finished = false;
     this.wasOnTrack = true;
+    this.contactEvents = 0;
+    this.hadContact = false;
+    this.drivingReport = installDrivingReport(this, { ...CAR });
 
     // The 3D view of everything above. It reads car and track state and draws;
     // it never writes back into the simulation.
@@ -393,12 +397,21 @@ export class RaceScene extends Phaser.Scene {
       this.checkLap();
       this.updateRouteHelp(time);
     }
+    if (this.drivingReport && !this.finished) {
+      const c = this.car;
+      this.drivingReport.trace.record({ timeMs: time, deltaMs: delta, dt, input,
+        x: c.x, y: c.y, rotation: c.rotation, vx: c.vx, vy: c.vy,
+        speed: c.speed, steer: c.steer, onTrack, surface, grade,
+        nextCheckpoint: this.expected, timing: this.timing,
+        contacts: this.contactEvents, recoveries: this.recoveryCount || 0 });
+    }
   }
 
   // Push Beryl out of any scenery she's overlapping and kill the velocity that
   // drove her in, so she bumps and slides along trees, tyres and bales instead
   // of driving through them.
   resolveObstacles() {
+    let contact = false;
     const car = this.car;
     const cr = car.collideRadius;
     const f = car.forward;
@@ -418,6 +431,7 @@ export class RaceScene extends Phaser.Scene {
         const dy = py - o.y;
         const d2 = dx * dx + dy * dy;
         if (d2 >= min2 || d2 === 0) continue;
+        contact = true;
         const d = Math.sqrt(d2);
         const nx = dx / d;
         const ny = dy / d;
@@ -435,6 +449,8 @@ export class RaceScene extends Phaser.Scene {
         }
       }
     }
+    if (contact && !this.hadContact) this.contactEvents++;
+    this.hadContact = contact;
     car.sync();
   }
 

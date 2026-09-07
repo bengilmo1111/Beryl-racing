@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import { DrivingTrace } from '../src/diagnostics.js';
+const trace = new DrivingTrace();
+const input = { steer: 1 };
+for (let timeMs = 0; timeMs <= 40000; timeMs += 10) trace.record({ timeMs, input });
+input.steer = -1;
+const report = trace.snapshot({ courseId: 'test' });
+assert.equal(report.samples[0].timeMs, 20000);
+assert.equal(report.samples.at(-1).timeMs, 40000);
+assert.equal(report.samples[0].input.steer, 1);
+report.samples[0].input.steer = 99;
+assert.equal(trace.snapshot({}).samples[0].input.steer, 1);
+for (let i = 0; i < 10000; i++) trace.record({ timeMs: 40000, input });
+assert.equal(trace.samples.length, 6000);
+console.log('Driving trace: 20-second window, immutable snapshots, bounded storage pass.');
