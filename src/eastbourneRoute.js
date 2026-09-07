@@ -34,7 +34,7 @@ export const EASTBOURNE_LAYOUT = {
   // Marine Parade is now the recommended route, so one continuous coastal leg
   // reaches the final street bend before the parking entrance.
   coastal: [
-    { road: 'primary', from: 0.10, to: 0.95 },
+    { road: 'primary', from: 0.16, to: 0.95 },
   ],
   // The village, as positions on the road network — a fraction along a named
   // road and a setback in metres. See src/places.js.

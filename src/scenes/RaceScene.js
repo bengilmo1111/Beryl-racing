@@ -206,7 +206,7 @@ export class RaceScene extends Phaser.Scene {
       if (clear) this.lastSafe = { x: pose.x, y: pose.y, rotation: pose.rotation };
     }
     const fraction = Math.min(next.index, primaryPose.index) / (this.track.centerline.length - 1);
-    const place = fraction < 0.1 ? 'FERRY ROAD' : fraction < 0.36 ? 'DAYS BAY'
+    const place = fraction < 0.15 ? 'FERRY ROAD' : fraction < 0.36 ? 'DAYS BAY'
       : fraction < 0.73 ? 'COASTAL CRUISE' : 'TO THE RSA';
     let hint = `${place} · ${Math.floor(fraction * 100)}%`;
     if (!safelyBeforeGate && primaryPose.index > next.index + 10) hint = 'MISSED TURN? BACK ON ROAD';
