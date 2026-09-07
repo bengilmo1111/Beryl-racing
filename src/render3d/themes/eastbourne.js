@@ -266,7 +266,7 @@ function addHills(group, terrain, track) {
   group.add(ridge({ at: WORLD.width * 0.82, start: -WORLD.height * 0.2,
     end: WORLD.height * 1.2, segments: 64, bottom: -200,
     driftAt: t => metres(50) * Math.sin(t * 21),
-    heightAt: t => metres(185 + 45 * Math.sin(t * 24) + 18 * Math.sin(t * 51)),
+    heightAt: t => metres(185 + 45 * Math.sin(t * 24) + 18 * Math.sin(t * 51)) * Math.sqrt(Math.max(0, Math.sin(Math.PI * t))),
   }, 0x638573));
 }
 
@@ -471,6 +471,12 @@ function addVillage(group, terrain, structures, track) {
   welcome.position.set(signAt.x, arrival.h + metres(2.5), signAt.y);
   welcome.rotation.y = arrival.yaw + Math.PI;
   group.add(welcome);
+  for (const dx of [-3, 3]) {
+    const p = arrival.point(-8 + dx, -9);
+    const post = box(metres(0.12), metres(2.5), metres(0.12), lambert(COLOUR.white));
+    post.position.set(p.x, arrival.h + metres(1.25), p.y);
+    group.add(post);
+  }
 
 }
 

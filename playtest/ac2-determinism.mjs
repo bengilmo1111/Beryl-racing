@@ -120,10 +120,12 @@ import { TRACKS } from '../src/tracks.js';
 //   and park frontage change Eastbourne obstacles only. Measured finish time
 //   and final position remain exactly unchanged (80.766666667 seconds).
 const BASELINES = {
+  // Re-recorded 2026-09-07: shorter Ferry Road, Marine Parade primary route,
+  // triangular parking finish, and tree/building clearance. Other courses unchanged.
   'eastbourne-dash': {
-    finishTimeMs: 80766.666667,
-    pos: { x: 21614.626524238, y: 114416.897090633 },
-    obstacles: 'fa03743ee68739a2',
+    finishTimeMs: 67716.666667,
+    pos: { x: 14966.803766184, y: 114401.175632789 },
+    obstacles: '05d503d1ad069ae2',
   },
   // Manfeild has no trees, so every circle on the circuit belongs to a building:
   // pit wall, garages, timing tower, paddock sheds, grandstand and marshal huts.

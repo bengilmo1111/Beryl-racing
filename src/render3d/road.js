@@ -1,3 +1,4 @@
+import { inTriangle } from '../arrival.js';
 // The road surface, its kerbs and run-off apron, and the ground they sit on —
 // all built from the geometry buildTrack() already produces. No new track maths
 // lives here: `left` and `right` are the same offset polylines the 2D renderer
@@ -237,7 +238,7 @@ export function buildKerbs(track, theme, skipAt = null) {
   // which is the one marking a gravel road certainly does not have, and it
   // undid most of the work the gravel colour was doing.
   const unsealed = (i) => !!(surfaces && surfaces[i] === 'gravel');
-  const skip = skipAt ? (i) => unsealed(i) || skipAt(i) : unsealed;
+  const skip = i => unsealed(i) || (skipAt && skipAt(i)) || inParking(track, i);
 
   return [left, right].map((edge) =>
     buildRibbon(
@@ -323,7 +324,7 @@ export function buildCentreLine(track, skipAt = null) {
 
     // No centre line painted across the mouth of a side road — a solid line over
     // a turn you are allowed to take is worse than no line at all.
-    if (!(surfaces && surfaces[i] === 'gravel') && !(skipAt && skipAt(i))) {
+    if (!(surfaces && surfaces[i] === 'gravel') && !(skipAt && skipAt(i)) && !inParking(track, i)) {
       const end = arc + segLen;
       // Every dash window that overlaps this segment, clipped to it. Usually one
       // or none, but a long segment can span several.
@@ -361,7 +362,7 @@ export function buildApron(track, theme = null, skipAt = null) {
       heightsFor(track, APRON_Y),
       colorAt,
       closed,
-      skipAt
+      i => (skipAt && skipAt(i)) || inParking(track, i)
     )
   );
 }
@@ -463,4 +464,9 @@ export function buildPavedAreas(track) {
   geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3));
   geometry.computeVertexNormals();
   return new Mesh(geometry, lambert(0x777b78));
+}
+
+function inParking(track, i) {
+  const p = track.centerline[i];
+  return track.pavedAreas?.some(t => inTriangle(p.x, p.y, t)) || false;
 }

@@ -18,7 +18,7 @@ export const TRACKS = [
     theme: 'eastbourne',
     world: { ...EASTBOURNE_LAYOUT.world },
     // A compact coastal drive: preserve the places and their order, compress
-    // the distances. About 2.15 km, targeting a 90-second confident run.
+    // the distances. About 1.81 km after shortening Ferry Road; roughly 70–90 seconds.
     lengthScale: 8,
     geometry: EASTBOURNE_GEOMETRY,
     layout: EASTBOURNE_LAYOUT,

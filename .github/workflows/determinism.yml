@@ -43,10 +43,9 @@ jobs:
         run: npm run test:road-contact
       - name: Arcade driving contract
         run: npm run test:arcade-driving
+      - name: Drive Eastbourne alternatives and park
+        run: node playtest/eastbourne-routes.mjs
       - name: Verify replay and obstacle baselines
         run: npm run test:determinism
-      - name: Capture intentionally changed route baselines
-        if: failure()
-        run: RECORD_BASELINES=1 npm run test:determinism
       - name: Engine sound
         run: npm run test:audio
