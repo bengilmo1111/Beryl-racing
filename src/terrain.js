@@ -262,6 +262,20 @@ export class Terrain {
           if (x < shoreX) this.waterMask[r * this.cols + c] = 1;
         }
       }
+      // Seat the parking area and RSA on one level coastal plot. A road-width
+      // pin alone leaves the wider car park hanging above the beach slope.
+      if (track.pavedAreas?.length) {
+        const end = track.centerline.at(-1);
+        const h = track.heights.at(-1);
+        for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
+          const x = this.minX + c * CELL, z = this.minY + r * CELL;
+          if (x < profile(z).shoreX + metres(4)) continue;
+          const d = Math.hypot(x - end.x, z - end.y);
+          const blend = 1 - smoothstep(metres(40), metres(70), d);
+          const k = r * this.cols + c;
+          visual[k] += (h - visual[k]) * blend;
+        }
+      }
       this.grid = visual;
     }
   }

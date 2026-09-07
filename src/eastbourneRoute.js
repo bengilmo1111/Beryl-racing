@@ -18,7 +18,7 @@
 //   Marine Parade, Muritai School and Tuatoru Street.
 //
 // The route is intentionally a readable caricature rather than GIS data. The
-// recognisable sequence matters most: long steep Ferry Road, a hard left onto
+// recognisable sequence matters most: short steep Ferry Road, a hard left onto
 // the coast, a long beach-hugging drive, then a small Eastbourne street network
 // offering several ways to the RSA.
 
@@ -31,13 +31,10 @@ export const EASTBOURNE_LAYOUT = {
   // list of coordinates cannot survive a rescale of the map it sits on.
   // Fractions can. That is the whole reason they are fractions.
   //
-  // Two legs, because the primary turns inland at the village to reach the RSA
-  // and it is Marine Parade that carries on around Rona Bay. Projecting the
-  // primary's last heading onward instead ran the harbour diagonally across the
-  // shops, and put Marine Parade underwater.
+  // Marine Parade is now the recommended route, so one continuous coastal leg
+  // reaches the final street bend before the parking entrance.
   coastal: [
-    { road: 'primary', from: 0.2, to: 0.72 },
-    { road: 'marine-parade', from: 0.02, to: 0.9 },
+    { road: 'primary', from: 0.16, to: 0.95 },
   ],
   // The village, as positions on the road network — a fraction along a named
   // road and a setback in metres. See src/places.js.
@@ -51,25 +48,20 @@ export const EASTBOURNE_LAYOUT = {
   // Negative offsets are landward. The left normal points at the harbour, since
   // the route runs broadly south down the coast.
   places: {
-    wharf: { road: 'primary', at: 0.368, offsetMetres: 0 },
-    williamsPark: { road: 'primary', at: 0.385, offsetMetres: -30 },
+    wharf: { road: 'primary', at: 0.235, offsetMetres: 0 },
+    williamsPark: { road: 'primary', at: 0.25, offsetMetres: -30 },
     doctors: { road: 'village-inland', at: 0.258, offsetMetres: -24 },
     shops: { road: 'village-inland', at: 0.377, offsetMetres: -26 },
     school: { road: 'village-inland', at: 0.563, offsetMetres: -32 },
-    rsa: { road: 'primary', at: 0.994, offsetMetres: -24 },
   },
 };
 
 const PRIMARY_ANCHORS = [
-  // 28 Ferry Road: a long, steep descent before the junction.
-  { x: 3160, y: 520 },
-  { x: 3090, y: 1080 },
-  { x: 2960, y: 1680 },
-  { x: 2700, y: 2240 },
-  { x: 2320, y: 2700 },
-  // The real route turns sharply left onto the main coastal road.
-  { x: 1940, y: 2920 },
-  { x: 1600, y: 3000 },
+  // 28 Ferry Road: a short descent west, then a distinct left onto Marine Drive.
+  { x: 2960, y: 2860 },
+  { x: 2500, y: 2910 },
+  { x: 2000, y: 2980 },
+  { x: 1630, y: 3070 },
   { x: 1480, y: 3290 },
   { x: 1510, y: 3720 },
   // Marine Drive: long coastal running with the harbour continuously left.
@@ -84,31 +76,36 @@ const PRIMARY_ANCHORS = [
   { x: 1870, y: 9580 },
   { x: 1810, y: 10320 },
   { x: 2040, y: 10940 },
-  // Muritai Road drifts inland through the village / school area.
-  { x: 2370, y: 11520 },
-  { x: 2620, y: 12120 },
-  { x: 2730, y: 12780 },
-  { x: 2790, y: 13320 },
-  { x: 2570, y: 13720 },
-  // Tuatoru Street approach. Every route converges before the final turn into
-  // the RSA forecourt rather than finishing at an arbitrary road junction.
-  { x: 2160, y: 14120 },
-  { x: 2760, y: 14320 },
+  // Recommended line stays on Marine Parade around Rona Bay.
+  { x: 1710, y: 11320 },
+  { x: 1510, y: 11860 },
+  { x: 1480, y: 12480 },
+  { x: 1540, y: 13100 },
+  { x: 1660, y: 13620 },
+  // Marine Parade turns inland; continue into the triangular parking area.
+  { x: 1760, y: 13900 },
+  { x: 1850, y: 14150 },
+  { x: 1850, y: 14320 },
 ];
 
 const BRANCHES = [
+  // The northbound arm makes Ferry Road a real T-junction, not a sweeping bend.
+  { id: 'marine-drive-north', roadWidth: 400, closed: false, anchors: [
+    { x: 1320, y: 2480 }, { x: 1400, y: 2860 }, { x: 1480, y: 3290 },
+  ] },
   {
-    id: 'marine-parade',
+    id: 'muritai-road',
     roadWidth: 310,
     closed: false,
     anchors: [
       { x: 2040, y: 10940 },
-      { x: 1710, y: 11320 },
-      { x: 1510, y: 11860 },
-      { x: 1480, y: 12480 },
-      { x: 1540, y: 13100 },
-      { x: 1660, y: 13620 },
+      { x: 2370, y: 11520 },
+      { x: 2620, y: 12120 },
+      { x: 2730, y: 12780 },
+      { x: 2790, y: 13320 },
+      { x: 2570, y: 13720 },
       { x: 2160, y: 14120 },
+      { x: 1760, y: 13900 },
     ],
   },
   {
@@ -151,6 +148,7 @@ const BRANCHES = [
 ];
 
 export const EASTBOURNE_GEOMETRY = {
+  arrival: 'rsa-parking',
   anchors: PRIMARY_ANCHORS,
   branches: BRANCHES,
   // Two lanes, about 6m at ~59 units/metre. Comfortably under the ceiling
@@ -161,7 +159,7 @@ export const EASTBOURNE_GEOMETRY = {
   // All required gates except the finish sit before the road network splits.
   // Players may therefore choose any village route without being pulled back
   // to an arbitrary "correct" street.
-  checkpointFractions: [0, 0.12, 0.26, 0.42, 0.58, 0.73, 1],
+  checkpointFractions: [0, 0.10, 0.24, 0.40, 0.56, 0.68, 1],
   closed: false,
   elevation: {
     // The harbour, as an *oriented* region rather than an upright box.
@@ -183,10 +181,10 @@ export const EASTBOURNE_GEOMETRY = {
     // turning Wellington Harbour into a canal with a green far bank.
     sea: [{ cx: -7269, cy: 8414, angle: -0.0731, halfW: 9000, halfL: 9600, level: 0 }],
     profile: [
-      { at: 0, h: 320 },
-      { at: 0.07, h: 235 },
-      { at: 0.16, h: 22 },
-      { at: 0.76, h: 12 },
+      { at: 0, h: 200 },
+      { at: 0.035, h: 120 },
+      { at: 0.09, h: 22 },
+      { at: 0.76, h: 22 },
       { at: 1, h: 22 },
     ],
   },

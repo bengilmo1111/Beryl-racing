@@ -70,3 +70,31 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 For every iteration append: date, problem, hypothesis, baseline commit and metrics,
 change/PR, verification, player preference if needed, merge/revert decision, next
 test. Keep unproven ideas labelled as hypotheses.
+
+## 2026-09-07: waterfront route and RSA arrival
+
+Baseline: main `0f313278cd1d105e48be8331912f6257089b229d` and the player's
+23:18 recording. The supplied 23:47 route map confirms Marine Parade as the
+recommended line while retaining inland alternatives. The 23:49 aerial identifies
+the triangular parking area at P as the finish and the building labelled Crust
+Eastbourne as the RSA. The earlier aerial locates the start at 28 Ferry Road.
+
+This pass shortens Ferry Road, adds its northbound T-junction arm, follows Marine
+Parade, retains Muritai Road and inland cross streets, and shares a triangular
+parking surface between rendering, road support and on-road detection. Required
+gates precede the village split; the final gate is inside the parking area. The
+car slows at arrival and the HUD displays completion. Version 4 scores separate
+these times from the old route. Junction overlays follow road triangles, gable
+ends are closed, and trees clear building footprints and the parking area.
+
+Verification: geometry, surface raycasts, network-index equivalence and dedicated
+parking/branch checks locally; browser replay and rendered views in PR CI.
+Eastbourne's deterministic baseline intentionally changes with the route and
+obstacle layout. Other course baselines must remain pinned unless evidence shows
+an intentional shared junction correction. Do not infer enjoyment from bot time.
+
+Next visual pass: measured foothill profiles (GWRC BQ32 1m contours), settlement
+zones, property entrances/fences and more legible shops. Terrain is not yet a
+measured reconstruction. References:
+- https://opendata.gw.govt.nz/maps/058ad87d107944a59974db6c6ffab1dc/about
+- https://www.gw.govt.nz/assets/Documents/2009/07/East-Harbour-northen-block-map.pdf

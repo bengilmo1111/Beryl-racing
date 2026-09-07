@@ -1,3 +1,5 @@
+import { buildPavedAreas } from '../road.js';
+import { rsaArrival } from '../../arrival.js';
 // Eastbourne Dash environment: Wellington Harbour, the narrow beach strip,
 // steep bush hills and a recognisable run of mostly white seaside buildings.
 //
@@ -264,7 +266,7 @@ function addHills(group, terrain, track) {
   group.add(ridge({ at: WORLD.width * 0.82, start: -WORLD.height * 0.2,
     end: WORLD.height * 1.2, segments: 64, bottom: -200,
     driftAt: t => metres(50) * Math.sin(t * 21),
-    heightAt: t => metres(185 + 45 * Math.sin(t * 24) + 18 * Math.sin(t * 51)),
+    heightAt: t => metres(185 + 45 * Math.sin(t * 24) + 18 * Math.sin(t * 51)) * Math.sqrt(Math.max(0, Math.sin(Math.PI * t))),
   }, 0x638573));
 }
 
@@ -327,11 +329,20 @@ function simpleGableBuilding(width, depth, wallHeight, wallColour, roofColour) {
   const wall = box(width, wallHeight, depth, lambert(wallColour));
   wall.position.y = wallHeight / 2;
   root.add(wall);
-  const roof = new Mesh(new ConeGeometry(Math.hypot(width / 2, 65), 92, 4), lambert(roofColour));
-  roof.position.y = wallHeight + 34;
-  roof.rotation.y = Math.PI / 4;
-  roof.scale.z = depth / width;
-  root.add(roof);
+  const half = width / 2 + 12, rise = 92;
+  for (const side of [-1, 1]) {
+    const roof = box(Math.hypot(half, rise), 8, depth + 24, lambert(roofColour));
+    roof.position.set(side * half / 2, wallHeight + rise / 2, 0);
+    roof.rotation.z = -side * Math.atan2(rise, half);
+    root.add(roof);
+  }
+  const ends = new BufferGeometry();
+  ends.setAttribute('position', new Float32BufferAttribute([
+    -width / 2, wallHeight, -depth / 2, 0, wallHeight + rise, -depth / 2, width / 2, wallHeight, -depth / 2,
+    -width / 2, wallHeight, depth / 2, width / 2, wallHeight, depth / 2, 0, wallHeight + rise, depth / 2,
+  ], 3));
+  ends.computeVertexNormals();
+  root.add(new Mesh(ends, lambert(wallColour)));
   return root;
 }
 
@@ -370,7 +381,7 @@ function addVillage(group, terrain, structures, track) {
   }
   lawnGeometry.computeVertexNormals();
   group.add(new Mesh(lawnGeometry, lambert(COLOUR.lawn)));
-  const entrance = resolvePlace(track, { road: 'primary', at: 0.369, offsetMetres: -10 });
+  const entrance = resolvePlace(track, { road: 'primary', at: 0.235, offsetMetres: -10 });
   const parkSign = nameboard('WILLIAMS PARK', metres(3.5), metres(0.65));
   placeAtGround(parkSign, terrain, entrance.x, entrance.z, metres(1.65));
   parkSign.rotation.y = entrance.facing + Math.PI;
@@ -443,18 +454,39 @@ function addVillage(group, terrain, structures, track) {
   // RSA destination: a broad white community hall with green roof and a paved
   // forecourt. It remains recognisable as a finish building without a text sign.
   const rsaAt = at('rsa');
-  const rsa = simpleGableBuilding(520, 280, 165, COLOUR.warmWhite, COLOUR.roofGreen);
+  const rsa = simpleGableBuilding(metres(26), metres(12), metres(4.5), COLOUR.warmWhite, COLOUR.roofGreen);
   placeAtGround(rsa, terrain, rsaAt.x, rsaAt.z, 2);
   rsa.rotation.y = rsaAt.yaw;
-  addWindowBand(rsa, 390, 82, -145);
-  const rsaSign = nameboard('EASTBOURNE RSA', 410, 52);
-  rsaSign.position.set(0, 145, -146);
+  addWindowBand(rsa, metres(20), metres(1.8), -metres(6) - 5);
+  const rsaSign = nameboard('EASTBOURNE RSA', metres(15), metres(1));
+  rsaSign.position.set(0, metres(3.5), -metres(6) - 8);
   rsaSign.rotation.y = Math.PI;
   rsa.add(rsaSign);
   group.add(rsa);
-  const forecourt = box(540, 6, 260, lambert(COLOUR.concrete));
-  placeAtGround(forecourt, terrain, rsaAt.x, rsaAt.z - 260, 2);
-  group.add(forecourt);
+  const arrival = rsaArrival(track);
+  group.add(buildPavedAreas(track));
+  const paint = basic(COLOUR.white, { fog: true });
+  const stripe = (x1, z1, x2, z2) => {
+    const p = arrival.point(x1, z1), q = arrival.point(x2, z2);
+    addSegment(group, { x: p.x, z: p.y }, { x: q.x, z: q.y },
+      metres(0.12), 1, arrival.h + 2, paint);
+  };
+  // Parking bays frame a clear central arrival lane.
+  for (let z = -29; z <= -20; z += 3) stripe(8, z, 14, z);
+  stripe(8, -29, 8, -20);
+  stripe(-3.3, -3, 3.3, -3);
+  const welcome = nameboard('RSA • FINISH', metres(7), metres(1));
+  const signAt = arrival.point(-8, -9);
+  welcome.position.set(signAt.x, arrival.h + metres(2.5), signAt.y);
+  welcome.rotation.y = arrival.yaw + Math.PI;
+  group.add(welcome);
+  for (const dx of [-3, 3]) {
+    const p = arrival.point(-8 + dx, -9);
+    const post = box(metres(0.12), metres(2.5), metres(0.12), lambert(COLOUR.white));
+    post.position.set(p.x, arrival.h + metres(1.25), p.y);
+    group.add(post);
+  }
+
 }
 
 export function buildEastbourne(track, def, terrain, structures = []) {

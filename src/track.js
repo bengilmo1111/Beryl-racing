@@ -1,6 +1,7 @@
 // Builds road geometry: a smooth primary centreline plus optional branch roads,
 // checkpoints, surfaces, elevation and helpers for testing whether a point is on
 // any driveable road.
+import { rsaArrival, inTriangle } from './arrival.js';
 import { TRACK } from './config.js';
 
 function catmullRom(p0, p1, p2, p3, t) {
@@ -151,6 +152,7 @@ function buildRoad(spec, fallback = {}) {
   const { left, right, half } = buildEdges(centerline, roadWidth, closed);
   return {
     id: spec.id || fallback.id || 'primary',
+    junctionPoints: spec.anchors,
     centerline,
     left,
     right,
@@ -231,6 +233,7 @@ export function buildTrack() {
     TRACK
   );
 
+  if (TRACK.arrival === 'rsa-parking') primary.pavedAreas = [rsaArrival(primary).triangle];
   const roads = [primary];
   for (const branchSpec of TRACK.branches || []) {
     const branch = buildRoad(branchSpec, TRACK);
@@ -462,6 +465,7 @@ export function distanceToCenterline(px, py, centerline) {
   if (roads) {
     let best = Infinity;
     for (const road of roads) {
+      if (road.pavedAreas?.some(t => inTriangle(px, py, t))) return 0;
       const d = distanceToPolyline(px, py, road.centerline, road.closed);
       // Account for differently sized branch roads while retaining the old
       // caller contract, which compares the returned value to primary half.

@@ -6,7 +6,11 @@ export class RoadSurface {
     this.cells = new Map();
     this.cellSize = 512;
     this.patches = findJunctions(roads);
+    for (const patch of this.patches) for (const triangle of patch.triangles) {
+      this.addTriangle(...triangle.map(p => ({ ...p, h: p.h + 0.06 })));
+    }
     for (const road of roads) {
+      for (const triangle of road.pavedAreas || []) this.addTriangle(...triangle);
       const { left, right, heights, closed } = road;
       const vertex = (point, i) => ({ x: point.x, y: point.y, h: heights?.[i] || 0 });
       const count = closed ? left.length : left.length - 1;
@@ -47,13 +51,6 @@ export class RoadSurface {
       const h = u * a.h + v * b.h + w * c.h;
       height = height === null ? h : Math.max(height, h);
     }
-    // Junction overlays are horizontal discs above the ribbons.
-    for (const patch of this.patches) {
-      if (Math.hypot(x - patch.x, y - patch.y) <= patch.radius) {
-        const h = patch.height + 0.06;
-        height = height === null ? h : Math.max(height, h);
-      }
-    }
     return height;
   }
 }
@@ -65,7 +62,7 @@ export function findJunctions(roads) {
   if (!roads || roads.length < 2) return out;
   for (const road of roads.slice(1)) {
     const line = road.centerline;
-    for (const point of [line[0], line[line.length - 1]]) {
+    for (const point of road.junctionPoints || [line[0], line[line.length - 1]]) {
       let best = Infinity;
       let host = null;
       let index = 0;
@@ -80,7 +77,20 @@ export function findJunctions(roads) {
       // Only an end that actually lands on another road is a junction. A branch
       // that simply stops in a paddock is not, and must not get an apron.
       if (!host || best > host.half) continue;
+      const radius = (host.half + road.half) * JUNCTION_SPREAD;
+      if (out.some(j => Math.hypot(j.x - point.x, j.y - point.y) < Math.min(j.radius, radius))) continue;
+      const triangles = [];
+      for (const r of [host, road]) for (let i = 0; i < r.left.length - 1; i++) {
+        const a = r.centerline[i], b = r.centerline[i + 1];
+        if (Math.min(Math.hypot(a.x - point.x, a.y - point.y),
+          Math.hypot(b.x - point.x, b.y - point.y)) > radius) continue;
+        const vertex = (p, index) => ({ x: p.x, y: p.y, h: r.heights?.[index] || 0 });
+        const l = vertex(r.left[i], i), rr = vertex(r.right[i], i);
+        const ln = vertex(r.left[i + 1], i + 1), rn = vertex(r.right[i + 1], i + 1);
+        triangles.push([l, rr, rn], [l, rn, ln]);
+      }
       out.push({
+        triangles,
         x: point.x,
         y: point.y,
         radius: (host.half + road.half) * JUNCTION_SPREAD,

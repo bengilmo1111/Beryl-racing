@@ -35,12 +35,16 @@ jobs:
         run: npm run test:track-geometry
       - name: Placement
         run: npm run test:placement
+      - name: Eastbourne arrival and alternatives
+        run: node playtest/eastbourne-arrival.mjs
       - name: Road index
         run: npm run test:road-index
       - name: Car contact with the rendered road
         run: npm run test:road-contact
       - name: Arcade driving contract
         run: npm run test:arcade-driving
+      - name: Drive Eastbourne alternatives and park
+        run: node playtest/eastbourne-routes.mjs
       - name: Verify replay and obstacle baselines
         run: npm run test:determinism
       - name: Engine sound

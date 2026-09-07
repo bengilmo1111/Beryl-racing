@@ -206,7 +206,7 @@ export class RaceScene extends Phaser.Scene {
       if (clear) this.lastSafe = { x: pose.x, y: pose.y, rotation: pose.rotation };
     }
     const fraction = Math.min(next.index, primaryPose.index) / (this.track.centerline.length - 1);
-    const place = fraction < 0.2 ? 'FERRY ROAD' : fraction < 0.48 ? 'DAYS BAY'
+    const place = fraction < 0.15 ? 'FERRY ROAD' : fraction < 0.36 ? 'DAYS BAY'
       : fraction < 0.73 ? 'COASTAL CRUISE' : 'TO THE RSA';
     let hint = `${place} · ${Math.floor(fraction * 100)}%`;
     if (!safelyBeforeGate && primaryPose.index > next.index + 10) hint = 'MISSED TURN? BACK ON ROAD';
@@ -372,6 +372,12 @@ export class RaceScene extends Phaser.Scene {
       ? this.terrain.roadGradeAlong(this.car.x, this.car.y, f.x, f.y)
       : this.terrain.gradeAlong(this.car.x, this.car.y, f.x, f.y);
 
+    if (this.finished && this.def.theme === 'eastbourne') {
+      // Short controlled roll into the parking area; never coast into the grass.
+      const decay = Math.exp(-10 * dt);
+      this.car.vx *= decay;
+      this.car.vy *= decay;
+    }
     this.car.update(dt, input, onTrack, surface, grade);
     this.resolveObstacles();
     this.applyFx(onTrack, input, surface);
@@ -498,7 +504,8 @@ export class RaceScene extends Phaser.Scene {
     const cps = this.track.checkpoints;
     const target = cps[this.expected];
     const d = Phaser.Math.Distance.Between(this.car.x, this.car.y, target.x, target.y);
-    if (d > this.captureRadius) return;
+    const arrivalGate = this.def.theme === 'eastbourne' && this.expected === cps.length - 1;
+    if (d > (arrivalGate ? metres(4) : this.captureRadius)) return;
 
     if (this.mode === 'circuit') {
       // Closed loop: gate 0 is the start/finish line. Crossing it after all the
@@ -543,6 +550,7 @@ export class RaceScene extends Phaser.Scene {
     if (this.finished) return;
     this.finished = true;
     this.timing = false;
+    if (this.def.theme === 'eastbourne') this.hud.lap.setText('AT THE RSA · 100%');
     const now = this.time.now;
     const lapMs = now - this.lapStartTime;
     this.lastCompletionTimeMs = lapMs;
