@@ -17,6 +17,7 @@ import { WORLD } from '../../config.js';
 import { C, basic, lambert } from './../palette.js';
 import { buildOtakiFarmhouse, buildEastbourneVilla, villaPalette } from '../houses.js';
 import { bakeStatic } from '../bake.js';
+import { terrainPatchGeometry } from '../terrainPatch.js';
 
 const COLOUR = {
   bank: 0xcfc19a,
@@ -46,11 +47,16 @@ function placeAcross(object, cp, height) {
   return object;
 }
 
-function terrainPlane(width, depth, colour, x, z, terrain, lift = 2) {
-  const mesh = new Mesh(new PlaneGeometry(width, depth), basic(colour, { fog: true }));
-  mesh.geometry.rotateX(-Math.PI / 2);
-  mesh.position.set(x, terrain.heightAt(x, z) + lift, z);
-  return mesh;
+// Which local Z face actually faces the nearest street? Rectangular footprints
+// stay fixed; only doors, glazing and verandahs need to choose the correct face.
+export function streetFace(structure, track) {
+  let nearest = null, distance = Infinity;
+  for (const road of track.roads || [track]) for (const p of road.centerline) {
+    const d = Math.hypot(p.x - structure.x, p.y - structure.z);
+    if (d < distance) { nearest = p; distance = d; }
+  }
+  return Math.sign((nearest.x - structure.x) * Math.sin(structure.yaw)
+    + (nearest.y - structure.z) * Math.cos(structure.yaw)) || -1;
 }
 
 // Farmhouses are solid, and their poses come from the resolved structure list in
@@ -176,8 +182,7 @@ function addMarketGardens(group, terrain, world) {
   for (const [ax, az, width, depth, colour, yaw] of plots) {
     const x = px(world, ax);
     const z = pz(world, az);
-    const field = terrainPlane(width, depth, colour, x, z, terrain, 2.4);
-    field.rotation.y = yaw;
+    const field = new Mesh(terrainPatchGeometry(terrain, { x, z, width, depth, yaw, lift: 2.4 }), basic(colour, { fog: true }));
     group.add(field);
   }
 
@@ -220,13 +225,14 @@ function addTown(group, terrain, layout, track, def, structures) {
     // rather than a shed. A small-town main street is a continuous frontage with
     // a footpath under a verandah, and the verandah is most of the silhouette.
     root.add(box(st.w + 16, 34, st.d + 12, 0, height + 12, 0, roofMats[index % roofMats.length]));
+    const face = streetFace(st, track);
     const verandah = st.d / 2 + 74;
-    root.add(box(st.w, 10, 150, 0, height * 0.66, verandah - 60, shopWall[(index + 1) % shopWall.length]));
+    root.add(box(st.w, 10, 150, 0, height * 0.66, face * (verandah - 60), shopWall[(index + 1) % shopWall.length]));
     for (const t of [-0.36, 0, 0.36]) {
-      root.add(box(12, height * 0.66, 12, st.w * t, height * 0.33, verandah - 10, roofMats[1]));
+      root.add(box(12, height * 0.66, 12, st.w * t, height * 0.33, face * (verandah - 10), roofMats[1]));
     }
     // Shopfront glazing under the verandah.
-    root.add(box(st.w * 0.86, height * 0.38, 8, 0, height * 0.30, st.d / 2 + 5, lambert(0x37474f)));
+    root.add(box(st.w * 0.86, height * 0.38, 8, 0, height * 0.30, face * (st.d / 2 + 5), lambert(0x37474f)));
     root.position.set(st.x, y + 1, st.z);
     root.rotation.y = st.yaw;
     town.add(root);
@@ -241,7 +247,7 @@ function addTown(group, terrain, layout, track, def, structures) {
       palette: villaPalette(st.palette),
     });
     house.position.set(st.x, terrain.heightAt(st.x, st.z) + 1, st.z);
-    house.rotation.y = st.yaw;
+    house.rotation.y = st.yaw + (streetFace(st, track) > 0 ? Math.PI : 0);
     town.add(house);
   });
 

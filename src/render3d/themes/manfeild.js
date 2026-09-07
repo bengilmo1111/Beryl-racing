@@ -19,6 +19,7 @@ import { buildManfeildParallax } from './manfeildParallax.js';
 import { manfeildStandZ } from '../../structures.js';
 import { metres } from '../../scale.js';
 import { bakeStatic } from '../bake.js';
+import { addGableRoof } from '../houses.js';
 
 const M = {
   cream: lambert(0xf3ead2),
@@ -84,20 +85,17 @@ function roadFrame(track) {
   };
 }
 
-function addPitchedRoof(group, width, depth, y, material, pitch = 0.34) {
-  const roofDepth = depth / Math.cos(pitch);
-  for (const side of [-1, 1]) {
-    const roof = new Mesh(new BoxGeometry(width / 2 + 10, 12, roofDepth), material);
-    roof.position.set(side * width * 0.245, y, 0);
-    roof.rotation.z = -side * pitch;
-    group.add(roof);
-  }
+function addPitchedRoof(group, width, depth, y, material, pitch = 0.34, wall = M.weatherboard) {
+  // Width is the roof footprint, not the sloping panel length. Close the attic
+  // with the same wall material and seat its eaves on the building beneath.
+  addGableRoof(group, width - 16, depth - 16, y - 10,
+    width / 2 * Math.tan(pitch), material, 8, wall);
 }
 
-function buildGarageBay({ body = M.weatherboard, roof = M.corrugated, accent = M.fadedRed } = {}) {
+export function buildGarageBay({ body = M.weatherboard, roof = M.corrugated, accent = M.fadedRed } = {}) {
   const group = new Group();
   box(group, 180, 112, 150, body);
-  addPitchedRoof(group, 196, 166, 122, roof, 0.26);
+  addPitchedRoof(group, 196, 166, 122, roof, 0.26, body);
   box(group, 6, 78, 108, M.ink, -93, 48, 0);
   box(group, 7, 60, 34, accent, 92, 38, 45);
   box(group, 7, 34, 44, M.glass, 92, 72, -35);
@@ -142,7 +140,7 @@ function buildPitComplex(track) {
   for (let i = 0; i < 3; i++) {
     const shed = new Group();
     box(shed, 260, 92, 150, i === 1 ? M.paleBlue : M.weatherboard);
-    addPitchedRoof(shed, 276, 166, 102, M.corrugated, 0.2);
+    addPitchedRoof(shed, 276, 166, 102, M.corrugated, 0.2, i === 1 ? M.paleBlue : M.weatherboard);
     shed.position.set(side + 470, 0, -380 + i * 310);
     group.add(shed);
   }

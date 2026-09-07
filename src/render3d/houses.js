@@ -39,7 +39,7 @@ function materials(palette) {
 
 // Two thick roof planes make a friendly gable without needing smooth curves or
 // textures. The visible thickness helps the roof survive the distant chase view.
-function addGableRoof(group, w, d, eaveY, rise, material, overhang = 12, gableMaterial = material) {
+export function addGableRoof(group, w, d, eaveY, rise, material, overhang = 12, gableMaterial = material) {
   const halfRun = w / 2 + overhang;
   const slope = Math.hypot(halfRun, rise);
   const angle = Math.atan2(rise, halfRun);
