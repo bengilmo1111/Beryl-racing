@@ -249,6 +249,7 @@ export class Terrain {
     if (def?.theme === 'eastbourne') {
       const profile = coastalProfile(track);
       const visual = Float32Array.from(this.grid);
+      this.waterMask = new Uint8Array(visual.length);
       for (let r = 0; r < this.rows; r++) {
         const z = this.minY + r * CELL;
         const { shoreX, wallX } = profile(z);
@@ -258,6 +259,7 @@ export class Terrain {
           // Protect all road corridors, including the village branches.
           if (x >= wallX || roadDistance[r * this.cols + c] < track.half * 2.3) continue;
           visual[r * this.cols + c] = coastalGroundHeight(x, shoreX, wallX, wallHeight, this.seaLevel);
+          if (x < shoreX) this.waterMask[r * this.cols + c] = 1;
         }
       }
       this.grid = visual;
@@ -400,6 +402,7 @@ export class Terrain {
       minX: this.minX,
       minY: this.minY,
       grid: this.grid,
+      waterMask: this.waterMask,
     };
   }
 }

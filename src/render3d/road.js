@@ -390,7 +390,7 @@ export function buildGround(terrain, theme = null) {
 // so shading is doing actual work — it is what makes a hillside read as a
 // hillside rather than a flat green field.
 function buildTerrainMesh(info, theme, seaLevel) {
-  const { cols, rows, cell, minX, minY, grid } = info;
+  const { cols, rows, cell, minX, minY, grid, waterMask } = info;
   const skirt = skirtFor(WORLD);
   const positions = new Float32Array(cols * rows * 3);
   for (let r = 0; r < rows; r++) {
@@ -421,14 +421,20 @@ function buildTerrainMesh(info, theme, seaLevel) {
       const b = a + 1;
       const d = a + cols;
       const e = d + 1;
-      indices[t++] = a; indices[t++] = d; indices[t++] = e;
-      indices[t++] = a; indices[t++] = e; indices[t++] = b;
+      // Opaque harbour water hides the seabed. Omitting submerged triangles
+      // prevents distant depth-buffer speckles between the water and ground.
+      if (!(waterMask?.[a] && waterMask[d] && waterMask[e])) {
+        indices[t++] = a; indices[t++] = d; indices[t++] = e;
+      }
+      if (!(waterMask?.[a] && waterMask[e] && waterMask[b])) {
+        indices[t++] = a; indices[t++] = e; indices[t++] = b;
+      }
     }
   }
 
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new BufferAttribute(positions, 3));
-  geometry.setIndex(new BufferAttribute(indices, 1));
+  geometry.setIndex(new BufferAttribute(indices.subarray(0, t), 1));
   // Per-course ground, varying across the course rather than one flat green to
   // the horizon — see render3d/ground.js for why that was the biggest single
   // thing making the four courses look like the same road.
