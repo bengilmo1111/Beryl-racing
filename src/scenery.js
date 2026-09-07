@@ -360,7 +360,7 @@ export function scatterScenery(track, def) {
         if (!insideWorld(x, y)) continue;
         if (blocksAJunction(x, y, roads, fenceStep * 0.6)) continue;
         if (!dry(x, y)) continue;
-        props.push({ kind: 'fence', x, y, yaw: Math.atan2(at.ny, at.nx), length: fenceStep });
+        props.push({ kind: 'fence', x, y, yaw: Math.atan2(-at.nx, at.ny), length: fenceStep });
       }
     }
   }

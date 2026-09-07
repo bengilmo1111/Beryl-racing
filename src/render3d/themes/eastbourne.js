@@ -28,6 +28,8 @@ import { buildEastbourneVilla, villaPalette } from '../houses.js';
 import { ridge } from './parallax.js';
 import { bakeStatic } from '../bake.js';
 import { buildEastbourneParallax } from './eastbourneParallax.js';
+import { seawallGeometry, harbourGeometry } from '../coastalGeometry.js';
+import { visualCoast } from '../../coastalProfile.js';
 
 const COLOUR = {
   water: 0x55b3d2,
@@ -81,27 +83,14 @@ function placeAtGround(object, terrain, x, z, yOffset = 1) {
 // line of foam where it meets the sand, and the low wall at the road edge.
 function addCoast(group, terrain, track) {
   const sea = terrain.seaLevel || 0;
-  const { points, wall } = eastbourneCoast(track);
+  const { points, wall } = visualCoast(track);
 
   // Open water, out past anything the camera can reach. Anchored on the derived
   // shoreline rather than on fractions of the world, so it arrives at the beach
   // instead of near it.
-  let sumX = 0;
-  let sumZ = 0;
-  for (const p of points) {
-    sumX += p.x;
-    sumZ += p.z;
-  }
-  const midX = sumX / points.length;
-  const midZ = sumZ / points.length;
   const reach = Math.max(WORLD.width, WORLD.height) * 2.2;
-  const water = new Mesh(new PlaneGeometry(reach, reach), basic(COLOUR.water, { fog: true }));
-  water.geometry.rotateX(-Math.PI / 2);
-  // Half a plane seaward of the mean shoreline, so its landward edge lands on
-  // the coast. The beach is a ramp, so the water's edge is hidden under the
-  // sand wherever the two disagree by a metre — which is the right way to be
-  // wrong, and the reason the foam is drawn separately below.
-  water.position.set(midX - reach * 0.5 + metres(6), sea + 2, midZ);
+  const water = new Mesh(harbourGeometry(track, reach), basic(COLOUR.water, { fog: true }));
+  water.position.y = sea + 2;
   group.add(water);
 
   const shallow = lambert(COLOUR.shallow);
@@ -115,12 +104,7 @@ function addCoast(group, terrain, track) {
   // The low wall along the seaward edge of the road. Its collision circles are
   // placed by RaceScene.placeSeawall from the same `wall` polyline.
   const concrete = lambert(COLOUR.concrete);
-  for (let i = 0; i < wall.length - 1; i += 1) {
-    const a = wall[i];
-    const b = wall[i + 1];
-    const y = terrain.heightAt((a.x + b.x) / 2, (a.z + b.z) / 2);
-    addSegment(group, a, b, metres(0.5), metres(0.8), y + metres(0.4), concrete);
-  }
+  group.add(new Mesh(seawallGeometry(wall, terrain), concrete));
 }
 
 // Days Bay Wharf, projecting from wherever the beach actually is.
@@ -229,17 +213,27 @@ function addNorfolkPine(group, terrain, x, z, scale = 1) {
 // feature *of the shore*, so if the shore moves they move with it. The authored
 // x they used to carry put them on the beach in the world this file was written
 // for and out in the harbour in the one it renders now.
-function addCoastalPines(group, terrain, track) {
-  const { points } = eastbourneCoast(track);
+function addCoastalPines(group, terrain, track, structures) {
+  const { wall } = eastbourneCoast(track);
+  // Put pines on the inland verge across the road, not 9 m from the water.
   const count = 9;
-  for (let i = 0; i < count; i += 1) {
-    // Skipping the run-on at either end, which is geography rather than shore.
-    const t = 0.1 + (i / (count - 1)) * 0.8;
-    const at = points[Math.round(t * (points.length - 1))];
+  for (let i = 0; i < count; i++) {
+    const at = wall[Math.round((0.1 + i / (count - 1) * 0.8) * (wall.length - 1))];
     if (!at) continue;
-    // Set back onto the berm, on the landward side of the sand.
-    const inland = at.x + metres(9) + (i % 2) * metres(4);
-    addNorfolkPine(group, terrain, inland, at.z, 0.86 + (i % 3) * 0.08);
+    let closest = null, distance = Infinity;
+    for (const road of track.roads) for (const p of road.centerline) {
+      const d = Math.hypot(p.x - at.x, p.y - at.z);
+      if (d < distance) { closest = { p, road }; distance = d; }
+    }
+    const { p, road } = closest;
+    const length = Math.hypot(p.x - at.x, p.y - at.z) || 1;
+    const setback = road.half + metres(8);
+    const x = p.x + (p.x - at.x) / length * setback;
+    const z = p.y + (p.y - at.z) / length * setback;
+    // These decorative trees have no collider; keep them clear of buildings.
+    if (structures.some(s => Math.hypot(s.x - x, s.z - z) < Math.hypot(s.w, s.d) / 2 + metres(4))) continue;
+    if (track.roads.some(r => r.centerline.some(p => Math.hypot(p.x - x, p.y - z) < r.half + metres(3)))) continue;
+    addNorfolkPine(group, terrain, x, z, 0.86 + (i % 3) * 0.08);
   }
 }
 
@@ -471,7 +465,7 @@ export function buildEastbourne(track, def, terrain, structures = []) {
   const wharf = new Group();
   addWharf(wharf, terrain, track);
   group.add(bakeStatic(wharf) || wharf);
-  addCoastalPines(group, terrain, track);
+  addCoastalPines(group, terrain, track, structures);
   addHills(group, terrain, track);
   addHouses(group, terrain, structures);
   addVillage(group, terrain, structures, track);

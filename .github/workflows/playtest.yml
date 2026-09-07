@@ -47,7 +47,7 @@ jobs:
         run: npm run playtest -- --skip-build --course=${{ matrix.course }} --no-journey --no-mobile
       - name: Capture Beryl reference views
         if: matrix.course == 'eastbourne-dash'
-        run: BERYL_ART_VIEWS=1 npm run shots -- eastbourne-dash:1440,1800,2100
+        run: BERYL_ART_VIEWS=1 npm run shots -- eastbourne-dash:1440,1800,2100,3000,4200,5000
       - name: Upload course artifacts
         if: always()
         uses: actions/upload-artifact@v4

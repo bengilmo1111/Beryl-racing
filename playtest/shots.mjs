@@ -57,6 +57,21 @@ for (const { course, frames } of jobs) {
   await page.waitForFunction(() => !!window.__h, null, { timeout: 20000 });
   await page.evaluate(() => window.advanceTime(0));
 
+  await page.evaluate(() => {
+    const scene = window.__BERYL_GAME__.scene.getScene('Race');
+    for (const fence of scene.scenery.props.filter(p => p.kind === 'fence')) {
+      const line = scene.track.centerline;
+      let index = 0, gap = Infinity;
+      line.forEach((p, i) => {
+        const d = Math.hypot(p.x - fence.x, p.y - fence.y);
+        if (d < gap) { gap = d; index = i; }
+      });
+      const a = line[Math.max(0, index - 1)], b = line[Math.min(line.length - 1, index + 1)];
+      const dot = Math.abs(((b.x-a.x)*Math.cos(fence.yaw)+(b.y-a.y)*Math.sin(fence.yaw))/Math.hypot(b.x-a.x,b.y-a.y));
+      if (dot < 0.95) throw new Error(`Fence crosses road: alignment ${dot}`);
+    }
+  });
+
   let done = 0;
   for (const frame of frames) {
     // The bot decides every frame. Stepping without feeding it input leaves the

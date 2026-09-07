@@ -7,6 +7,7 @@
 import { remutakaRoadProfile, remutakaVisualHeight } from './remutakaTerrain.js';
 import { metres } from './scale.js';
 import { RoadSurface } from './roadSurface.js';
+import { coastalProfile, coastalGroundHeight } from './coastalProfile.js';
 
 // Grid resolution, in world units per cell.
 //
@@ -244,6 +245,25 @@ export class Terrain {
     }
 
     this.grid = this.#addRelief(this.grid, pinned, roadDistance);
+    this.drivingGrid = this.grid;
+    if (def?.theme === 'eastbourne') {
+      const profile = coastalProfile(track);
+      const visual = Float32Array.from(this.grid);
+      this.waterMask = new Uint8Array(visual.length);
+      for (let r = 0; r < this.rows; r++) {
+        const z = this.minY + r * CELL;
+        const { shoreX, wallX } = profile(z);
+        const wallHeight = this.heightAt(wallX, z);
+        for (let c = 0; c < this.cols; c++) {
+          const x = this.minX + c * CELL;
+          // Protect all road corridors, including the village branches.
+          if (x >= wallX || roadDistance[r * this.cols + c] < track.half * 2.3) continue;
+          visual[r * this.cols + c] = coastalGroundHeight(x, shoreX, wallX, wallHeight, this.seaLevel);
+          if (x < shoreX) this.waterMask[r * this.cols + c] = 1;
+        }
+      }
+      this.grid = visual;
+    }
   }
 
   // Gentle rolling relief, away from the road.
@@ -349,8 +369,13 @@ export class Terrain {
   }
 
   roadGradeAlong(x, y, fwdX, fwdY, step = GRADE_STEP) {
-    return (this.heightAt(x + fwdX * step, y + fwdY * step)
-      - this.heightAt(x - fwdX * step, y - fwdY * step)) / (step * 2);
+    const height = (px, py) => {
+      const road = this.roadSurface.heightAt(px, py);
+      if (road !== null) return road;
+      return this.flat ? 0 : this.#sample(this.drivingGrid || this.grid, px, py);
+    };
+    return (height(x + fwdX * step, y + fwdY * step)
+      - height(x - fwdX * step, y - fwdY * step)) / (step * 2);
   }
 
   physicsHeightAt(x, y) {
@@ -377,6 +402,7 @@ export class Terrain {
       minX: this.minX,
       minY: this.minY,
       grid: this.grid,
+      waterMask: this.waterMask,
     };
   }
 }
