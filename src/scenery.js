@@ -73,11 +73,11 @@ const THEMES = {
     farClusterMax: 4,
     farBand: [metres(85), metres(380)],
     verge: metres(9),
-    fences: true,
+    fences: false,
     poles: true,
-    gatesPerKm: 3.5,
-    shelterBelts: 4,
-    scrub: 460,
+    gatesPerKm: 0,
+    shelterBelts: 0,
+    scrub: 100,
     bales: 0,
     rocks: 0,
   },
@@ -230,12 +230,20 @@ export function scatterScenery(track, def) {
   const offBeach = beachMask(track, def);
   const dry = (x, y) => !offBeach || !offBeach(x, y);
   const plots = def.theme === 'eastbourne' ? buildStructures(def, track) : [];
-  const clearsBuildings = (x, y, padding) => plots.every(s => {
+  const park = def.theme === 'eastbourne'
+    ? plots.find(s => s.kind === 'shelter') : null;
+  const clearsBuildings = (x, y, padding) => {
+    if (park && Math.abs(x - park.x) < metres(22) + padding
+      && Math.abs(y - park.z) < metres(35) + padding) return false;
+    return plots.every(s => {
     const dx = x - s.x, dy = y - s.z;
     const localX = dx * Math.cos(s.yaw) - dy * Math.sin(s.yaw);
     const localZ = dx * Math.sin(s.yaw) + dy * Math.cos(s.yaw);
-    return Math.abs(localX) > s.w / 2 + padding || Math.abs(localZ) > s.d / 2 + padding;
-  });
+    const front = s.frontage ? Math.hypot(s.x - s.frontage.x, s.z - s.frontage.z) : s.d / 2;
+    return Math.abs(localX) > s.w / 2 + padding
+      || localZ > s.d / 2 + padding || localZ < -front - padding;
+    });
+  };
 
   // Trees, in two bands.
   //
@@ -418,7 +426,7 @@ export function scatterScenery(track, def) {
   if (track.pavedAreas?.length) {
     const end = track.centerline.at(-1);
     const clear = p => Math.hypot(p.x - end.x, p.y - end.y) > metres(48);
-    return { trees: trees.filter(clear), props: props.filter(clear), obstacles: obstacles.filter(clear) };
+    return { trees: trees.filter(clear), props: props.filter(p => clear(p) && clearsBuildings(p.x, p.y, metres(1))), obstacles: obstacles.filter(clear) };
   }
   return { trees, props, obstacles };
 }

@@ -37,6 +37,8 @@ jobs:
         run: npm run test:placement
       - name: Eastbourne arrival and alternatives
         run: node playtest/eastbourne-arrival.mjs
+      - name: Eastbourne settlement and elevation
+        run: node playtest/eastbourne-settlement.mjs
       - name: Road index
         run: npm run test:road-index
       - name: Car contact with the rendered road

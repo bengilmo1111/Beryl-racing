@@ -1,0 +1,98 @@
+[
+  {
+    "name": "days-bay",
+    "latitude": -41.279,
+    "longitude": 174.905,
+    "routeFraction": 0.25,
+    "offsetsMetres": [
+      0,
+      50,
+      100,
+      150,
+      200,
+      300,
+      400,
+      600,
+      800,
+      1000,
+      1200
+    ],
+    "elevationsMetres": [
+      -1.4,
+      -1.4,
+      3.0,
+      3.9,
+      8.6,
+      13.6,
+      24.3,
+      55.5,
+      null,
+      null,
+      null
+    ]
+  },
+  {
+    "name": "rona-bay",
+    "latitude": -41.288,
+    "longitude": 174.899,
+    "routeFraction": 0.6,
+    "offsetsMetres": [
+      0,
+      50,
+      100,
+      150,
+      200,
+      300,
+      400,
+      600,
+      800,
+      1000,
+      1200
+    ],
+    "elevationsMetres": [
+      1.5,
+      1.5,
+      1.7,
+      2.1,
+      2.0,
+      11.2,
+      26.3,
+      110.1,
+      148.8,
+      null,
+      null
+    ]
+  },
+  {
+    "name": "village",
+    "latitude": -41.294,
+    "longitude": 174.895,
+    "routeFraction": 0.86,
+    "offsetsMetres": [
+      0,
+      50,
+      100,
+      150,
+      200,
+      300,
+      400,
+      600,
+      800,
+      1000,
+      1200
+    ],
+    "elevationsMetres": [
+      2.3,
+      2.6,
+      3.2,
+      36.4,
+      69.1,
+      107.3,
+      143.6,
+      164.1,
+      null,
+      null,
+      null
+    ]
+  }
+]
