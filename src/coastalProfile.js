@@ -1,10 +1,23 @@
 import { eastbourneCoast, WALL_SETBACK } from './coast.js';
 import { metres } from './scale.js';
 
+// Extend open water north/south, not along a road heading that turns inland.
+// Keep collision/scenery placement's existing coast and RNG contract intact.
+export function visualCoast(track) {
+  const coast = eastbourneCoast(track);
+  const points = coast.points.map(p => ({ ...p }));
+  if (points.length > 2) {
+    points[0] = { ...points[0], x: points[1].x, nx: -1, nz: 0 };
+    const last = points.length - 1;
+    points[last] = { ...points[last], x: points[last - 1].x, nx: -1, nz: 0 };
+  }
+  return { ...coast, points };
+}
+
 // The eastern harbour edge is a west-facing, single-valued shoreline. Sorting
 // also joins the short overlapping primary/Marine Parade sampling ranges.
 export function coastalProfile(track) {
-  const coast = eastbourneCoast(track);
+  const coast = visualCoast(track);
   const rows = coast.points.map(p => ({
     z: p.z, shoreX: p.x,
     wallX: p.x - p.nx * (coast.beach - WALL_SETBACK),

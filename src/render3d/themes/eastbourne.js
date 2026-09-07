@@ -28,7 +28,8 @@ import { buildEastbourneVilla, villaPalette } from '../houses.js';
 import { ridge } from './parallax.js';
 import { bakeStatic } from '../bake.js';
 import { buildEastbourneParallax } from './eastbourneParallax.js';
-import { seawallGeometry } from '../coastalGeometry.js';
+import { seawallGeometry, harbourGeometry } from '../coastalGeometry.js';
+import { visualCoast } from '../../coastalProfile.js';
 
 const COLOUR = {
   water: 0x55b3d2,
@@ -82,22 +83,14 @@ function placeAtGround(object, terrain, x, z, yOffset = 1) {
 // line of foam where it meets the sand, and the low wall at the road edge.
 function addCoast(group, terrain, track) {
   const sea = terrain.seaLevel || 0;
-  const { points, wall } = eastbourneCoast(track);
+  const { points, wall } = visualCoast(track);
 
   // Open water, out past anything the camera can reach. Anchored on the derived
   // shoreline rather than on fractions of the world, so it arrives at the beach
   // instead of near it.
-  let sumZ = 0;
-  for (const p of points) {
-    sumZ += p.z;
-  }
-  const midZ = sumZ / points.length;
   const reach = Math.max(WORLD.width, WORLD.height) * 2.2;
-  const water = new Mesh(new PlaneGeometry(reach, reach), basic(COLOUR.water, { fog: true }));
-  water.geometry.rotateX(-Math.PI / 2);
-  // Cover every bend; the shared coastal ground profile forms the waterline.
-  // The former edge at mean shoreline X exposed a dry strip beside the foam.
-  water.position.set(WORLD.width / 2, sea + 2, midZ);
+  const water = new Mesh(harbourGeometry(track, reach), basic(COLOUR.water, { fog: true }));
+  water.position.y = sea + 2;
   group.add(water);
 
   const shallow = lambert(COLOUR.shallow);

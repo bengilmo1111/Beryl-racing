@@ -101,6 +101,10 @@ for (const def of TRACKS) {
   const structures = buildStructures(def, track);
   if (def.theme === 'eastbourne') {
     const terrain = new Terrain(track, WORLD, def);
+    for (const s of structures) {
+      check(def.id, 'coastal buildings stay on land', s.x > coastalProfile(track)(s.z).shoreX && terrain.heightAt(s.x, s.z) >= terrain.seaLevel,
+        `${s.kind} at ${s.x},${s.z} below sea level`);
+    }
     const profile = coastalProfile(track);
     const coast = eastbourneCoast(track);
     for (let i = 100; i < coast.wall.length - 100; i += 70) {
