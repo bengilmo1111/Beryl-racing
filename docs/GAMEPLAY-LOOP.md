@@ -61,7 +61,7 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 
 | Priority | Hypothesis | Evidence / status | Next test |
 |---|---|---|---|
-| 1 | Coarse terrain can obscure climbing roads despite correct wheel support | Remutaka reproduced: 7,486 sampled intrusions, up to 197.02 units; focused clearance fix below | Review matching frame 6000 and run the new clearance regression in CI |
+| Done | Coarse terrain can obscure climbing roads despite correct wheel support | PR #38: Remutaka clearance regression and matched screenshots verified; 7,486 sampled intrusions removed | Player check on later uphill bends; separately reproduce the much smaller Otaki overlaps |
 | 2 | Repeated contact or missed gates may explain frustrating recovery | Exploration artifacts now exist; Remutaka lateBraking passes both seeds, not evidence about Eastbourne recovery | Inspect the worst Eastbourne trace and screenshots; distinguish driver error from trapping geometry |
 | 2 | Steering taps may feel more predictable with a different return rate | Subjective experiment pending, do not merge unjudged | A/B one steering parameter on the same Days Bay route |
 | 3 | More distinct landmarks improve recognition without visual clutter | Earlier Days Bay/Beryl art shipped; player judgement needed | Ask where the player thinks they are at wharf, park and RSA reference views |
@@ -137,11 +137,18 @@ polygon vertex. Lower only affected ground vertices; preserve physicsGrid and
 drivingGrid, road geometry, handling, route, random stream and replay baselines.
 Adjacent scenery reads the corrected visual field. No Eastbourne/2D changes.
 
-Local result: new regression passes all 83,025 positions and 175 raycasts against
+Result ([PR #38](https://github.com/bengilmo1111/Beryl-racing/pull/38)): new regression passes all 83,025 positions and 175 raycasts against
 the rendered mesh, with both winding directions and tiny interior overlaps
-covered. Production build passes. CI now runs this regression. Merge decision:
-conditional on all required PR checks and matched rendered-image review; do not
-merge merely because the waypoint bot finishes. PR records the final CI outcome.
+covered. Production build passes. CI now runs this regression. On code commit
+`c63e6c9`, Determinism 34161565024 and Exploration 34161565027 pass; all Playtest
+34161565052 jobs pass, including mobile/gateway and combined report. All four
+course replay/obstacle baselines remain unchanged. Remutaka's four standard bot
+reports and lateBraking's two seeds have identical metrics to PR #37. Matching
+waypoint/seed-779425 frames 2160 and 6000 show continuous edge lines and no former
+grass wedges, exposed road holes or new floating scenery in those views.
+Decision: accept this objective geometry fix once the final documentation commit
+also passes required checks. No handling/art preference inferred from bot times.
+PR records final check and merge status.
 
 Next test: drive Remutaka's later uphill bends and check that tarmac/white edge
 lines stay continuous with no grass wedges. Inspect matched frame 2160 and 6000
