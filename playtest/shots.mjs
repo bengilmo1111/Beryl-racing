@@ -88,6 +88,30 @@ for (const { course, frames } of jobs) {
     await writeFile(`${OUT}/${course}-f${frame}.png`, Buffer.from(data.split(',')[1], 'base64'));
   }
 
+  if (course === 'otaki' || course === 'manfield') {
+    const data = await page.evaluate(async course => {
+      const { Vector3 } = await import('/node_modules/three/build/three.module.js');
+      const scene = window.__BERYL_GAME__.scene.getScene('Race'), world = scene.world3d;
+      let x, z, yaw = 0;
+      if (course === 'manfield') {
+        const st = scene.structures.find(s => s.kind === 'garage');
+        ({ x, z, yaw } = st);
+      } else {
+        const { WORLD } = await import('/src/config.js');
+        x = WORLD.width * 11200 / 19000; z = WORLD.height * 5600 / 11000;
+      }
+      const y = scene.terrain.heightAt(x, z);
+      const camera = world.chase.camera.clone();
+      const target = new Vector3(x, y + (course === 'manfield' ? 60 : 0), z);
+      camera.position.set(x + Math.cos(yaw) * 550 - Math.sin(yaw) * 500, y + 450,
+        z - Math.sin(yaw) * 550 - Math.cos(yaw) * 500);
+      camera.lookAt(target);
+      world.renderer.render(world.scene3d, camera);
+      return world.renderer.domElement.toDataURL('image/png');
+    }, course);
+    await writeFile(`${OUT}/${course}-scenery.png`, Buffer.from(data.split(',')[1], 'base64'));
+  }
+
   if (process.env.BERYL_ART_VIEWS === '1') {
     if (course === 'eastbourne-dash') {
       for (const kind of ['shops', 'villa', 'shelter']) {

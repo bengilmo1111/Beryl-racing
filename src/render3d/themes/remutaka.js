@@ -99,7 +99,7 @@ function addLowerSideFace(group, track, terrain, profile, sideKey, nearOffset, f
   group.add(mesh);
 }
 
-function guardrailPosts(track, terrain, profile) {
+export function guardrailPosts(track, terrain, profile) {
   const posts = [];
   let section = 0;
   let previousSide = null;
@@ -112,7 +112,7 @@ function guardrailPosts(track, terrain, profile) {
     const offset = track.half + 105;
     const x = point.x + point.nx * point.outside * offset;
     const z = point.z + point.nz * point.outside * offset;
-    posts.push({ x, z, y: terrain.heightAt(x, z), section, point });
+    posts.push({ x, z, y: point.h, groundY: Math.min(point.h, terrain.heightAt(x, z)), section, point });
 
     i += point.progress > 0.55 ? 2 : 3;
   }
@@ -146,9 +146,10 @@ function addGuardrail(group, track, terrain, profile) {
   const direction = new Vector3();
 
   posts.forEach((post, i) => {
-    dummy.position.set(post.x, post.y + 35, post.z);
+    const height = post.y + 70 - post.groundY;
+    dummy.position.set(post.x, post.groundY + height / 2, post.z);
     dummy.quaternion.identity();
-    dummy.scale.set(12, 70, 12);
+    dummy.scale.set(12, height, 12);
     dummy.updateMatrix();
     postMesh.setMatrixAt(i, dummy.matrix);
   });
