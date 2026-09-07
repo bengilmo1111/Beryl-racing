@@ -4,7 +4,7 @@ import { TRACKS } from '../src/tracks.js';
 import { applyTrack } from '../src/config.js';
 import { buildTrack } from '../src/track.js';
 import { Terrain } from '../src/terrain.js';
-import { buildRoad, findJunctions, buildJunctions } from '../src/render3d/road.js';
+import { buildPavedAreas, buildRoad, findJunctions, buildJunctions } from '../src/render3d/road.js';
 import { buildBeryl, updateBeryl } from '../src/render3d/beryl.js';
 
 const ray = new Raycaster(new Vector3(), new Vector3(0, -1, 0));
@@ -17,6 +17,7 @@ for (const def of TRACKS) {
   const terrain = new Terrain(track, def.world, def);
   terrain.roadSurface.patches = findJunctions(track.roads);
   const meshes = track.roads.map(buildRoad);
+  if (track.pavedAreas) meshes.push(buildPavedAreas(track));
   meshes.push(...buildJunctions(terrain.roadSurface.patches).children);
   meshes.forEach((mesh) => mesh.updateMatrixWorld());
   const rig = buildBeryl();

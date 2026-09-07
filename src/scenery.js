@@ -26,6 +26,7 @@
 // Density is authored per kilometre of road, which is the unit that actually
 // matters and does not change meaning when a course is resized.
 import Phaser from 'phaser';
+import { buildStructures } from './structures.js';
 import { TRACK, WORLD } from './config.js';
 import { distanceToCenterline } from './track.js';
 import { beachMask } from './coast.js';
@@ -228,6 +229,13 @@ export function scatterScenery(track, def) {
   // `!offBeach` short-circuit keeps it free there.
   const offBeach = beachMask(track, def);
   const dry = (x, y) => !offBeach || !offBeach(x, y);
+  const plots = def.theme === 'eastbourne' ? buildStructures(def, track) : [];
+  const clearsBuildings = (x, y, padding) => plots.every(s => {
+    const dx = x - s.x, dy = y - s.z;
+    const localX = dx * Math.cos(s.yaw) - dy * Math.sin(s.yaw);
+    const localZ = dx * Math.sin(s.yaw) + dy * Math.cos(s.yaw);
+    return Math.abs(localX) > s.w / 2 + padding || Math.abs(localZ) > s.d / 2 + padding;
+  });
 
   // Trees, in two bands.
   //
@@ -254,6 +262,7 @@ export function scatterScenery(track, def) {
           if (distanceToCenterline(x, y, line) < inner) continue;
           if (!dry(x, y)) continue;
           const sp = SPECIES[variant];
+          if (!clearsBuildings(x, y, sp.canopy * size * 0.5 + metres(1))) continue;
           trees.push({ x, y, variant, canopyWidth: sp.canopy * size, trunkRadius: sp.trunk * size });
           if (solid && offset < SOLID_WITHIN) obstacles.push({ x, y, r: sp.trunk * size });
         }
@@ -405,5 +414,11 @@ export function scatterScenery(track, def) {
     }
   }
 
+  // Keep the complete arrival clear, including canopy/fence overhangs.
+  if (track.pavedAreas?.length) {
+    const end = track.centerline.at(-1);
+    const clear = p => Math.hypot(p.x - end.x, p.y - end.y) > metres(48);
+    return { trees: trees.filter(clear), props: props.filter(clear), obstacles: obstacles.filter(clear) };
+  }
   return { trees, props, obstacles };
 }

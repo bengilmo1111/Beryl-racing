@@ -47,7 +47,7 @@ export const TRACKS = [
       maxClimbPenalty: 0.78,
       downhillOverspeed: 0.18,
     },
-    storageKey: 'beryl-racing-3d.eastbourne-dash.bestTimeMs.v3',
+    storageKey: 'beryl-racing-3d.eastbourne-dash.bestTimeMs.v4',
     hud: { current: 'DASH TIME', progress: 'TO EASTBOURNE' },
     bestLabel: 'Eastbourne best',
     results: {

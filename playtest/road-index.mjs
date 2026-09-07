@@ -1,3 +1,4 @@
+import { inTriangle } from '../src/arrival.js';
 // The road index must agree with a full scan exactly, not approximately.
 //
 // `distanceToCenterline` decides whether Beryl is on the road and whether a tree
@@ -84,7 +85,8 @@ for (const def of TRACKS) {
 
   for (const [px, py] of cases) {
     const fast = distanceToCenterline(px, py, track.centerline);
-    const slow = linearDistanceToNetwork(px, py, roads);
+    const slow = roads.some(r => r.pavedAreas?.some(t => inTriangle(px, py, t)))
+      ? 0 : linearDistanceToNetwork(px, py, roads);
     assert.equal(
       fast,
       slow,

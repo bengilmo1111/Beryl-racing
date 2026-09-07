@@ -14,6 +14,7 @@
 // building cannot perturb the seeded scenery placement in scenery.js — only the
 // obstacle list itself changes.
 import { EASTBOURNE_LAYOUT } from './eastbourneRoute.js';
+import { rsaArrival } from './arrival.js';
 import { metres } from './scale.js';
 import { eastbourneSeaward } from './coast.js';
 import { resolvePlaces } from './places.js';
@@ -231,6 +232,7 @@ function eastbourneStructures(def, track) {
   // Resolved against the road network, so a fraction and a setback in metres
   // become a point. See src/places.js for why they are no longer coordinates.
   const places = resolvePlaces(track, EASTBOURNE_LAYOUT.places);
+  const arrival = rsaArrival(track);
 
   // Bush and bays at the Days Bay end, a solid street by the time the village
   // arrives. Seaward is beach and harbour, so the houses are inland only —
@@ -239,11 +241,11 @@ function eastbourneStructures(def, track) {
   // and nothing had ever asked which way the water was. It asks now.
   const houses = housesAlong(track, {
     from: 0.10,
-    to: 0.99,
+    to: 0.92,
     settledAt: (f) => 0.30 + Math.min(1, Math.max(0, (f - 0.12) / 0.5)) * 0.62,
     sides: [0, 1],
     facing: -eastbourneSeaward(track),
-    frontTaken: [0.345, 0.415],
+    frontTaken: [0.21, 0.29],
     rowDepth: metres(15),
   });
 
@@ -275,8 +277,8 @@ function eastbourneStructures(def, track) {
     },
     // The RSA, which is the finish.
     {
-      kind: 'rsa', x: places.rsa.x, z: places.rsa.z,
-      w: 520, d: 280, yaw: places.rsa.facing,
+      kind: 'rsa', x: arrival.building.x, z: arrival.building.y,
+      w: metres(26), d: metres(12), yaw: arrival.yaw + Math.PI / 2,
     },
   ];
 }

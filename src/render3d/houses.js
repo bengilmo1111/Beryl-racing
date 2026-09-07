@@ -39,11 +39,19 @@ function materials(palette) {
 
 // Two thick roof planes make a friendly gable without needing smooth curves or
 // textures. The visible thickness helps the roof survive the distant chase view.
-function addGableRoof(group, w, d, eaveY, rise, material, overhang = 12) {
+function addGableRoof(group, w, d, eaveY, rise, material, overhang = 12, gableMaterial = material) {
   const halfRun = w / 2 + overhang;
   const slope = Math.hypot(halfRun, rise);
   const angle = Math.atan2(rise, halfRun);
   const depth = d + overhang * 2;
+  // Close both triangular ends: the roof panels alone leave an open attic.
+  const ends = new BufferGeometry();
+  ends.setAttribute('position', new Float32BufferAttribute([
+    -w / 2, eaveY, -d / 2, 0, eaveY + rise, -d / 2, w / 2, eaveY, -d / 2,
+    -w / 2, eaveY, d / 2, w / 2, eaveY, d / 2, 0, eaveY + rise, d / 2,
+  ], 3));
+  ends.computeVertexNormals();
+  group.add(new Mesh(ends, gableMaterial));
   for (const side of [-1, 1]) {
     const panel = box(slope, 5, depth, side * halfRun / 2, eaveY + rise / 2, 0, material);
     panel.rotation.z = side < 0 ? angle : -angle;
@@ -217,7 +225,7 @@ export function buildEastbourneVilla({ variant = 'villa', palette }) {
     const h = 66;
     addWeatherboardBase(group, w, d, m);
     group.add(box(w, h, d, 0, 12 + h / 2, 0, m.wall));
-    addGableRoof(group, w, d, 12 + h, 46, m.roof, 18);
+    addGableRoof(group, w, d, 12 + h, 46, m.roof, 18, m.wall);
     addBayWindow(group, -48, h, d, m);
     addDoor(group, 60, 40, -d / 2 - 2, 30, 54, m);
     addSmallPorch(group, 60, d, h, m);
@@ -246,7 +254,7 @@ export function buildEastbourneVilla({ variant = 'villa', palette }) {
     const h = 112;
     addWeatherboardBase(group, w, d, m);
     group.add(box(w, h, d, 0, 12 + h / 2, 0, m.wall));
-    addGableRoof(group, w, d, 12 + h, 50, m.roof, 12);
+    addGableRoof(group, w, d, 12 + h, 50, m.roof, 12, m.wall);
     for (const y of [43, 91]) {
       addSashWindow(group, -43, y, -d / 2 - 2, 34, 34, m);
       addSashWindow(group, 43, y, -d / 2 - 2, 34, 34, m);
@@ -263,7 +271,7 @@ export function buildEastbourneVilla({ variant = 'villa', palette }) {
   const h = 76;
   addWeatherboardBase(group, w, d, m);
   group.add(box(w, h, d, 0, 12 + h / 2, 0, m.wall));
-  addGableRoof(group, w, d, 12 + h, 54, m.roof, 13);
+  addGableRoof(group, w, d, 12 + h, 54, m.roof, 13, m.wall);
   addSashWindow(group, -50, 48, -d / 2 - 2, 38, 40, m);
   addSashWindow(group, 50, 48, -d / 2 - 2, 38, 40, m);
   addDoor(group, 0, 43, -d / 2 - 4, 30, 58, m);
@@ -281,7 +289,7 @@ function buildFarmShed(palette) {
   const d = 95;
   const h = 54;
   group.add(box(w, h, d, 0, h / 2, 0, m.wall));
-  addGableRoof(group, w, d, h, 34, m.roof, 8);
+  addGableRoof(group, w, d, h, 34, m.roof, 8, m.wall);
   group.add(box(58, 42, 4, 0, 22, -d / 2 - 2, m.door));
   group.add(box(4, 42, 6, 0, 22, -d / 2 - 5, m.trim));
   return group;
@@ -297,7 +305,7 @@ export function buildOtakiFarmhouse({ variant = 'homestead', palette, shed = fal
     const h = 72;
     addWeatherboardBase(group, w, d, m);
     group.add(box(w, h, d, 0, 12 + h / 2, 0, m.wall));
-    addGableRoof(group, w, d, 12 + h, 48, m.roof, 14);
+    addGableRoof(group, w, d, 12 + h, 48, m.roof, 14, m.wall);
     addVerandah(group, w * 0.84, d, h + 12, 34, m, { posts: 5 });
     addDoor(group, 0, 43, -d / 2 - 4, 31, 58, m);
     addSashWindow(group, -65, 49, -d / 2 - 2, 40, 40, m);
@@ -324,7 +332,7 @@ export function buildOtakiFarmhouse({ variant = 'homestead', palette, shed = fal
     const h = 66;
     addWeatherboardBase(group, w, d, m);
     group.add(box(w, h, d, 0, 12 + h / 2, 0, m.wall));
-    addGableRoof(group, w, d, 12 + h, 42, m.roof, 12);
+    addGableRoof(group, w, d, 12 + h, 42, m.roof, 12, m.wall);
     addSmallPorch(group, 0, d, h + 12, m);
     addDoor(group, 0, 42, -d / 2 - 4, 29, 56, m);
     addSashWindow(group, -52, 46, -d / 2 - 2, 35, 37, m);

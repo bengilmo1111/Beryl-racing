@@ -35,6 +35,8 @@ jobs:
         run: npm run test:track-geometry
       - name: Placement
         run: npm run test:placement
+      - name: Eastbourne arrival and alternatives
+        run: node playtest/eastbourne-arrival.mjs
       - name: Road index
         run: npm run test:road-index
       - name: Car contact with the rendered road
@@ -43,5 +45,8 @@ jobs:
         run: npm run test:arcade-driving
       - name: Verify replay and obstacle baselines
         run: npm run test:determinism
+      - name: Capture intentionally changed route baselines
+        if: failure()
+        run: RECORD_BASELINES=1 npm run test:determinism
       - name: Engine sound
         run: npm run test:audio
