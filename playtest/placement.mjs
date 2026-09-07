@@ -27,6 +27,9 @@ import { applyTrack, FOG, WORLD } from '../src/config.js';
 import { buildTrack } from '../src/track.js';
 import { buildStructures } from '../src/structures.js';
 import { eastbourneCoast } from '../src/coast.js';
+import { coastalProfile } from '../src/coastalProfile.js';
+import { Terrain } from '../src/terrain.js';
+import { seawallGeometry } from '../src/render3d/coastalGeometry.js';
 import { UNITS_PER_METRE, worldDiagonal } from '../src/scale.js';
 
 const m = (units) => units / UNITS_PER_METRE;
@@ -96,6 +99,21 @@ for (const def of TRACKS) {
   const track = buildTrack();
   const roads = track.roads || [track];
   const structures = buildStructures(def, track);
+  if (def.theme === 'eastbourne') {
+    const terrain = new Terrain(track, WORLD, def);
+    const profile = coastalProfile(track);
+    const coast = eastbourneCoast(track);
+    for (let i = 100; i < coast.wall.length - 100; i += 70) {
+      const p = coast.wall[i], { shoreX } = profile(p.z);
+      const offshore = terrain.heightAt(shoreX - terrain.cell * 2, p.z);
+      check(def.id, 'seabed below water', offshore < terrain.seaLevel, `${offshore} at ${p.z}`);
+    }
+    const wall = seawallGeometry([{x:0,z:0},{x:0,z:10},{x:2,z:20}], {heightAt:(x,z)=>z*0.1});
+    const pos = wall.getAttribute('position');
+    assert.equal(pos.count, 12, 'neighbouring wall spans share four corners');
+    assert.ok(wall.getAttribute('normal').getY(2) > 0, 'wall top faces upward');
+    wall.dispose();
+  }
 
   // --- roads are roads ------------------------------------------------------
   for (const road of roads) {

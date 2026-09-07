@@ -7,6 +7,7 @@
 import { remutakaRoadProfile, remutakaVisualHeight } from './remutakaTerrain.js';
 import { metres } from './scale.js';
 import { RoadSurface } from './roadSurface.js';
+import { coastalProfile, coastalGroundHeight } from './coastalProfile.js';
 
 // Grid resolution, in world units per cell.
 //
@@ -244,6 +245,22 @@ export class Terrain {
     }
 
     this.grid = this.#addRelief(this.grid, pinned, roadDistance);
+    if (def?.theme === 'eastbourne') {
+      const profile = coastalProfile(track);
+      const visual = Float32Array.from(this.grid);
+      for (let r = 0; r < this.rows; r++) {
+        const z = this.minY + r * CELL;
+        const { shoreX, wallX } = profile(z);
+        const wallHeight = this.heightAt(wallX, z);
+        for (let c = 0; c < this.cols; c++) {
+          const x = this.minX + c * CELL;
+          // Protect all road corridors, including the village branches.
+          if (x >= wallX || roadDistance[r * this.cols + c] < track.half * 2.3) continue;
+          visual[r * this.cols + c] = coastalGroundHeight(x, shoreX, wallX, wallHeight, this.seaLevel);
+        }
+      }
+      this.grid = visual;
+    }
   }
 
   // Gentle rolling relief, away from the road.
