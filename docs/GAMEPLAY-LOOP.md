@@ -61,7 +61,7 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 
 | Priority | Hypothesis | Evidence / status | Next test |
 |---|---|---|---|
-| Done | Coarse terrain can obscure climbing roads despite correct wheel support | PR #38: Remutaka clearance regression and matched screenshots verified; 7,486 sampled intrusions removed | Player check on later uphill bends; separately reproduce the much smaller Otaki overlaps |
+| Done | Coarse terrain can obscure climbing roads despite correct wheel support | PR #38 fixed Remutaka; the follow-up reproduces and clears Ōtaki's smaller overlaps across every alternate road | Player check on Remutaka's later bends and Ōtaki's gorge/town transitions |
 | 2 | Repeated contact or missed gates may explain frustrating recovery | Exploration artifacts now exist; Remutaka lateBraking passes both seeds, not evidence about Eastbourne recovery | Inspect the worst Eastbourne trace and screenshots; distinguish driver error from trapping geometry |
 | 2 | Steering taps may feel more predictable with a different return rate | Subjective experiment pending, do not merge unjudged | A/B one steering parameter on the same Days Bay route |
 | 3 | More distinct landmarks improve recognition without visual clutter | Earlier Days Bay/Beryl art shipped; player judgement needed | Ask where the player thinks they are at wharf, park and RSA reference views |
@@ -155,3 +155,26 @@ lines stay continuous with no grass wedges. Inspect matched frame 2160 and 6000
 for exposed road edges or floating scenery. Keep tree-density/camera preferences
 for a separate player-judged preview; small Otaki terrain/road overlaps remain
 queued rather than expanding this fix to another course without rendered review.
+
+## 2026-09-08: Ōtaki road/terrain clearance
+
+Baseline: main `f787e9b9ac47bbf274f599afae2874a8f45d1eb8` (PR #38).
+The same independent ground/road scan now covers Ōtaki's primary gorge-to-beach
+route and all five alternate town roads. It reproduces 471 visible intrusions
+among 175,975 sampled positions, worst 7.77 world units, compared with
+Remutaka's 7,486 / 83,025 and 197.02 units. The smaller magnitude explains the
+occasional grass sliver rather than Remutaka's large hillside wedges.
+
+Change: apply the existing visual-only intersection-polygon clearance to Ōtaki
+after relief is added. Road geometry, `drivingGrid`, `physicsGrid`, handling,
+route choice and seeded scenery stay unchanged. The regression now checks both
+elevated courses across 259,000 positions and 550 rays against the rendered
+ground mesh, including every Ōtaki branch. It also keeps the reversed-winding
+interior-triangle fixture and proves clearance only lowers visual terrain.
+
+Local result: clearance, production build, track geometry, placement, road
+index, rendered-road contact and arcade-driving checks pass. The deterministic
+browser replay requires CI in this environment because its pinned Playwright
+browser is not installed; do not report it as passing until the PR workflow
+does. Next player check: drive the gorge bends and both town routes, looking for
+grass slivers at the road edges or exposed gaps beneath the verge.

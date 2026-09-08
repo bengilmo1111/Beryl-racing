@@ -247,7 +247,13 @@ export class Terrain {
 
     this.grid = this.#addRelief(this.grid, pinned, roadDistance);
     this.drivingGrid = this.grid;
-    if (remutaka) this.grid = clearRoadTerrain(this, this.roadSurface);
+    // Coarse ground triangles can cross a curved road between pinned vertices.
+    // Remutaka exposed this dramatically on its cliff face; Ōtaki has the same
+    // geometry failure at a smaller scale across its primary and town roads.
+    // This remains visual-only: drivingGrid and physicsGrid were captured above.
+    if (remutaka || def?.theme === 'otaki') {
+      this.grid = clearRoadTerrain(this, this.roadSurface);
+    }
     if (def?.theme === 'eastbourne') {
       const profile = coastalProfile(track);
       this.coastalProfile = profile;
