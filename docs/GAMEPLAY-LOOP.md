@@ -172,9 +172,20 @@ elevated courses across 259,000 positions and 550 rays against the rendered
 ground mesh, including every Ōtaki branch. It also keeps the reversed-winding
 interior-triangle fixture and proves clearance only lowers visual terrain.
 
-Local result: clearance, production build, track geometry, placement, road
-index, rendered-road contact and arcade-driving checks pass. The deterministic
-browser replay requires CI in this environment because its pinned Playwright
-browser is not installed; do not report it as passing until the PR workflow
-does. Next player check: drive the gorge bends and both town routes, looking for
-grass slivers at the road edges or exposed gaps beneath the verge.
+Result ([PR #39](https://github.com/bengilmo1111/Beryl-racing/pull/39)):
+clearance, production build, track geometry, placement, road index,
+rendered-road contact and arcade-driving checks pass locally. On code commit
+`404405e`, Determinism 34277334402, Playtest 34277334366 and Exploration
+34277334467 all pass. All four replay/obstacle baselines remain unchanged;
+Ōtaki still finishes at 140966.666667 ms in each of three deterministic runs.
+The four standard-bot reports and lateBraking seeds 779425/779426 have identical
+metrics to the matching successful main artifacts. Matched waypoint/seed-779425
+frames 6000, 6720 and 7080 show continuous road edges, with no new verge holes
+or floating scenery in those views. The browser evidence comes from CI because
+this workspace lacks its pinned Playwright Chromium binary; that earlier local
+absence was not counted as a pass.
+
+Decision: accept the objective geometry fix after this documentation-only commit
+also passes required checks. Do not infer fun from unchanged bot completion.
+Next player check: drive the gorge bends and both town routes, looking for grass
+slivers at road edges or exposed gaps beneath the verge.
