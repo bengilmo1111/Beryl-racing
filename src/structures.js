@@ -257,7 +257,12 @@ function eastbourneStructures(def, track) {
     }));
   }
 
+  const home = villa({ ...places.home, yaw: places.home.facing, variant: 'two-storey',
+    wall: 'warmWhite', roof: 'roofRed', door: 0x446c76 });
   return [
+    { ...home, landmark: 'beryl-home', scale: 3.1, w: home.w * 3.1, d: home.d * 3.1 },
+    { kind: 'pavilion', x: places.pavilion.x, z: places.pavilion.z,
+      w: metres(23), d: metres(13), yaw: places.pavilion.facing },
     ...houses.map(s => ({ ...s, scale: EASTBOURNE_VILLA_SCALE,
       w: s.w * EASTBOURNE_VILLA_SCALE, d: s.d * EASTBOURNE_VILLA_SCALE })),
     // Williams Park's shelter. The lawn itself is flat ground, not a structure.

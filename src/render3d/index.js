@@ -85,7 +85,7 @@ class RaceWorld {
         this.scene3d.add(buildCentreLine(road, skip));
       }
       if (through || scene.def.theme === 'eastbourne') {
-        for (const strip of buildKerbs(road, scene.def.theme, skip)) this.scene3d.add(strip);
+        for (const strip of buildKerbs(road, scene.def.theme, skip, scene.def.theme === 'eastbourne' ? roads : null)) this.scene3d.add(strip);
       }
     }
     this.scene3d.add(buildJunctions(junctions));

@@ -47,7 +47,7 @@ jobs:
         run: npm run playtest -- --skip-build --course=${{ matrix.course }} --no-journey --no-mobile
       - name: Capture Beryl reference views
         if: matrix.course == 'eastbourne-dash'
-        run: BERYL_ART_VIEWS=1 npm run shots -- eastbourne-dash:120,540,1200,2100,3000,3900,4500
+        run: BERYL_ART_VIEWS=1 npm run shots -- eastbourne-dash:0,120,540,1200,2100,3000,3900,4500
       - name: Capture other course reference views
         if: matrix.course != 'eastbourne-dash'
         run: npm run shots -- ${{ matrix.course }}:120,1800,3600

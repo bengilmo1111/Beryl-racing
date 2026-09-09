@@ -37,9 +37,11 @@ import { buildEastbourneParallax } from './eastbourneParallax.js';
 import { seawallGeometry, harbourGeometry, shoreBandGeometry } from '../coastalGeometry.js';
 import { visualCoast } from '../../coastalProfile.js';
 import { summerTrees } from '../../eastbourneSummer.js';
+import { buildNewZealandFlagpole } from '../models/nzFlag.js';
 import { buildPohutukawa } from '../models/nzTrees.js';
 import { nearestRoadPose } from '../../driveRoute.js';
 import { findJunctions, junctionMask } from '../road.js';
+import { clearRoads } from '../roadDecoration.js';
 import { terrainPatchGeometry } from '../terrainPatch.js';
 
 const COLOUR = {
@@ -419,13 +421,22 @@ function addHouses(group, terrain, structures) {
       palette: villaPalette(s.palette),
     });
     house.scale.setScalar(s.scale || 1);
+    if (s.landmark === 'beryl-home') {
+      house.name = '28-ferry-road';
+    }
     placeAtGround(house, terrain, s.x, s.z, 1);
     house.rotation.y = s.yaw;
     street.add(house);
     if (s.frontage) {
       const door = { x: s.x - Math.sin(s.yaw) * s.d / 2,
         z: s.z - Math.cos(s.yaw) * s.d / 2 };
-      groundRibbon(street, terrain, s.frontage, door, metres(1.2), COLOUR.concrete);
+      groundRibbon(street, terrain, s.frontage, door, metres(s.landmark === 'beryl-home' ? 3 : 1.2), COLOUR.concrete);
+      if (s.landmark === 'beryl-home') {
+        const sign = nameboard('28 FERRY ROAD', metres(3.6), metres(0.6));
+        placeAtGround(sign, terrain, s.frontage.x + Math.cos(s.yaw) * metres(2.7),
+          s.frontage.z - Math.sin(s.yaw) * metres(2.7), metres(1.2));
+        sign.rotation.y = s.yaw + Math.PI; group.add(sign);
+      }
       // Low painted garden boundary with a real opening at the path.
       const across = { x: Math.cos(s.yaw), z: -Math.sin(s.yaw) };
       const outward = { x: Math.sin(s.yaw), z: Math.cos(s.yaw) };
@@ -501,6 +512,39 @@ function addWindowBand(group, width, y, z) {
   }
 }
 
+// Present-day Pavilion: low cream frontage, dark tiled roof, red awning,
+// timber glazing and picnic terrace. Reference: Localista's exterior photo.
+function addPavilion(group, terrain, site) {
+  const root = new Group(); root.name = 'days-bay-pavilion';
+  const m = metres;
+  const part = (w, h, d, x, y, z, colour) => {
+    const mesh = box(m(w), m(h), m(d), lambert(colour));
+    mesh.position.set(m(x), m(y), m(z)); root.add(mesh); return mesh;
+  };
+  part(22, 3.5, 9, 0, 1.75, 1.5, COLOUR.warmWhite);
+  for (const side of [-1, 1]) {
+    const roof = part(23, 0.18, 5.4, 0, 4.05, 1.5 + side * 2.4, COLOUR.roofDark);
+    roof.rotation.x = side * 0.20;
+  }
+  // Front is local -Z, toward the wharf and road.
+  part(22.5, 0.15, 3, 0, 3.2, -4.2, 0xa62e32);
+  part(22.5, 0.65, 0.12, 0, 3.3, -5.7, 0xbb2634);
+  for (let x = -10; x <= 10; x += 2.5) {
+    part(2.1, 2.1, 0.10, x, 1.6, -3.06, COLOUR.glass);
+    part(0.12, 2.8, 0.18, x-1.15, 1.4, -3.15, COLOUR.timber);
+  }
+  for (const x of [-10.5, -3.5, 3.5, 10.5]) part(0.12, 3.1, 0.12, x, 1.55, -5.5, COLOUR.white);
+  const sign = nameboard('DAYS BAY PAVILION', m(14), m(0.6), '#b42332');
+  sign.position.set(0, m(3.32), -m(5.78)); sign.rotation.y = Math.PI; root.add(sign);
+  for (const x of [-7, 0, 7]) {
+    part(2.7, 0.12, 1, x, 0.8, -4.3, COLOUR.timber);
+    for (const z of [-5.2, -3.4]) part(2.7, 0.1, 0.32, x, 0.42, z, COLOUR.timber);
+    for (const side of [-1, 1]) part(0.15, 0.8, 1.7, x + side, 0.4, -4.3, COLOUR.roofDark);
+  }
+  placeAtGround(root, terrain, site.x, site.z, 2); root.rotation.y = site.yaw;
+  group.add(root);
+}
+
 function addVillage(group, terrain, structures, track) {
   // Resolved against the road, like the footprints in structures.js. These are
   // route-relative specs now, not coordinates: reading `.x` off one gives
@@ -513,16 +557,12 @@ function addVillage(group, terrain, structures, track) {
   const at = (kind) => structures.find((s) => s.kind === kind);
 
   // Open green at Williams Park, a major break in the otherwise built-up edge.
-  const lawnGeometry = new PlaneGeometry(metres(38), metres(65), 16, 24);
-  lawnGeometry.rotateX(-Math.PI / 2);
-  const vertices = lawnGeometry.attributes.position;
-  for (let i = 0; i < vertices.count; i++) {
-    const x = vertices.getX(i) + places.williamsPark.x;
-    const z = vertices.getZ(i) + places.williamsPark.z;
-    vertices.setXYZ(i, x, terrain.heightAt(x, z) + 2, z);
-  }
-  lawnGeometry.computeVertexNormals();
-  group.add(new Mesh(lawnGeometry, lambert(COLOUR.lawn)));
+  const lawnGeometry = terrainPatchGeometry(terrain, {
+    x: places.williamsPark.x, z: places.williamsPark.z,
+    width: metres(38), depth: metres(65), yaw: places.williamsPark.facing, lift: 2,
+  });
+  const lawn = new Mesh(clearRoads(lawnGeometry, track.roads), lambert(COLOUR.lawn, { side: DoubleSide }));
+  lawnGeometry.dispose(); lawn.name = 'williams-park-lawn'; group.add(lawn);
   const entrance = resolvePlace(track, { road: 'primary', at: 0.235, offsetMetres: -10 });
   const parkSign = nameboard('WILLIAMS PARK', metres(3.5), metres(0.65));
   placeAtGround(parkSign, terrain, entrance.x, entrance.z, metres(1.65));
@@ -533,6 +573,7 @@ function addVillage(group, terrain, structures, track) {
     parkSign.add(post);
   }
   group.add(parkSign);
+  addPavilion(group, terrain, at('pavilion'));
   const shelterAt = at('shelter');
   const shelter = simpleGableBuilding(190, 135, 95, COLOUR.white, COLOUR.roofGreen);
   placeAtGround(shelter, terrain, shelterAt.x, shelterAt.z, 4);
@@ -555,7 +596,7 @@ function addVillage(group, terrain, structures, track) {
   // A continuous village strip: generic shop types, not unverified business replicas.
   const shopRoot = new Group();
   const shopWidths = [150, 175, 160, 185, 155];
-  const shopNames = ['DAIRY', 'BAKERY', 'BOOKS', 'FISH & CHIPS', 'CAFE'];
+  const shopNames = ['FOUR SQUARE', 'BAKERY', 'BOOKS', 'FISH & CHIPS', 'CAFE'];
   let cursor = -shopWidths.reduce((a, b) => a + b, 0) / 2 - 16;
   shopWidths.forEach((width, i) => {
     const module = box(width, 135 + (i % 2) * 18, 150, lambert(i === 2 ? COLOUR.paleBlue : COLOUR.white));
@@ -643,6 +684,10 @@ function addVillage(group, terrain, structures, track) {
   }
   group.add(advance);
   const arrival = rsaArrival(track);
+  const flag = buildNewZealandFlagpole();
+  const flagAt = arrival.point(14, -3);
+  placeAtGround(flag, terrain, flagAt.x, flagAt.y, 1);
+  flag.rotation.y = arrival.yaw; group.add(flag);
   group.add(buildPavedAreas(track));
   const paint = basic(COLOUR.white, { fog: true });
   const stripe = (x1, z1, x2, z2) => {
@@ -683,6 +728,7 @@ export function buildEastbourne(track, def, terrain, structures = [], flowering 
   const flowers = new Group();
   for (const p of flowering || summerTrees(track, structures)) {
     const tree = buildPohutukawa({ variant: p.variant, scale: p.scale, flowered: true });
+    tree.scale.set(p.scale * (p.widthScale || 1), p.scale * (p.heightScale || 1), p.scale * (p.widthScale || 1));
     tree.position.set(p.x, terrain.heightAt(p.x, p.z), p.z);
     tree.rotation.y = p.yaw;
     flowers.add(tree);

@@ -1,3 +1,4 @@
+import { clearRoads } from './roadDecoration.js';
 import { inTriangle } from '../arrival.js';
 // The road surface, its kerbs and run-off apron, and the ground they sit on —
 // all built from the geometry buildTrack() already produces. No new track maths
@@ -226,7 +227,7 @@ export function buildRoad(track) {
 
 // Kerbs, in the two flavours the 2D game had: red/white rumble strips on the
 // purpose-built circuit, warm painted edging on the public roads.
-export function buildKerbs(track, theme, skipAt = null) {
+export function buildKerbs(track, theme, skipAt = null, roads = null) {
   const { left, right, centerline, closed, surfaces } = track;
   const rumble = theme === 'manfield';
   // Alternating every 3 samples, matching the old drawRumbleKerb cadence.
@@ -240,16 +241,24 @@ export function buildKerbs(track, theme, skipAt = null) {
   const unsealed = (i) => !!(surfaces && surfaces[i] === 'gravel');
   const skip = i => unsealed(i) || (skipAt && skipAt(i)) || inParking(track, i);
 
-  return [left, right].map((edge) =>
-    buildRibbon(
+  return [left, right].map((edge) => {
+    const mesh = buildRibbon(
       edge,
       offsetOutward(edge, centerline, KERB_WIDTH),
       heightsFor(track, KERB_Y),
       colorAt,
       closed,
       skip
-    )
-  );
+    );
+    if (roads) {
+      const clipped = clearRoads(mesh.geometry, roads.filter(r => r !== track));
+      mesh.geometry.dispose(); mesh.geometry = clipped;
+      // Eastbourne edging is a single colour, so clipping needs no colour UVs.
+      mesh.material.dispose();
+      mesh.material = basic(C.cream, { side: DoubleSide, fog: true });
+    }
+    return mesh;
+  });
 }
 
 // Dashed centre line down the sealed road.
