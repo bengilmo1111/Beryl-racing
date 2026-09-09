@@ -129,13 +129,15 @@ import { TRACKS } from '../src/tracks.js';
 //   pinned value. The other two obstacle fingerprints are also unchanged.
 // PR #41 run 34341352635: new home/Pavilion, moved shops and mature trees.
 // Eastbourne obstacle fingerprint measured x3; all finish results unchanged.
+// PR #42 run 34343784799: Pavilion setback doubled; obstacle hash measured x3.
+// All finish times/positions and the other course fingerprints remain unchanged.
 const BASELINES = {
   // Re-recorded 2026-09-07: shorter Ferry Road, Marine Parade primary route,
   // triangular parking finish, and tree/building clearance. Other courses unchanged.
   'eastbourne-dash': {
     finishTimeMs: 67350,
     pos: { x: 14966.655689963, y: 114408.140543463 },
-    obstacles: '5f143069064d0fd1',
+    obstacles: '5413700bd6646f7f',
   },
   // Manfeild has no trees, so every circle on the circuit belongs to a building:
   // pit wall, garages, timing tower, paddock sheds, grandstand and marshal huts.

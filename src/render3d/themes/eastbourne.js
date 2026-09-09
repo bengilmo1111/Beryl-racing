@@ -698,7 +698,16 @@ function addVillage(group, terrain, structures, track) {
   // Parking bays frame a clear central arrival lane.
   for (let z = -29; z <= -20; z += 3) stripe(8, z, 14, z);
   stripe(8, -29, 8, -20);
-  stripe(-3.3, -3, 3.3, -3);
+  // A broad white finish band reaches both edges of the triangular car park.
+  const [nearLeft, nearRight] = arrival.crossSection(-3.25);
+  const [farLeft, farRight] = arrival.crossSection(-2.75);
+  const finishGeometry = new BufferGeometry();
+  finishGeometry.setAttribute('position', new Float32BufferAttribute(
+    [nearLeft, farLeft, farRight, nearLeft, farRight, nearRight]
+      .flatMap(p => [p.x, arrival.h + 2, p.y]), 3));
+  const finishBand = new Mesh(finishGeometry, paint);
+  finishBand.name = 'rsa-full-width-finish';
+  group.add(finishBand);
   const welcome = nameboard('RSA • FINISH', metres(7), metres(1));
   const signAt = arrival.point(-8, -9);
   welcome.position.set(signAt.x, arrival.h + metres(2.5), signAt.y);

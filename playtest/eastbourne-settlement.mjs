@@ -74,7 +74,7 @@ const { resolvePlaces } = await import('../src/places.js');
 const { EASTBOURNE_LAYOUT } = await import('../src/eastbourneRoute.js');
 const places = resolvePlaces(track, EASTBOURNE_LAYOUT.places);
 const pavilion = structures.find(s => s.kind === 'pavilion');
-assert.ok(Math.hypot(pavilion.x-places.wharf.x, pavilion.z-places.wharf.z) < metres(25), 'Pavilion opposite wharf');
+assert.ok(Math.abs(Math.hypot(pavilion.x-places.wharf.x, pavilion.z-places.wharf.z) - metres(40)) < metres(0.1), 'Pavilion opposite wharf with the requested 40 m setback');
 const shops = structures.find(s => s.kind === 'shops');
 const { nearestRoadPose } = await import('../src/driveRoute.js');
 assert.ok(nearestRoadPose({ roads: [track.roads[0]] }, shops.x, shops.z).distance < metres(25), 'Shops close to Marine Parade');
