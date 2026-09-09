@@ -33,6 +33,8 @@ jobs:
       # belongs to. Seconds each, and they fail with the exact course and metric.
       - name: Road geometry
         run: npm run test:track-geometry
+      - name: Test drivers restart after losing alignment
+        run: node playtest/bot-restart.mjs
       - name: Placement
         run: npm run test:placement
       - name: Eastbourne arrival and alternatives

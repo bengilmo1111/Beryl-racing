@@ -62,7 +62,7 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 | Priority | Hypothesis | Evidence / status | Next test |
 |---|---|---|---|
 | Done | Coarse terrain can obscure climbing roads despite correct wheel support | PR #38 fixed Remutaka; the follow-up reproduces and clears Ōtaki's smaller overlaps across every alternate road | Player check on Remutaka's later bends and Ōtaki's gorge/town transitions |
-| 2 | Repeated contact or missed gates may explain frustrating recovery | Exploration artifacts now exist; Remutaka lateBraking passes both seeds, not evidence about Eastbourne recovery | Inspect the worst Eastbourne trace and screenshots; distinguish driver error from trapping geometry |
+| 1 | Test-driver stalls can masquerade as collision traps | Eastbourne steeringTaps stops requesting throttle when misaligned; reproduced from frame 10801, seed 779425. Bot-only restart fix below | Recheck both seeds and distinguish remaining collision traps from controller errors |
 | 2 | Steering taps may feel more predictable with a different return rate | Subjective experiment pending, do not merge unjudged | A/B one steering parameter on the same Days Bay route |
 | 3 | More distinct landmarks improve recognition without visual clutter | Earlier Days Bay/Beryl art shipped; player judgement needed | Ask where the player thinks they are at wharf, park and RSA reference views |
 | Done | Long test runs duplicated the growing timing history every frame | Fixed internal steps to return current state; final report retains all timings | Verify lightweight-step contract and deterministic baselines |
@@ -189,3 +189,48 @@ Decision: accept the objective geometry fix after this documentation-only commit
 also passes required checks. Do not infer fun from unchanged bot completion.
 Next player check: drive the gorge bends and both town routes, looking for grass
 slivers at road edges or exposed gaps beneath the verge.
+
+## 2026-09-10: distinguish stalled test drivers from gameplay traps
+
+Baseline: main `e6570525ebc44d434c477531d867164ff126bf83`, including PRs #40–42
+(unified handling, Eastbourne art, full-width finish stripe, Pavilion setback).
+No open issues/PRs at start. Do not redo these user-approved changes.
+
+Workflow collection review: scheduled Playtest 34385254933 and Exploration
+34385499325 initially failed before game launch on Sept 9 UTC. Logs show an
+APT Hash Sum mismatch from dl.google.com during Playwright dependency install.
+Both had no artifacts: missing gameplay evidence, not game failures. Retried
+failed jobs without weakening checks. Latest Determinism 34344214236 passed on
+PR #42; the workflow has no schedule, so no scheduled Determinism pass exists.
+
+Hypothesis: the waypoint controller brakes for a large heading error, then asks
+for neither throttle nor brake at low speed. Stationary steering cannot rotate
+the car, so imperfect drivers can remain stopped indefinitely on clear roads.
+PR #42 exploration 34344214027, steeringTaps/779425, records 147 contacts and
+6/7 gates; all final 20 seconds have speed 0, throttle 0 and brake 0. Seed 779426
+has 150 contacts and the same noncompletion. The frame-12000 screenshot shows a
+clear road at Muritai Road, not an obstacle holding the car. HeldSteering also
+fails to finish at 2/7 gates; noncompletion alone does not prove a game bug.
+The successful scheduled retry reproduces the steeringTaps metrics against the
+previous successful PR #42 run at each matching scenario/seed.
+
+Change: only the imperfect drivers' low-speed, large-heading-error branch now requests
+0.3 throttle below 18% speed, retaining high-speed braking. No production handling,
+camera, art, route, baselines or collision changes. New regression uses the exact
+recorded state, five headings, three imperfect drivers and reference-driver guards.
+It failed against the old controller and passes with the fix. CI runs it.
+
+Decision: merge only after replay baselines remain unchanged and browser checks
+pass. Changes to imperfect-driver outcomes are expected and are not evidence of
+more enjoyable handling. Next test: compare contact counts, gate reach and final
+traces for both Eastbourne steeringTaps seeds; investigate any remaining stalls
+with throttle applied before proposing a collision or recovery change.
+
+First PR attempt changed the shared waypoint driver and CI correctly rejected a
+Remutaka replay drift (124100 versus the pinned 124366.666667 ms). Reverted that
+shared change instead of updating baselines; restart now wraps only imperfect
+drivers. Exploration from the first attempt demonstrates the restart policy:
+seed 779426 finishes at 91916.666667 ms (166 contacts); seed 779425 reaches the
+RSA area but keeps circling on grass (162 contacts, 6/7 gates). Its final trace
+shows speed around 290 units/s and throttle 0.3, not the original zero-input
+deadlock. These are new diagnostic outcomes, not evidence of improved fun.
