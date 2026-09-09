@@ -49,7 +49,7 @@ export const EASTBOURNE_LAYOUT = {
   // the route runs broadly south down the coast.
   places: {
     home: { road: 'primary', at: 0.004, offsetMetres: -13 },
-    pavilion: { road: 'primary', at: 0.235, offsetMetres: -20 },
+    pavilion: { road: 'primary', at: 0.235, offsetMetres: -40 },
     wharf: { road: 'primary', at: 0.235, offsetMetres: 0 },
     williamsPark: { road: 'primary', at: 0.25, offsetMetres: -30 },
     doctors: { road: 'village-inland', at: 0.258, offsetMetres: -24 },
