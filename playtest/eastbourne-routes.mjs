@@ -70,4 +70,35 @@ try {
     console.log(`Eastbourne ${route} PASS ${JSON.stringify(result)}`);
     await page.close();
   }
+  // Exercise the real frame update and finish/results flow at the stripe's
+  // outer edges, not just the centreline followed by reference route drivers.
+  for (const [x, direction] of [[-8.5, 1], [9.5, 1], [-8.5, -1], [9.5, -1]]) {
+    const page = await browser.newPage();
+    await page.route('https://fonts.googleapis.com/**', r => r.fulfill({ status: 200, body: '' }));
+    await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/?harness=1&course=eastbourne-dash&seed=779425`);
+    await page.waitForFunction(() => !!window.__h);
+    const result = await page.evaluate(async ({x,direction}) => {
+      await window.advanceTime(0);
+      const scene = window.__BERYL_GAME__.scene.getScene('Race');
+      const {rsaArrival} = await import('/src/arrival.js');
+      const {metres} = await import('/src/scale.js');
+      const arrival = rsaArrival(scene.track), start = arrival.point(x,-3-direction);
+      scene.car.reset(start.x,start.y,scene.track.start.rotation);
+      scene.car.rotation = Math.atan2(Math.sin(arrival.yaw)*direction,-Math.cos(arrival.yaw)*direction);
+      scene.car.vx = Math.sin(arrival.yaw)*direction*metres(5);
+      scene.car.vy = Math.cos(arrival.yaw)*direction*metres(5);
+      scene.expected = scene.track.checkpoints.length-1;
+      scene.timing = true; scene.lapStartTime = scene.time.now;
+      window.__h.setInput({throttle:1,brake:0,steer:0});
+      for(let i=0;i<120 && !scene.finished;i++) window.__h._stepNoRender(1);
+      const finished = scene.finished;
+      window.__h.setInput({throttle:0,brake:0,steer:0});
+      await window.advanceTime(2500);
+      return {finished, time:scene.lastCompletionTimeMs};
+    },{x,direction});
+    assert.ok(result.finished && result.time > 0, `Outer finish crossing failed: ${x}/${direction}`);
+    await page.getByRole('dialog', {name:'Eastbourne results'}).waitFor();
+    await page.close();
+  }
+  console.log('Eastbourne outer finish PASS: real frame updates and results at both edges in both directions');
 } finally { await browser.close(); await server.close(); }

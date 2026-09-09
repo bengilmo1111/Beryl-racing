@@ -699,8 +699,7 @@ function addVillage(group, terrain, structures, track) {
   for (let z = -29; z <= -20; z += 3) stripe(8, z, 14, z);
   stripe(8, -29, 8, -20);
   // A broad white finish band reaches both edges of the triangular car park.
-  const [nearLeft, nearRight] = arrival.crossSection(-3.25);
-  const [farLeft, farRight] = arrival.crossSection(-2.75);
+  const [nearLeft, nearRight, farRight, farLeft] = arrival.finishBand;
   const finishGeometry = new BufferGeometry();
   finishGeometry.setAttribute('position', new Float32BufferAttribute(
     [nearLeft, farLeft, farRight, nearLeft, farRight, nearRight]
