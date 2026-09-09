@@ -49,3 +49,19 @@ for (const b of [{ x: 800, z: 0 }, { x: 0, z: 800 }, { x: -400, z: -700 }]) {
   assert.ok(hit, 'Baked paths must face upward');
   assert.ok(Math.abs(hit.point.y - terrain.heightAt(b.x / 2, b.z / 2) - 3) < 0.01);
 }
+
+// Paths must follow the actual triangular ground, including saddle cells.
+// Bilinear endpoint panels left repeating green slits in PR #40 screenshots.
+{
+  const terrain = { describe: () => ({ cols: 2, rows: 2, cell: 100,
+    minX: 0, minY: 0, grid: [0, 0, 0, 80] }) };
+  const group = new Group();
+  groundRibbon(group, terrain, { x: 20, z: 20 }, { x: 80, z: 80 }, 35, 0xbbbbbb);
+  const mesh = bakeStatic(group); mesh.updateMatrixWorld();
+  for (const x of [30, 45, 60, 70]) for (const z of [x - 8, x, x + 8]) {
+    const hit = new Raycaster(new Vector3(x, 200, z), new Vector3(0, -1, 0)).intersectObject(mesh)[0];
+    assert.ok(hit, 'Continuous footpath must cover both sides of a ground diagonal');
+    assert.ok(Math.abs(hit.point.y - (Math.min(x, z) * 0.8 - 8 + 3)) < 0.002,
+      'Footpath must follow the actual ground mesh without sinking');
+  }
+}

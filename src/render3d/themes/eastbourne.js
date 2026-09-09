@@ -40,6 +40,7 @@ import { summerTrees } from '../../eastbourneSummer.js';
 import { buildPohutukawa } from '../models/nzTrees.js';
 import { nearestRoadPose } from '../../driveRoute.js';
 import { findJunctions, junctionMask } from '../road.js';
+import { terrainPatchGeometry } from '../terrainPatch.js';
 
 const COLOUR = {
   water: 0x55b3d2,
@@ -336,6 +337,12 @@ function nameboard(text, width, height, colour = '#315b51') {
   map.colorSpace = SRGBColorSpace;
   const sign = new Mesh(new PlaneGeometry(width, height), basic(0xffffff, { map, side: DoubleSide, fog: true }));
   sign.name = text;
+  // A single DoubleSide texture reads backwards from behind. Give the rear
+  // its own correctly oriented face so approach and departure both read well.
+  const back = new Mesh(sign.geometry, sign.material);
+  back.rotation.y = Math.PI;
+  back.position.z = -0.5;
+  sign.add(back);
   return sign;
 }
 
@@ -351,6 +358,14 @@ export function groundRibbon(group, terrain, a, b, width, colour) {
   const dx = b.x - a.x, dz = b.z - a.z;
   const length = Math.hypot(dx, dz);
   if (length < 1) return;
+  if (terrain.describe) {
+    const geometry = terrainPatchGeometry(terrain, {
+      x: (a.x + b.x) / 2, z: (a.z + b.z) / 2, width,
+      depth: length + 8, yaw: Math.atan2(dx, dz), lift: 3,
+    });
+    group.add(new Mesh(geometry, lambert(colour, { side: DoubleSide })));
+    return;
+  }
   const nx = -dz / length * width / 2, nz = dx / length * width / 2;
   const count = Math.max(1, Math.ceil(length / metres(1)));
   const positions = [], indices = [];
@@ -606,7 +621,7 @@ function addVillage(group, terrain, structures, track) {
   rsa.add(rsaSign);
   group.add(rsa);
   const fork = resolvePlace(track, { road: 'primary', at: 0.694, offsetMetres: -8 });
-  const forkHeading = nearestRoadPose(track, fork.x, fork.z).rotation;
+  const forkHeading = nearestRoadPose({ roads: [track.roads[0]] }, fork.x, fork.z).rotation;
   for (const [text, height] of [['RSA → WATERFRONT', 3.2], ['RSA ↑ VILLAGE', 2.1]]) {
     const sign = nameboard(text, metres(7), metres(0.9));
     placeAtGround(sign, terrain, fork.x, fork.z, metres(height));
@@ -620,7 +635,7 @@ function addVillage(group, terrain, structures, track) {
   const approach = resolvePlace(track, { road: 'primary', at: 0.968, offsetMetres: -8 });
   const advance = nameboard('RSA PARKING AHEAD', metres(7), metres(1.2));
   placeAtGround(advance, terrain, approach.x, approach.z, metres(2.8));
-  const direction = nearestRoadPose(track, approach.x, approach.z).rotation;
+  const direction = nearestRoadPose({ roads: [track.roads[0]] }, approach.x, approach.z).rotation;
   advance.rotation.y = -direction;
   for (const x of [-metres(3), metres(3)]) {
     const post = box(metres(0.12), metres(3), metres(0.12), lambert(COLOUR.white));

@@ -13,12 +13,8 @@ The arcade switch also enables road-surface grade sampling, glancing-contact reb
 - Road-contact check passes 1,866 positions and four headings.
 - Track geometry checks pass for all four courses.
 
-## Required before release
+## Browser validation
 
-Full browser replay could not run: Chromium is absent and the Playwright download timed out. Existing pinned Remutaka and Ōtaki replay baselines describe the old handling and will need deliberate re-recording. They have not been guessed, removed or bypassed.
+GitHub Actions run 34338579552 measured three identical replays per course. The measured finish times and positions are pinned in `playtest/ac2-determinism.mjs`: Eastbourne 67.350 s, Remutaka 124.366667 s, Ōtaki 141.066667 s. Eastbourne's new seawall and trees intentionally change its collision fingerprint and finish result. Remutaka and Ōtaki retain their obstacle fingerprints. Manfeild remains exactly at its original 52.716667 s, position and fingerprint. All 16 short bot-state comparisons also passed. The ordinary pinned replay gate remains required.
 
-With Chromium available, run `RECORD_BASELINES=1 npm run test:determinism`. Confirm all courses finish and repeat exactly; verify Eastbourne and Manfeild remain at their current pinned values and Remutaka/Ōtaki/Manfeild obstacle fingerprints remain unchanged (the subsequent Eastbourne coastal/tree fixes intentionally change its obstacle fingerprint). Update only the measured Remutaka/Ōtaki finish times and positions, document the intentional handling change in baseline history, then run `npm run test:determinism` normally. Browser-check the two changed courses for cornering, verge recovery, camera behaviour and their own results copy.
-
-## Submitted recording
-
-The attached MP4 is 4.580067 seconds long. Sampled frames show only the Eastbourne course-selection screen, with no driving. A drive-through review and evidence-based course fixes require the full recording.
+All four course browser playtests and all 12 gameplay exploration scenarios passed on the initial PR. The supplied second recording (2:12) was reviewed for the subsequent Eastbourne fixes; see `eastbourne-drive-review-fixes.md`.
