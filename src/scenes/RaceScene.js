@@ -6,7 +6,9 @@ import { buildTrack, distanceToCenterline, surfaceAt } from '../track.js';
 import { scatterScenery } from '../scenery.js';
 import { buildStructures, structureObstacles } from '../structures.js';
 import { eastbourneCoast } from '../coast.js';
+import { coastalProfile } from '../coastalProfile.js';
 import { metres } from '../scale.js';
+import { summerTrees } from '../eastbourneSummer.js';
 import { Terrain } from '../terrain.js';
 import { Car } from '../entities/Car.js';
 import { Hud } from '../ui/Hud.js';
@@ -17,7 +19,7 @@ import { startMusic, unlockAudio, isMuted } from '../audio/sound.js';
 import { EngineSound } from '../audio/EngineSound.js';
 import { CAR } from '../config.js';
 import { FONT, uiScale, isCompact } from '../ui/format.js';
-import { nearestRoadPose, roadAhead } from '../driveRoute.js';
+import { nearestRoadPose, roadAhead, buildRouteProgress } from '../driveRoute.js';
 import { showCoastalResults } from '../ui/CoastalResults.js';
 
 export class RaceScene extends Phaser.Scene {
@@ -56,6 +58,10 @@ export class RaceScene extends Phaser.Scene {
     for (const o of structureObstacles(this.structures)) this.obstacles.push(o);
     this.scenery = scatterScenery(this.track, this.def);
     for (const o of this.scenery.obstacles) this.obstacles.push(o);
+    if (this.def.theme === 'eastbourne') {
+      this.summerTrees = summerTrees(this.track, this.structures, this.scenery.trees);
+      for (const tree of this.summerTrees) this.obstacles.push({ x: tree.x, y: tree.z, r: tree.r });
+    }
 
     this.lastSkid = null;
 
@@ -142,7 +148,7 @@ export class RaceScene extends Phaser.Scene {
     const render3d = this.game.registry.get('__render3d');
     this.world3d = render3d.createRaceWorld(this);
 
-    if (CAR.arcade) this.createRecovery();
+    if (this.def.theme === 'eastbourne') this.createRecovery();
 
     this.input.keyboard.once('keydown-ESC', () => this.scene.start('Title'));
     this.startCountdown();
@@ -159,6 +165,9 @@ export class RaceScene extends Phaser.Scene {
 
   createRecovery() {
     this.lastSafe = { ...this.track.start };
+    this.routeProgress = buildRouteProgress(this.track);
+    this.coastProfile = coastalProfile(this.track);
+    this.offRoadSince = null;
     this.recoveryCount = 0;
     this.nextRecoveryAt = 0;
     this.routeUpdateAt = 0;
@@ -177,6 +186,7 @@ export class RaceScene extends Phaser.Scene {
   recover() {
     if (!this.timing || this.finished || this.time.now < this.nextRecoveryAt) return;
     this.car.reset(this.lastSafe.x, this.lastSafe.y, this.lastSafe.rotation);
+    this.offRoadSince = null;
     this.lastSkid = null;
     this.lapStartTime -= 3000;
     this.recoveryCount++;
@@ -186,34 +196,47 @@ export class RaceScene extends Phaser.Scene {
   }
 
   updateRouteHelp(time) {
-    if (!CAR.arcade || !this.timing || time < this.routeUpdateAt) return;
+    if (this.def.theme !== 'eastbourne' || !this.timing || time < this.routeUpdateAt) return;
     this.routeUpdateAt = time + 200;
     const pose = nearestRoadPose(this.track, this.car.x, this.car.y);
     if (!pose) return;
-    const primaryPose = pose.road === this.track.roads[0] ? pose
-      : nearestRoadPose({ roads: [this.track.roads[0]] }, this.car.x, this.car.y);
+    const progress = this.routeProgress.at(pose);
     const next = this.track.checkpoints[this.expected];
     const previous = this.track.checkpoints[Math.max(0, this.expected - 1)];
+    const connector = pose.road.id.endsWith('-link');
     const headingError = Math.atan2(Math.sin(pose.rotation - this.car.rotation), Math.cos(pose.rotation - this.car.rotation));
-    const safelyBeforeGate = primaryPose.index <= next.index && primaryPose.index >= previous.index;
+    const safelyBeforeGate = progress <= this.routeProgress.checkpoint(next.index) + 0.002
+      && progress >= this.routeProgress.checkpoint(previous.index) - 0.002;
     if (safelyBeforeGate && pose.distance < pose.road.half - this.car.collideRadius
-      && Math.abs(headingError) < 0.65 && this.car.speed > 0) {
+      && (Math.abs(headingError) < 0.65 || (connector && Math.abs(headingError) > Math.PI - 0.65)) && this.car.speed > 0) {
       // Only remember an unobstructed centre-road pose in the validated section.
       const clear = this.obstacles.every((o) => [-1, 1].every((sign) =>
         Math.hypot(pose.x + Math.sin(pose.rotation) * this.car.axleOffset * sign - o.x,
           pose.y - Math.cos(pose.rotation) * this.car.axleOffset * sign - o.y)
           > o.r + this.car.collideRadius + 10));
-      if (clear) this.lastSafe = { x: pose.x, y: pose.y, rotation: pose.rotation };
+      if (clear) this.lastSafe = { x: pose.x, y: pose.y, rotation: pose.rotation + (Math.abs(headingError) > Math.PI / 2 ? Math.PI : 0) };
     }
-    const fraction = Math.min(next.index, primaryPose.index) / (this.track.centerline.length - 1);
+    const fraction = Math.min(0.99, Math.max(0, progress));
     const place = fraction < 0.15 ? 'FERRY ROAD' : fraction < 0.36 ? 'DAYS BAY'
       : fraction < 0.73 ? 'COASTAL CRUISE' : 'TO THE RSA';
-    let hint = `${place} · ${Math.floor(fraction * 100)}%`;
-    if (!safelyBeforeGate && primaryPose.index > next.index + 10) hint = 'MISSED TURN? BACK ON ROAD';
-    else if (Math.abs(headingError) > 1.8) hint = 'TURN AROUND · OR BACK ON ROAD';
+    const street = { 'muritai-road': 'MURITAI RD → RSA', 'village-inland': 'VILLAGE → RSA',
+      'rata-street-link': 'RĀTĀ STREET', 'school-link': 'SCHOOL LINK' }[pose.road.id];
+    let hint = `${street || place} · ${Math.floor(fraction * 100)}%`;
+    const offRoad = distanceToCenterline(this.car.x, this.car.y, this.track.centerline) > this.track.half;
+    this.offRoadSince = offRoad ? (this.offRoadSince ?? time) : null;
+    if (this.car.x < this.coastProfile(this.car.y).shoreX - metres(1)) {
+      this.recover();
+      return;
+    }
+    if (this.offRoadSince !== null && time - this.offRoadSince > 1200) {
+      hint = this.touch ? 'OFF ROAD · TAP BACK ON ROAD' : 'OFF ROAD · PRESS R TO RECOVER';
+    } else if (!safelyBeforeGate && progress > this.routeProgress.checkpoint(next.index) + 0.015) {
+      hint = this.touch ? 'MISSED CHECKPOINT · TAP BACK ON ROAD' : 'MISSED CHECKPOINT · PRESS R';
+    }
+    else if (!connector && Math.abs(headingError) > 1.8) hint = 'TURN AROUND · OR BACK ON ROAD';
     else {
-      const ahead = roadAhead(pose, Math.max(500, Math.abs(this.car.speed) * 1.4));
-      const turn = Math.atan2(ahead.x - pose.x, -(ahead.y - pose.y)) - pose.rotation;
+      const ahead = roadAhead(pose, Math.max(500, Math.abs(this.car.speed) * 1.4), connector && Math.abs(headingError) > Math.PI / 2 ? -1 : 1);
+      const turn = Math.atan2(ahead.x - pose.x, -(ahead.y - pose.y)) - this.car.rotation;
       const bend = Math.atan2(Math.sin(turn), Math.cos(turn));
       if (Math.abs(bend) > 0.45 && this.car.speed > CAR.maxSpeed * 0.4) {
         hint = `EASE OFF · ${bend < 0 ? 'LEFT' : 'RIGHT'} BEND`;
@@ -567,11 +590,11 @@ export class RaceScene extends Phaser.Scene {
       this.hud.showMessage('RUN COMPLETE', '#fff8e7');
     }
 
-    this.time.delayedCall(700, () => this.showResults(lapMs));
+    this.time.delayedCall(this.def.theme === 'eastbourne' ? 2200 : 700, () => this.showResults(lapMs));
   }
 
   showResults(timeMs) {
-    if (CAR.arcade) {
+    if (this.def.theme === 'eastbourne') {
       this.recoverButton?.setVisible(false);
       showCoastalResults(this, timeMs, this.previousBest);
       return;

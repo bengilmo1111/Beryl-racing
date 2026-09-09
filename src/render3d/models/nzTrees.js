@@ -31,7 +31,7 @@ const COLOURS = {
   leafLight: 0x6a9a59,
   leafOlive: 0x657a46,
   leafBlue: 0x3f745d,
-  pohutukawaRed: 0xc64f46,
+  pohutukawaRed: 0xd52e38,
   kowhaiYellow: 0xe5bd3e,
   flowerCream: 0xefe8d1,
   shadow: 0x17251d,
@@ -259,8 +259,21 @@ export function buildPohutukawa(options = {}) {
       [-156 * wind, 207, -28], [-112 * wind, 218, 18], [-63 * wind, 238, -18],
       [-10 * wind, 253, 36], [35 * wind, 233, -36], [88 * wind, 216, 22],
       [142 * wind, 199, -8], [2 * wind, 222, -54],
+      [-148 * wind, 177, -67], [-88 * wind, 182, -84], [-30 * wind, 205, -72],
+      [48 * wind, 194, -96], [112 * wind, 166, -66],
+      [-110 * wind, 184, 52], [-48 * wind, 198, 78], [40 * wind, 199, 65], [118 * wind, 176, 61],
     ];
-    flowers.forEach((p, i) => addBlob(root, p, [16 + (i % 3) * 3, 8, 13], m.red));
+    flowers.forEach((p, i) => addBlob(root, p, [20 + (i % 3) * 3, 13, 18], m.red));
+    // Flowers sit on the outer crown so a low chase camera sees the summer
+    // colour from the road, rather than hiding most blossoms inside the leaves.
+    canopy.forEach(([x, y, z, rx, ry, rz], crown) => {
+      for (let i = 0; i < 7; i++) {
+        const angle = i / 7 * Math.PI * 2 + crown * 0.6;
+        addBlob(root, [x + Math.cos(angle) * rx * 0.91,
+          y + ry * (0.32 + (i % 2) * 0.2), z + Math.sin(angle) * rz * 0.94],
+        [18 + i % 3 * 2, 12, 17], m.red);
+      }
+    });
   }
   return tagTree(root, 'pohutukawa', variant, true, scale);
 }

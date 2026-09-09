@@ -46,7 +46,39 @@ reset.reset(500, 500, 0);
 assert.equal(reset.steer, 0);
 assert.equal(reset.lateral, 0);
 assert.equal(reset.drifting, false);
+// Replay mixed inputs against the actual Car implementation on equal terrain.
+// Track layout can differ; the same car inputs and surface must behave alike.
+function handlingTrace(track) {
+  applyTrack(track);
+  const car = testCar();
+  const states = [];
+  for (const [seconds, input, onRoad, surface, grade] of [
+    [3, { throttle: 1, steer: 0 }, true, 'sealed', 0],
+    [1, { throttle: 1, steer: 1 }, true, 'sealed', 0],
+    [1, { throttle: 1, steer: -0.5 }, true, 'gravel', 0],
+    [1, { throttle: 0, steer: 0 }, false, 'grass', 0],
+    [1, { throttle: 1, steer: 0.5, handbrake: true }, true, 'sealed', 0],
+    [3, { throttle: -1, steer: -1 }, true, 'sealed', 0],
+    [2, { throttle: 1, steer: 0 }, true, 'sealed', 0.08],
+    [2, { throttle: 1, steer: 0 }, true, 'sealed', -0.08],
+  ]) {
+    for (let i = 0; i < seconds * 60; i++) {
+      car.update(1 / 60, input, onRoad, surface, grade);
+      states.push([car.x, car.y, car.vx, car.vy, car.rotation, car.steer, car.drifting]);
+    }
+  }
+  return states;
+}
+const expected = handlingTrace(eastbourne);
+const roadConfig = { ...CAR };
+for (const id of ['remutaka', 'otaki', 'eastbourne-dash']) {
+  const track = TRACKS.find((track) => track.id === id);
+  assert.deepEqual(handlingTrace(track), expected, `${id}: road-car response must match Eastbourne`);
+  assert.deepEqual(CAR, roadConfig, `${id}: full driving configuration must match`);
+}
 applyTrack(TRACKS.find((track) => track.id === 'manfield'));
-assert.equal(CAR.arcade, false, 'Selecting another course must not inherit arcade handling');
+assert.equal(CAR.arcade, false, 'Manfeild must retain its race handling');
 assert.equal(CAR.steerResponse, undefined, 'Course configuration must not leak');
-console.log('arcade-driving PASS: tap steering, stationary steering, grass, 30/60/120Hz acceleration, recovery reset and course isolation');
+assert.equal(CAR.topSpeedKmh, 220, 'Manfeild must retain its faster top speed');
+assert.ok(CAR.accel > roadConfig.accel, 'Manfeild must accelerate faster');
+console.log('arcade-driving PASS: identical road-course traces and configurations, tap steering, stationary steering, grass, 30/60/120Hz acceleration, recovery reset and course isolation');

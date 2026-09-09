@@ -108,19 +108,31 @@ export function eastbourneCoast(track) {
     const { from, to } = spanOf(line, leg.from, leg.to);
     const offset = road.half + BEACH;
     const wallOffset = road.half + WALL_SETBACK;
-    for (let i = from; i <= to; i += 1) {
+    // Start the barrier before the coastal run, so the approach cannot drive
+    // around its exposed northern end. Shoreline samples remain unchanged.
+    const wallFrom = Math.max(0, from - Math.ceil(metres(95) / 50));
+    for (let i = wallFrom; i <= to; i += 1) {
       const nrm = normalAt(line, i);
-      points.push({
+      if (i >= from) points.push({
         x: line[i].x + nrm.x * sign * offset,
         z: line[i].y + nrm.z * sign * offset,
         nx: nrm.x * sign,
         nz: nrm.z * sign,
       });
-      wall.push({
-        x: line[i].x + nrm.x * sign * wallOffset,
-        z: line[i].y + nrm.z * sign * wallOffset,
-        roadHeight: road.heights[i],
-      });
+      const barrier = { x: line[i].x + nrm.x * sign * wallOffset,
+        z: line[i].y + nrm.z * sign * wallOffset, roadHeight: road.heights[i] };
+      if (i < from) {
+        // Follow the seaward envelope of the T-junction, never put a barrier
+        // across the northbound arm while closing the old entry gap.
+        for (const other of roads) for (let j = 0; j < other.centerline.length; j++) {
+          const p = other.centerline[j];
+          if (Math.abs(p.y - barrier.z) < metres(3)) {
+            const edge = p.x - other.half - WALL_SETBACK;
+            if (edge < barrier.x) { barrier.x = edge; barrier.roadHeight = other.heights[j]; }
+          }
+        }
+      }
+      wall.push(barrier);
     }
   }
 
