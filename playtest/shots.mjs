@@ -114,7 +114,7 @@ for (const { course, frames } of jobs) {
 
   if (process.env.BERYL_ART_VIEWS === '1') {
     if (course === 'eastbourne-dash') {
-      for (const kind of ['shops', 'villa', 'shelter', 'pavilion']) {
+      for (const kind of ['shops', 'villa', 'shelter', 'pavilion', 'rsa']) {
         const data = await page.evaluate(async kind => {
           const { Vector3 } = await import('/node_modules/three/build/three.module.js');
           const scene = window.__BERYL_GAME__.scene.getScene('Race');

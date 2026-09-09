@@ -37,6 +37,7 @@ import { buildEastbourneParallax } from './eastbourneParallax.js';
 import { seawallGeometry, harbourGeometry, shoreBandGeometry } from '../coastalGeometry.js';
 import { visualCoast } from '../../coastalProfile.js';
 import { summerTrees } from '../../eastbourneSummer.js';
+import { buildNewZealandFlagpole } from '../models/nzFlag.js';
 import { buildPohutukawa } from '../models/nzTrees.js';
 import { nearestRoadPose } from '../../driveRoute.js';
 import { findJunctions, junctionMask } from '../road.js';
@@ -683,6 +684,10 @@ function addVillage(group, terrain, structures, track) {
   }
   group.add(advance);
   const arrival = rsaArrival(track);
+  const flag = buildNewZealandFlagpole();
+  const flagAt = arrival.point(14, -3);
+  placeAtGround(flag, terrain, flagAt.x, flagAt.y, 1);
+  flag.rotation.y = arrival.yaw; group.add(flag);
   group.add(buildPavedAreas(track));
   const paint = basic(COLOUR.white, { fog: true });
   const stripe = (x1, z1, x2, z2) => {
