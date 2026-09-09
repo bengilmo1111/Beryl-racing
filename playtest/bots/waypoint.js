@@ -53,12 +53,7 @@ export default function waypoint(state) {
 
   return {
     steer: clamp(error / 0.65, -1, 1),
-    // Steering cannot rotate a stopped car. After an imperfect driver loses
-    // alignment, keep a little forward motion until it can turn toward target.
-    // At speed retain the original coast/brake policy; never alter game physics
-    // to make the test driver recover from its own zero-throttle deadlock.
-    throttle: magnitude < 1.05 ? (magnitude > 0.7 && speedRatio > 0.55 ? 0.25 : 1)
-      : speedRatio < 0.18 ? 0.3 : 0,
+    throttle: magnitude < 1.05 ? (magnitude > 0.7 && speedRatio > 0.55 ? 0.25 : 1) : 0,
     brake: magnitude > 1.05 && speedRatio > 0.22 ? 1 : 0,
   };
 }

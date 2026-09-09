@@ -11,7 +11,7 @@ const stopped = {
   nextCheckpoint: { x: 14800, y: 114560 },
   driveTarget: { x: 15589.273089581, y: 88765.588202642 }, finished: false,
 };
-for (const bot of [waypoint, steeringTaps, heldSteering, lateBraking]) {
+for (const bot of [steeringTaps, heldSteering, lateBraking]) {
   for (const heading of [stopped.heading, 0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
     const input = bot({ ...stopped, heading });
     assert.ok(input.throttle > 0 && input.brake === 0, `${bot.name}: must request motion when stopped`);
@@ -20,7 +20,8 @@ for (const bot of [waypoint, steeringTaps, heldSteering, lateBraking]) {
 assert.deepEqual(waypoint({ ...stopped, finished: true }), { throttle: 0, brake: 1, steer: 0 });
 assert.deepEqual(waypoint({ ...stopped, speed: stopped.maxSpeed }), { steer: 1, throttle: 0, brake: 1 },
   'a badly aligned car at speed must still brake');
-assert.ok(waypoint({ ...stopped, speed: stopped.maxSpeed * 0.04 }).throttle > 0,
+assert.ok(heldSteering({ ...stopped, speed: stopped.maxSpeed * 0.04 }).throttle > 0,
   'restart must persist above zero speed, not chatter on the first moving frame');
 assert.deepEqual(waypoint({ ...stopped, nextCheckpoint: null, driveTarget: null }), { throttle: 0, brake: 1, steer: 0 });
-console.log('Bot restart PASS: recorded deadlock, five headings, four drivers, low-speed restart and high-speed braking');
+assert.deepEqual(waypoint(stopped), { throttle: 0, brake: 0, steer: 1 }, 'reference driver remains pinned');
+console.log('Bot restart PASS: recorded deadlock, five headings, three imperfect drivers; reference unchanged');

@@ -214,10 +214,10 @@ fails to finish at 2/7 gates; noncompletion alone does not prove a game bug.
 The successful scheduled retry reproduces the steeringTaps metrics against the
 previous successful PR #42 run at each matching scenario/seed.
 
-Change: only the test driver's low-speed, large-heading-error branch now requests
+Change: only the imperfect drivers' low-speed, large-heading-error branch now requests
 0.3 throttle below 18% speed, retaining high-speed braking. No production handling,
 camera, art, route, baselines or collision changes. New regression uses the exact
-recorded state, five headings, four drivers and finished/missing-target guards.
+recorded state, five headings, three imperfect drivers and reference-driver guards.
 It failed against the old controller and passes with the fix. CI runs it.
 
 Decision: merge only after replay baselines remain unchanged and browser checks
@@ -225,3 +225,12 @@ pass. Changes to imperfect-driver outcomes are expected and are not evidence of
 more enjoyable handling. Next test: compare contact counts, gate reach and final
 traces for both Eastbourne steeringTaps seeds; investigate any remaining stalls
 with throttle applied before proposing a collision or recovery change.
+
+First PR attempt changed the shared waypoint driver and CI correctly rejected a
+Remutaka replay drift (124100 versus the pinned 124366.666667 ms). Reverted that
+shared change instead of updating baselines; restart now wraps only imperfect
+drivers. Exploration from the first attempt demonstrates the restart policy:
+seed 779426 finishes at 91916.666667 ms (166 contacts); seed 779425 reaches the
+RSA area but keeps circling on grass (162 contacts, 6/7 gates). Its final trace
+shows speed around 290 units/s and throttle 0.3, not the original zero-input
+deadlock. These are new diagnostic outcomes, not evidence of improved fun.
