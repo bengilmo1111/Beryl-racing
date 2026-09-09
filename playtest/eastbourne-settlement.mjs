@@ -3,7 +3,7 @@ import { Group, Raycaster, Vector3 } from 'three';
 import { groundRibbon } from '../src/render3d/themes/eastbourne.js';
 import { bakeStatic } from '../src/render3d/bake.js';
 import { TRACKS } from '../src/tracks.js';
-import { applyTrack } from '../src/config.js';
+import { applyTrack, WORLD } from '../src/config.js';
 import { buildTrack } from '../src/track.js';
 import { buildStructures } from '../src/structures.js';
 import { metres } from '../src/scale.js';
@@ -65,3 +65,48 @@ for (const b of [{ x: 800, z: 0 }, { x: 0, z: 800 }, { x: -400, z: -700 }]) {
       'Footpath must follow the actual ground mesh without sinking');
   }
 }
+
+// Landmark placement follows the user's map and the actual start pose.
+const home = homes.find(s => s.landmark === 'beryl-home');
+assert.ok(home && home.variant === 'two-storey');
+assert.ok(Math.hypot(home.x-track.start.x, home.z-track.start.y) < metres(20), 'Start outside the owner villa');
+const { resolvePlaces } = await import('../src/places.js');
+const { EASTBOURNE_LAYOUT } = await import('../src/eastbourneRoute.js');
+const places = resolvePlaces(track, EASTBOURNE_LAYOUT.places);
+const pavilion = structures.find(s => s.kind === 'pavilion');
+assert.ok(Math.hypot(pavilion.x-places.wharf.x, pavilion.z-places.wharf.z) < metres(25), 'Pavilion opposite wharf');
+const shops = structures.find(s => s.kind === 'shops');
+const { nearestRoadPose } = await import('../src/driveRoute.js');
+assert.ok(nearestRoadPose({ roads: [track.roads[0]] }, shops.x, shops.z).distance < metres(25), 'Shops close to Marine Parade');
+
+// Inspect actual rendered polygons: no park lawn or joining kerb may paint a road.
+const { Terrain } = await import('../src/terrain.js');
+const { RoadSurface, findJunctions } = await import('../src/roadSurface.js');
+const { terrainPatchGeometry } = await import('../src/render3d/terrainPatch.js');
+const { clearRoads } = await import('../src/render3d/roadDecoration.js');
+const { buildKerbs, junctionMask } = await import('../src/render3d/road.js');
+const terrain = new Terrain(track, WORLD, def);
+const lawn = clearRoads(terrainPatchGeometry(terrain, {
+  x: places.williamsPark.x, z: places.williamsPark.z, width: metres(38), depth: metres(65),
+  yaw: places.williamsPark.facing, lift: 2,
+}), track.roads);
+let checked = 0;
+function noRoadPaint(geometry, roads) {
+  const surface = new RoadSurface(roads), p = geometry.attributes.position;
+  for (let i = 0; i < p.count; i += 3) {
+    // Interior samples avoid Float32 rounding on shared boundary vertices.
+    const area = Math.abs((p.getX(i+1)-p.getX(i))*(p.getZ(i+2)-p.getZ(i))-(p.getZ(i+1)-p.getZ(i))*(p.getX(i+2)-p.getX(i)));
+    if (area < 1) continue;
+    for (const weights of [[1/3,1/3,1/3],[0.8,0.1,0.1],[0.1,0.8,0.1],[0.1,0.1,0.8]]) {
+      const x = weights.reduce((v,w,k)=>v+w*p.getX(i+k),0), z = weights.reduce((v,w,k)=>v+w*p.getZ(i+k),0);
+      assert.equal(surface.heightAt(x,z), null, 'Decoration must stay outside the other road surface'); checked++;
+    }
+  }
+}
+assert.ok(lawn.attributes.position.count > 0, 'Retain Williams Park lawn');
+noRoadPaint(lawn, track.roads);
+const junctions = findJunctions(track.roads);
+for (const road of track.roads) for (const mesh of buildKerbs(road, 'eastbourne', junctionMask(junctions, road.centerline), track.roads)) {
+  noRoadPaint(mesh.geometry, track.roads.filter(r => r !== road));
+}
+console.log(`Eastbourne landmarks PASS: start villa, beachfront shops, pavilion and ${checked} road-decoration samples`);

@@ -48,10 +48,12 @@ export const EASTBOURNE_LAYOUT = {
   // Negative offsets are landward. The left normal points at the harbour, since
   // the route runs broadly south down the coast.
   places: {
+    home: { road: 'primary', at: 0.004, offsetMetres: -13 },
+    pavilion: { road: 'primary', at: 0.235, offsetMetres: -20 },
     wharf: { road: 'primary', at: 0.235, offsetMetres: 0 },
     williamsPark: { road: 'primary', at: 0.25, offsetMetres: -30 },
     doctors: { road: 'village-inland', at: 0.258, offsetMetres: -24 },
-    shops: { road: 'village-inland', at: 0.377, offsetMetres: -26 },
+    shops: { road: 'primary', at: 0.785, offsetMetres: -17 },
     school: { road: 'village-inland', at: 0.563, offsetMetres: -32 },
   },
 };

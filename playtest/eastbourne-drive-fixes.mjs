@@ -39,6 +39,7 @@ const scenery = m.scatterScenery(track, def); Math.random = originalRandom;
 const trees = m.summerTrees(track, structures, scenery.trees);
 assert.ok(trees.length >= 12, `Need a visible population of flowering trees, got ${trees.length}`);
 for (const t of trees) {
+  assert.equal(t.widthScale, 3); assert.equal(t.heightScale, 2);
   const pose = m.nearestRoadPose(track, t.x, t.z);
   assert.ok(pose.distance > pose.road.half + t.r + 55, 'Flowering trunks must leave the full road clear');
 }
