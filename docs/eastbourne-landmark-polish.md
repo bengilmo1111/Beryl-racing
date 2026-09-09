@@ -16,3 +16,5 @@ References:
 - Exterior photo inspected: https://images.localista.com.au/eatingout/662387_lrg.jpg
 
 Local verification: build, placement, settlement, shared handling, course art and coastal recovery checks. The landmark regression samples 59,660 positions in actual lawn/edge-marking polygons and checks villa, shop and pavilion placement. CI screenshots include the start and Pavilion. Changed building/tree collisions require a measured Eastbourne replay fingerprint; the pinned baseline gate stays enabled, and the other courses must remain unchanged.
+
+Browser validation on PR #41 / run 34341352635: all three Eastbourne route variants finish, and all four courses replay identically three times. Only Eastbourne's obstacle fingerprint changes, to `5f143069064d0fd1`; its finish time and position, and every baseline value for the other courses, remain unchanged. All four course playtests and 12 gameplay exploration scenarios pass. CI screenshots confirm the villa at the start, the larger flowering canopy, relocated shops, Pavilion frontage and clear lawn/road boundaries.

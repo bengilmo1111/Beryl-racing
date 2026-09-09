@@ -127,13 +127,15 @@ import { TRACKS } from '../src/tracks.js';
 //   Remutaka/Ōtaki response; the extended seawall and flowering-tree colliders
 //   change Eastbourne's contact layout and run. Manfeild is identical in every
 //   pinned value. The other two obstacle fingerprints are also unchanged.
+// PR #41 run 34341352635: new home/Pavilion, moved shops and mature trees.
+// Eastbourne obstacle fingerprint measured x3; all finish results unchanged.
 const BASELINES = {
   // Re-recorded 2026-09-07: shorter Ferry Road, Marine Parade primary route,
   // triangular parking finish, and tree/building clearance. Other courses unchanged.
   'eastbourne-dash': {
     finishTimeMs: 67350,
     pos: { x: 14966.655689963, y: 114408.140543463 },
-    obstacles: '7f2d78b37d34469f',
+    obstacles: '5f143069064d0fd1',
   },
   // Manfeild has no trees, so every circle on the circuit belongs to a building:
   // pit wall, garages, timing tower, paddock sheds, grandstand and marshal huts.
