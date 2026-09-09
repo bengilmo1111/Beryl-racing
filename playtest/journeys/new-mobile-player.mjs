@@ -185,7 +185,10 @@ export async function runNewMobilePlayerJourney({ browser, baseUrl, outDir }) {
         );
       }
 
-      await page.evaluate(async (ms) => { await window.advanceTime(ms); }, 60 * FIXED_DELTA_MS);
+      // Eastbourne holds the arrival for 2.2 seconds. The harness pauses
+      // the game clock, so a locator timeout cannot advance that timer.
+      await page.evaluate(async (ms) => { await window.advanceTime(ms); }, 150 * FIXED_DELTA_MS);
+      await page.getByRole('dialog', { name: 'Eastbourne results' }).waitFor();
       screenshots.push(await screenshot(page, journeyDir, '05-results'));
       const name = page.getByRole('textbox', { name: 'Name for local top three' });
       await name.fill('COAST TEST');

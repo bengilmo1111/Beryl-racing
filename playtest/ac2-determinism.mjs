@@ -122,13 +122,18 @@ import { TRACKS } from '../src/tracks.js';
 // - Re-recorded 2026-09-07 for street-facing Eastbourne plots and front-garden
 //   tree clearance. Only its obstacle fingerprint changes; finish time and
 //   position remain identical. All other course baselines are unchanged.
+// - Re-recorded 2026-09-09 from PR #40 CI (run 34338579552), three identical
+//   browser replays per course. Shared Eastbourne handling intentionally changes
+//   Remutaka/Ōtaki response; the extended seawall and flowering-tree colliders
+//   change Eastbourne's contact layout and run. Manfeild is identical in every
+//   pinned value. The other two obstacle fingerprints are also unchanged.
 const BASELINES = {
   // Re-recorded 2026-09-07: shorter Ferry Road, Marine Parade primary route,
   // triangular parking finish, and tree/building clearance. Other courses unchanged.
   'eastbourne-dash': {
-    finishTimeMs: 67716.666667,
-    pos: { x: 14966.803766184, y: 114401.175632789 },
-    obstacles: '8c834ec883f2f285',
+    finishTimeMs: 67350,
+    pos: { x: 14966.655689963, y: 114408.140543463 },
+    obstacles: '7f2d78b37d34469f',
   },
   // Manfeild has no trees, so every circle on the circuit belongs to a building:
   // pit wall, garages, timing tower, paddock sheds, grandstand and marshal huts.
@@ -138,8 +143,8 @@ const BASELINES = {
     obstacles: 'de191f8062eae108',
   },
   remutaka: {
-    finishTimeMs: 124383.333333,
-    pos: { x: 119988.261239057, y: 17088.552092282 },
+    finishTimeMs: 124366.666667,
+    pos: { x: 119987.86879753, y: 17100.646603159 },
     obstacles: '618c12d304463fb4',
   },
   // Re-recorded 2026-08-02 for the complete Ōtaki replacement: a much longer
@@ -149,8 +154,8 @@ const BASELINES = {
   // cutting straight across paddocks. The fingerprint also includes the solid
   // structures introduced on 3d-port after this branch started.
   otaki: {
-    finishTimeMs: 140966.666667,
-    pos: { x: 10983.557161805, y: 80480.386809462 },
+    finishTimeMs: 141066.666667,
+    pos: { x: 10982.358304592, y: 80486.067659482 },
     obstacles: 'a8afa6b26c777baf',
   },
 };

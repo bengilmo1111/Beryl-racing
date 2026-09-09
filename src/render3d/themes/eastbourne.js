@@ -19,6 +19,10 @@ import {
   DoubleSide,
   BufferGeometry,
   Float32BufferAttribute,
+  IcosahedronGeometry,
+  InstancedMesh,
+  Object3D,
+  Color,
 } from 'three';
 import { WORLD } from '../../config.js';
 import { EASTBOURNE_LAYOUT } from '../../eastbourneRoute.js';
@@ -32,6 +36,11 @@ import { bakeStatic } from '../bake.js';
 import { buildEastbourneParallax } from './eastbourneParallax.js';
 import { seawallGeometry, harbourGeometry, shoreBandGeometry } from '../coastalGeometry.js';
 import { visualCoast } from '../../coastalProfile.js';
+import { summerTrees } from '../../eastbourneSummer.js';
+import { buildPohutukawa } from '../models/nzTrees.js';
+import { nearestRoadPose } from '../../driveRoute.js';
+import { findJunctions, junctionMask } from '../road.js';
+import { terrainPatchGeometry } from '../terrainPatch.js';
 
 const COLOUR = {
   water: 0x55b3d2,
@@ -251,7 +260,8 @@ function addHills(group, terrain, track) {
     const nearest = track.centerline.reduce((a, b) => Math.abs(a.y - z) < Math.abs(b.y - z) ? a : b);
     const local = track.roads.flatMap(r => r.centerline.filter(p => Math.abs(p.y - z) < metres(140)).map(p => p.x + r.half));
     const edge = Math.max(nearest.x, ...local) + metres(45);
-    const taper = Math.min(1, i / 10, (rows - i) / 10);
+    const fade = Math.min(1, i / 10, (rows - i) / 10);
+    const taper = fade * fade * (3 - 2 * fade);
     for (let c = 0; c < columns; c++) {
       const distance = HILL_OFFSETS[c] ?? (c === columns - 2 ? 850 : 1100);
       const x = edge + metres(distance);
@@ -270,7 +280,41 @@ function addHills(group, terrain, track) {
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
   geometry.setIndex(indices); geometry.computeVertexNormals();
-  group.add(new Mesh(geometry, lambert(0x537d60, { side: DoubleSide })));
+  const colours = [];
+  for (let i = 0; i < positions.length / 3; i++) {
+    const shade = 0.9 + Math.sin(i * 0.49) * 0.06 + Math.cos(i * 0.17) * 0.04;
+    const tint = new Color(0x426e4d).multiplyScalar(shade);
+    colours.push(tint.r, tint.g, tint.b);
+  }
+  geometry.setAttribute('color', new Float32BufferAttribute(colours, 3));
+  group.add(new Mesh(geometry, lambert(0xffffff, { side: DoubleSide, vertexColors: true })));
+  // Bush grows on this measured hill mesh, not on the lower driving terrain.
+  // Subdivide each face to keep the crowns grounded on steep slopes.
+  const crowns = [];
+  for (let r = 4; r < rows - 4; r++) {
+    for (let c = 1; c < columns - 3; c++) {
+      const index = (r * columns + c) * 3;
+      for (let k = 0; k < 3; k++) {
+        const next = index + (k === 2 ? columns : 1) * 3;
+        const t = 0.15 + k * 0.28;
+        crowns.push({ x: positions[index] * (1-t) + positions[next] * t,
+          y: positions[index+1] * (1-t) + positions[next+1] * t,
+          z: positions[index+2] * (1-t) + positions[next+2] * t,
+          radius: metres(7 + (r * 7 + c * 3 + k) % 9) });
+      }
+    }
+  }
+  const bush = new InstancedMesh(new IcosahedronGeometry(1, 0), lambert(0xffffff), crowns.length);
+  const dummy = new Object3D();
+  crowns.forEach((p, i) => {
+    dummy.position.set(p.x, p.y + p.radius * 0.18, p.z);
+    dummy.rotation.set(0, i * 2.39996, 0);
+    dummy.scale.set(p.radius, p.radius * (0.6 + (i % 3) * 0.08), p.radius * 0.9);
+    dummy.updateMatrix(); bush.setMatrixAt(i, dummy.matrix);
+    bush.setColorAt(i, new Color([0x234f36, 0x326342, 0x3d704a, 0x295b3c][i % 4]));
+  });
+  bush.name = 'eastbourne-hillside-bush';
+  bush.computeBoundingSphere(); group.add(bush);
 }
 
 // Painted, physical signs. Text is authored here and remains crisp on a phone.
@@ -293,6 +337,12 @@ function nameboard(text, width, height, colour = '#315b51') {
   map.colorSpace = SRGBColorSpace;
   const sign = new Mesh(new PlaneGeometry(width, height), basic(0xffffff, { map, side: DoubleSide, fog: true }));
   sign.name = text;
+  // A single DoubleSide texture reads backwards from behind. Give the rear
+  // its own correctly oriented face so approach and departure both read well.
+  const back = new Mesh(sign.geometry, sign.material);
+  back.rotation.y = Math.PI;
+  back.position.z = -0.5;
+  sign.add(back);
   return sign;
 }
 
@@ -308,6 +358,14 @@ export function groundRibbon(group, terrain, a, b, width, colour) {
   const dx = b.x - a.x, dz = b.z - a.z;
   const length = Math.hypot(dx, dz);
   if (length < 1) return;
+  if (terrain.describe) {
+    const geometry = terrainPatchGeometry(terrain, {
+      x: (a.x + b.x) / 2, z: (a.z + b.z) / 2, width,
+      depth: length + 8, yaw: Math.atan2(dx, dz), lift: 3,
+    });
+    group.add(new Mesh(geometry, lambert(colour, { side: DoubleSide })));
+    return;
+  }
   const nx = -dz / length * width / 2, nz = dx / length * width / 2;
   const count = Math.max(1, Math.ceil(length / metres(1)));
   const positions = [], indices = [];
@@ -323,6 +381,33 @@ export function groundRibbon(group, terrain, a, b, width, colour) {
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
   geometry.setIndex(indices); geometry.computeVertexNormals();
   group.add(new Mesh(geometry, lambert(colour, { side: DoubleSide })));
+}
+
+function addStreetPaths(group, terrain, track) {
+  const paths = new Group();
+  const junctions = findJunctions(track.roads);
+  for (const road of track.roads) {
+    if (road.id === 'marine-drive-north') continue;
+    const skip = junctionMask(junctions, road.centerline);
+    const sides = road.id === 'primary' ? [1] : [-1, 1];
+    for (const side of sides) {
+      for (let i = 1; i < road.centerline.length; i++) {
+        if (skip?.(i - 1)) continue;
+        const a = road.centerline[i - 1], b = road.centerline[i];
+        const dx = b.x - a.x, dz = b.y - a.y, length = Math.hypot(dx, dz) || 1;
+        const offset = (road.half + metres(1.2)) * side;
+        const p = { x: a.x + dz / length * offset, z: a.y - dx / length * offset };
+        const q = { x: b.x + dz / length * offset, z: b.y - dx / length * offset };
+        // Keep a footpath out of any joining road or the arrival parking bays.
+        const pose = nearestRoadPose(track, (p.x + q.x) / 2, (p.z + q.z) / 2);
+        if (pose.distance < pose.road.half + metres(0.4)) continue;
+        if (road.id === 'primary' && i > road.centerline.length - 45) continue;
+        groundRibbon(paths, terrain, p, q, metres(1.8), COLOUR.concrete);
+      }
+    }
+  }
+  const mesh = bakeStatic(paths);
+  if (mesh) { mesh.name = 'eastbourne-footpaths'; group.add(mesh); }
 }
 
 function addHouses(group, terrain, structures) {
@@ -355,6 +440,17 @@ function addHouses(group, terrain, structures) {
           const rail = addSegment(street, a, b, metres(0.07), metres(0.08),
             (terrain.heightAt(a.x, a.z) + terrain.heightAt(b.x, b.z)) / 2 + metres(h), lambert(COLOUR.white));
           rail.rotation.x = -Math.atan2(terrain.heightAt(b.x, b.z) - terrain.heightAt(a.x, a.z), Math.hypot(b.x - a.x, b.z - a.z));
+        }
+        const gardenEnd = { x: b.x + outward.x * metres(4), z: b.z + outward.z * metres(4) };
+        for (const h of [0.22, 0.57]) {
+          const rail = addSegment(street, b, gardenEnd, metres(0.07), metres(0.08),
+            (terrain.heightAt(b.x, b.z) + terrain.heightAt(gardenEnd.x, gardenEnd.z)) / 2 + metres(h), lambert(COLOUR.white));
+          rail.rotation.x = -Math.atan2(terrain.heightAt(gardenEnd.x, gardenEnd.z) - terrain.heightAt(b.x, b.z), metres(4));
+        }
+        for (let d = 0; d <= 4; d += 0.5) {
+          const x = b.x + outward.x * metres(d), z = b.z + outward.z * metres(d);
+          const post = box(metres(0.1), metres(0.75), metres(0.08), lambert(COLOUR.white));
+          placeAtGround(post, terrain, x, z, metres(0.375)); post.rotation.y = s.yaw; street.add(post);
         }
         for (let d = metres(1.1); d <= s.w / 2 + metres(1); d += metres(0.5)) {
           const x = origin.x + across.x * d * side, z = origin.z + across.z * d * side;
@@ -524,6 +620,28 @@ function addVillage(group, terrain, structures, track) {
   rsaSign.rotation.y = Math.PI;
   rsa.add(rsaSign);
   group.add(rsa);
+  const fork = resolvePlace(track, { road: 'primary', at: 0.694, offsetMetres: -8 });
+  const forkHeading = nearestRoadPose({ roads: [track.roads[0]] }, fork.x, fork.z).rotation;
+  for (const [text, height] of [['RSA → WATERFRONT', 3.2], ['RSA ↑ VILLAGE', 2.1]]) {
+    const sign = nameboard(text, metres(7), metres(0.9));
+    placeAtGround(sign, terrain, fork.x, fork.z, metres(height));
+    sign.rotation.y = -forkHeading; group.add(sign);
+  }
+  for (const side of [-1, 1]) {
+    const post = box(metres(0.12), metres(3.8), metres(0.12), lambert(COLOUR.white));
+    placeAtGround(post, terrain, fork.x + Math.cos(forkHeading) * metres(3) * side,
+      fork.z + Math.sin(forkHeading) * metres(3) * side, metres(1.9)); group.add(post);
+  }
+  const approach = resolvePlace(track, { road: 'primary', at: 0.968, offsetMetres: -8 });
+  const advance = nameboard('RSA PARKING AHEAD', metres(7), metres(1.2));
+  placeAtGround(advance, terrain, approach.x, approach.z, metres(2.8));
+  const direction = nearestRoadPose({ roads: [track.roads[0]] }, approach.x, approach.z).rotation;
+  advance.rotation.y = -direction;
+  for (const x of [-metres(3), metres(3)]) {
+    const post = box(metres(0.12), metres(3), metres(0.12), lambert(COLOUR.white));
+    post.position.set(x, -metres(1.4), 0); advance.add(post);
+  }
+  group.add(advance);
   const arrival = rsaArrival(track);
   group.add(buildPavedAreas(track));
   const paint = basic(COLOUR.white, { fog: true });
@@ -550,7 +668,7 @@ function addVillage(group, terrain, structures, track) {
 
 }
 
-export function buildEastbourne(track, def, terrain, structures = []) {
+export function buildEastbourne(track, def, terrain, structures = [], flowering = null) {
   const group = new Group();
   group.name = 'eastbourne-layout-environment';
 
@@ -560,7 +678,21 @@ export function buildEastbourne(track, def, terrain, structures = []) {
   group.add(bakeStatic(wharf) || wharf);
   addCoastalPines(group, terrain, track, structures);
   addHills(group, terrain, track);
+  addStreetPaths(group, terrain, track);
   addHouses(group, terrain, structures);
+  const flowers = new Group();
+  for (const p of flowering || summerTrees(track, structures)) {
+    const tree = buildPohutukawa({ variant: p.variant, scale: p.scale, flowered: true });
+    tree.position.set(p.x, terrain.heightAt(p.x, p.z), p.z);
+    tree.rotation.y = p.yaw;
+    flowers.add(tree);
+  }
+  const floweringMesh = bakeStatic(flowers);
+  if (floweringMesh) {
+    floweringMesh.name = 'summer-pohutukawa';
+    floweringMesh.userData.treeCount = flowers.children.length;
+    group.add(floweringMesh);
+  }
   addVillage(group, terrain, structures, track);
 
   // Distant real geometry supplies harbour and bush parallax beyond the detailed

@@ -106,8 +106,8 @@ export class ChaseCamera {
     }
 
     const speedRatio = Math.min(1, Math.abs(car.speed) / CAR.maxSpeed);
-    const targetFov = rig.fov * (1 + FOV_GAIN * speedRatio);
-    const targetDist = rig.dist * (1 + DIST_GAIN * speedRatio);
+    const targetFov = rig.fov * (1 + (CAR.arcade ? 0.035 : FOV_GAIN) * speedRatio);
+    const targetDist = rig.dist * (1 + (CAR.arcade ? 0.025 : DIST_GAIN) * speedRatio);
 
     if (!this.primed) {
       // First frame of a race, and every zero-delta harness render.

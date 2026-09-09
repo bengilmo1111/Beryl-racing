@@ -84,7 +84,7 @@ class RaceWorld {
       if (through && scene.def.theme !== 'manfield') {
         this.scene3d.add(buildCentreLine(road, skip));
       }
-      if (through) {
+      if (through || scene.def.theme === 'eastbourne') {
         for (const strip of buildKerbs(road, scene.def.theme, skip)) this.scene3d.add(strip);
       }
     }
@@ -100,7 +100,7 @@ class RaceWorld {
       // Structures are resolved by RaceScene so their visual footprints and
       // collision footprints share the same road-clear positions.
       this.scene3d.add(
-        buildEastbourne(scene.track, scene.def, this.terrain, scene.structures)
+        buildEastbourne(scene.track, scene.def, this.terrain, scene.structures, scene.summerTrees)
       );
     }
     if (scene.def.theme === 'otaki') {
