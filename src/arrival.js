@@ -11,7 +11,13 @@ export function rsaArrival(road) {
     x: end.x + metres(x) * Math.cos(yaw) + metres(y) * Math.sin(yaw),
     y: end.y - metres(x) * Math.sin(yaw) + metres(y) * Math.cos(yaw), h,
   });
-  return { yaw, h, point, triangle: [point(-16, -34), point(18, -34), point(0, 34)],
+  // The triangle narrows toward its far tip. Used by full-width paint so
+  // both ends land exactly on the paved edges at any longitudinal position.
+  const crossSection = y => {
+    const fraction = (34 - y) / 68;
+    return [point(-16 * fraction, y), point(18 * fraction, y)];
+  };
+  return { yaw, h, point, crossSection, triangle: [point(-16, -34), point(18, -34), point(0, 34)],
     building: point(22, 7) };
 }
 
