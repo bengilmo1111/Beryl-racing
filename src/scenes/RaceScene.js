@@ -7,6 +7,7 @@ import { scatterScenery } from '../scenery.js';
 import { buildStructures, structureObstacles } from '../structures.js';
 import { eastbourneCoast } from '../coast.js';
 import { coastalProfile } from '../coastalProfile.js';
+import { crossesRsaFinish } from '../arrival.js';
 import { metres } from '../scale.js';
 import { summerTrees } from '../eastbourneSummer.js';
 import { Terrain } from '../terrain.js';
@@ -401,6 +402,7 @@ export class RaceScene extends Phaser.Scene {
       this.car.vx *= decay;
       this.car.vy *= decay;
     }
+    const beforeMovement = { x: this.car.x, y: this.car.y };
     this.car.update(dt, input, onTrack, surface, grade);
     this.resolveObstacles();
     this.applyFx(onTrack, input, surface);
@@ -423,7 +425,7 @@ export class RaceScene extends Phaser.Scene {
 
     if (this.timing) {
       this.hud.setCurrent(time - this.lapStartTime);
-      this.checkLap();
+      this.checkLap(beforeMovement);
       this.updateRouteHelp(time);
     }
     if (this.drivingReport && !this.finished) {
@@ -523,12 +525,16 @@ export class RaceScene extends Phaser.Scene {
     this.wasOnTrack = onTrack;
   }
 
-  checkLap() {
+  checkLap(beforeMovement = this.car) {
+    if (this.finished) return;
     const cps = this.track.checkpoints;
+    if (this.def.theme === 'eastbourne' && this.expected === cps.length - 1) {
+      if (crossesRsaFinish(this.track, beforeMovement, this.car)) this.finishSprint();
+      return;
+    }
     const target = cps[this.expected];
     const d = Phaser.Math.Distance.Between(this.car.x, this.car.y, target.x, target.y);
-    const arrivalGate = this.def.theme === 'eastbourne' && this.expected === cps.length - 1;
-    if (d > (arrivalGate ? metres(4) : this.captureRadius)) return;
+    if (d > this.captureRadius) return;
 
     if (this.mode === 'circuit') {
       // Closed loop: gate 0 is the start/finish line. Crossing it after all the

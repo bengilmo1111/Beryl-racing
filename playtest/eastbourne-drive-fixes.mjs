@@ -13,6 +13,7 @@ const bundle = await build({
     export { buildStructures } from './src/structures.js';
     export { scatterScenery } from './src/scenery.js';
     export { summerTrees } from './src/eastbourneSummer.js';
+    export { rsaArrival } from './src/arrival.js';
     export { eastbourneCoast } from './src/coast.js';
     export { coastalProfile } from './src/coastalProfile.js';
     export { nearestRoadPose, buildRouteProgress } from './src/driveRoute.js';
@@ -102,3 +103,38 @@ for (const id of ['muritai-road', 'village-inland']) {
   }
 }
 console.log(`Eastbourne drive fixes PASS: ${trees.length} flowering trees, ${impacts} wall impacts, road clearance, water recovery and smooth branch progress`);
+
+// Reproduce the owner's crossing: the paint spans 18.5 m, but the old trigger
+// was only a 4 m circle at the road endpoint, 3 m beyond the paint centre.
+const arrival = m.rsaArrival(track);
+let finishes = 0;
+scene.mode = 'sprint'; scene.captureRadius = track.half * 2.5;
+scene.finishSprint = () => { finishes++; scene.finished = true; };
+function driveAcross(x, direction, step) {
+  scene.finished = false; scene.expected = track.checkpoints.length - 1;
+  const previous = arrival.point(x, -3 - direction * step);
+  const next = arrival.point(x, -3 + direction * step);
+  car.x = next.x; car.y = next.y;
+  scene.checkLap(previous);
+  assert.equal(scene.finished, true, `Finish missed at x=${x}m, direction=${direction}, step=${step}m`);
+  const count = finishes;
+  scene.checkLap(next);
+  assert.equal(finishes, count, 'A completed run must only finish once');
+}
+for (const x of [-8.5, -6, -3, 0, 3, 6, 9.5]) {
+  for (const direction of [-1, 1]) for (const step of [0.02, 0.5, 2.5]) driveAcross(x, direction, step);
+}
+for (const x of [-11, 12]) {
+  scene.finished = false; scene.expected = track.checkpoints.length - 1;
+  const previous = arrival.point(x, -8), next = arrival.point(x, 2);
+  car.x = next.x; car.y = next.y; scene.checkLap(previous);
+  assert.equal(scene.finished, false, 'Crossing the grass beside the finish must not finish');
+}
+scene.finished = false; scene.expected = track.checkpoints.length - 1;
+const beyond = arrival.point(0,0); car.x = beyond.x; car.y = beyond.y; scene.checkLap(beyond);
+assert.equal(scene.finished, false, 'The old invisible centre circle is no longer a finish trigger');
+scene.finished = false; scene.expected = 1;
+const previous = arrival.point(0,-5), next = arrival.point(0,-1);
+car.x = next.x; car.y = next.y; scene.checkLap(previous);
+assert.equal(scene.finished, false, 'The finish must not bypass earlier course checkpoints');
+console.log(`Eastbourne finish PASS: ${finishes} crossings across the full stripe, both directions, crawl to low frame rates; no grass finish or checkpoint bypass`);
