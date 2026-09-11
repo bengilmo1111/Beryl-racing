@@ -2,6 +2,8 @@
 // hands off to the title screen.
 import Phaser from 'phaser';
 import { drawPuff, preloadBerylPhoto } from '../art.js';
+import { acquireContext } from '../audio/context.js';
+import { primeSamples } from '../audio/samples.js';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -26,6 +28,18 @@ export class BootScene extends Phaser.Scene {
   async create() {
     // Smoke/dust puffs stay procedural.
     drawPuff(this);
+
+    // Beryl's own recordings — engine front, engine rear, horn. Fetched and
+    // decoded here, during the splash, rather than by the race: decoding works
+    // happily on a context that is still suspended, and a race that starts on a
+    // network round-trip starts with the synth and switches under the player.
+    //
+    // Not under the harness, which disables audio outright so that AudioContext
+    // (wall-clock) can never reach a deterministic run.
+    if (!this.game.registry.get('__harness')) {
+      const { ctx } = acquireContext(this.sound);
+      primeSamples(ctx);
+    }
 
     // Pull the 3D renderer in as its own chunk, during the loading splash. Doing
     // it here rather than in RaceScene.create() is deliberate: that method is

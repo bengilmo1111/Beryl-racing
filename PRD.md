@@ -79,10 +79,12 @@ The HUD always shows: **current lap time**, **last lap**, and **best lap**.
 | ← / A | Steer left |
 | → / D | Steer right |
 | Space | Handbrake (tighter cornering) — optional |
+| H | Horn |
 
 ### Landscape mobile (touch)
 - On-screen **steer left / right** buttons on one side of the screen.
 - **Accelerate** and **brake** buttons on the other side (thumb-friendly).
+- A **horn** button in the top-right stack, under fullscreen and sound.
 - Optional **tilt-to-steer** toggle (device orientation).
 - Controls are sized and positioned for landscape thumbs and respect device
   safe-area insets (notches).
@@ -180,7 +182,7 @@ Title screen  ──Play──▶  Race (track + HUD)  ──lap complete──�
 
 - **Title screen:** game name, Play button, fullscreen toggle.
 - **Race:** track, Beryl, HUD (current/last/best lap), on-screen touch controls
-  on mobile, in-game fullscreen toggle.
+  on mobile, in-game fullscreen toggle, sound toggle and horn button.
 - **Results overlay:** lap time, "New best!" when a record is set, retry.
 - **Fullscreen toggle** present from the title screen onward (Fullscreen API /
   Phaser `scale.startFullscreen`).

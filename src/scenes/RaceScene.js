@@ -16,8 +16,10 @@ import { Hud } from '../ui/Hud.js';
 import { createFullscreenButton } from '../ui/fullscreen.js';
 import { TouchControls, isTouchDevice } from '../ui/TouchControls.js';
 import { createSoundButton } from '../ui/soundButton.js';
+import { createHornButton } from '../ui/hornButton.js';
 import { startMusic, unlockAudio, isMuted } from '../audio/sound.js';
 import { EngineSound } from '../audio/EngineSound.js';
+import { Horn } from '../audio/Horn.js';
 import { CAR } from '../config.js';
 import { FONT, uiScale, isCompact } from '../ui/format.js';
 import { nearestRoadPose, roadAhead, buildRouteProgress } from '../driveRoute.js';
@@ -83,6 +85,7 @@ export class RaceScene extends Phaser.Scene {
       s: Phaser.Input.Keyboard.KeyCodes.S,
       d: Phaser.Input.Keyboard.KeyCodes.D,
       space: Phaser.Input.Keyboard.KeyCodes.SPACE,
+      h: Phaser.Input.Keyboard.KeyCodes.H,
     });
     this.touch = isTouchDevice() ? new TouchControls(this) : null;
 
@@ -109,13 +112,24 @@ export class RaceScene extends Phaser.Scene {
     }
     this.engine = harnessed ? null : new EngineSound(this.sound, this.def.engine);
     this.events.once('shutdown', () => this.engine && this.engine.stop());
+    // The horn. Same bargain as the engine: nothing at all under the harness,
+    // and the on-screen button only exists if there is something to sound.
+    this.horn = harnessed ? null : new Horn(this.sound);
+    if (this.horn) {
+      createHornButton(this, this.horn);
+      this.events.once('shutdown', () => this.horn.stop());
+    }
     // Silent audio used to be undiagnosable: EngineSound would find no
     // AudioContext, set ok = false, and every update after that was a no-op with
     // nothing anywhere saying so. Now it says so, and `window.__berylAudio()`
     // reports gear, revs and the context state from the console.
     if (this.engine) {
       if (!this.engine.ok) console.warn(`Beryl engine sound off: ${this.engine.status}`);
-      window.__berylAudio = () => ({ ...this.engine.describe(), muted: isMuted(this) });
+      window.__berylAudio = () => ({
+        ...this.engine.describe(),
+        horn: this.horn ? this.horn.describe() : null,
+        muted: isMuted(this),
+      });
       // ...and `?audio=debug` puts the same readout on the screen, because a
       // console is not a thing you have on a phone, and every report of silence
       // so far has had to be diagnosed by guessing at which of several things
@@ -407,6 +421,13 @@ export class RaceScene extends Phaser.Scene {
     this.resolveObstacles();
     this.applyFx(onTrack, input, surface);
 
+    // The horn, on H. Read as a fresh press rather than as "is down", because
+    // the operating system repeats a held key thirty times a second and each
+    // one of those would be a honk.
+    if (this.horn && Phaser.Input.Keyboard.JustDown(this.keys.h) && !isMuted(this)) {
+      this.horn.play();
+    }
+
     if (this.engine) {
       // Grade goes in as well as speed and throttle. It is computed above for
       // the physics anyway, and it is what lets her sound like she is labouring
@@ -415,9 +436,11 @@ export class RaceScene extends Phaser.Scene {
       this.engine.update(speedRatio, input.throttle, isMuted(this), grade);
       if (this.audioReadout) {
         const d = this.engine.describe();
+        const hornSource = this.horn ? this.horn.describe().source : 'none';
         this.audioReadout.setText(
           `${d.status} | ctx ${d.contextState}${d.waitingForGesture ? ' (waiting for a touch)' : ''}`
-          + ` | ${d.cylinders}cyl gear ${d.gear} ${d.rpm}rpm${isMuted(this) ? ' | MUTED' : ''}`
+          + ` | ${d.voice} voice, ${d.cylinders}cyl gear ${d.gear} ${d.rpm}rpm`
+          + ` | horn ${hornSource}${isMuted(this) ? ' | MUTED' : ''}`
         );
         this.audioReadout.setY(this.scale.height - 26);
       }
