@@ -112,6 +112,18 @@ export const COURSE_SCHEMA = {
   'geometry.elevation.sea[].angle': KIND.ANGLE,
   'geometry.elevation.sea[].level': KIND.SPAN,
 
+  // --- traffic -------------------------------------------------------------
+  // Ambient cars on the road (src/traffic.js). Every number here is deliberately
+  // immune to lengthScale: where a car sits is a fraction of the route, how fast
+  // it goes is in km/h, and how far off the centre it drives is a fraction of
+  // the road's own half-width. Authoring any of them in world units would put
+  // the traffic somewhere else the next time a course was resized, which is the
+  // exact failure this file exists to stop.
+  'traffic.laneFraction': KIND.FRACTION,
+  'traffic.cars[].at': KIND.FRACTION,
+  'traffic.cars[].direction': KIND.COUNT,
+  'traffic.cars[].speedKmh': KIND.META,
+
   // --- layout --------------------------------------------------------------
   'layout.world.width': KIND.MAP,
   'layout.world.height': KIND.MAP,

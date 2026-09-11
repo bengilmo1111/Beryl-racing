@@ -1,4 +1,6 @@
-// Beryl, the family's turquoise Morris Minor 1000, as a low-poly shell.
+// Beryl, the family's turquoise Morris Minor 1000, as a low-poly shell — and,
+// since the road got busy, every other Minor on it too. They are the same car in
+// different paint; see buildBeryl's options at the foot of the file.
 //
 // Render-only: nothing here is read by the simulation. The shape is built from
 // two lofted shells — a low body and an upright greenhouse — and every piece of
@@ -16,6 +18,7 @@ import {
   BufferGeometry,
   Float32BufferAttribute,
   DoubleSide,
+  Matrix4,
   Vector3,
   MeshPhongMaterial,
   TubeGeometry,
@@ -254,8 +257,21 @@ function loftGeometry(stations) {
   return geometry;
 }
 
-function loft(stations, material) {
-  return new Mesh(loftGeometry(stations), material);
+// An ellipsoid baked where it stands, as geometry rather than a mesh. The wings
+// are scaled and shifted spheres whose wheel arches have to be cut out of them
+// *in place* — clipping a unit sphere at the origin against an arch that is two
+// thirds of a car length away removes nothing at all.
+//
+// Scale and offset go in as one composed matrix rather than as a scale pass
+// followed by a translate pass. Positions are stored as float32, so two passes
+// round twice and land a few millionths of a unit away from one pass — and a
+// vertex that lands a few millionths the far side of one of wheelArches'
+// forty-eight clip planes comes back as a different triangle.
+const _bake = new Matrix4();
+function ellipsoidGeometry(rx, ry, rz, x, y, z) {
+  const geometry = new SphereGeometry(1, 16, 8);
+  geometry.applyMatrix4(_bake.makeScale(rx, ry, rz).setPosition(x, y, z));
+  return geometry;
 }
 
 // Subtract two convex axle tunnels from the shell. The old solid wing ellipsoids
@@ -314,7 +330,7 @@ function ellipsoid(rx, ry, rz, x, y, z, material) {
 // A quad grid from rows of equal length. Glass is built this way rather than as
 // single quads because a flat quad spanning a curved shell chords across it and
 // sinks inside — which is exactly how a windscreen disappears.
-function sheet(rows, material) {
+function sheetGeometry(rows) {
   const positions = [];
   const indices = [];
   const cols = rows[0].length;
@@ -332,7 +348,7 @@ function sheet(rows, material) {
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
-  return new Mesh(geometry, material);
+  return geometry;
 }
 
 function buildBumper(width, z, y, material) {
@@ -383,32 +399,32 @@ function buildWheel(materials) {
   return group;
 }
 
-export function buildBeryl() {
-  const materials = {
-    // Photo-informed turquoise with restrained sunlight highlights. Phong needs
-    // no environment map and keeps the rounded body readable at chase distance.
-    body: new MeshPhongMaterial({ color: 0x19bdd0, specular: 0x88c9ce, shininess: 65 }),
-    glass: new MeshPhongMaterial({ color: 0x426b78, specular: 0xb3d4dc, shininess: 90, side: DoubleSide }),
-    chrome: new MeshPhongMaterial({ color: 0xdbe6e3, specular: 0xffffff, shininess: 100 }),
-    accent: lambert(C.red, { flatShading: false }),
-    lamp: lambert(0xfff2c4, { flatShading: false }),
-    tyre: lambert(0x181a1d, { flatShading: false }),
-    whitewall: lambert(0xe9e9e2, { flatShading: false }),
-    grille: lambert(0x3f474d, { flatShading: false }),
-    plate: lambert(0x20292c, { flatShading: false }),
-  };
+// Beryl's turquoise. Traffic Minors are handed a colour of their own; this is
+// the one the car wears when nobody asks for anything else.
+const TURQUOISE = 0x19bdd0;
 
-  const root = new Group();
-  root.rotation.order = 'YXZ';
-  const chassis = new Group();
-  root.add(chassis);
+// Every Minor on the road is the same car, and only the paint tells them apart.
+// So the shape is built once and every mesh that wants it shares the geometry.
+//
+// That is not a micro-optimisation. wheelArches() clips each triangle of the
+// shell and of all four wings against forty-eight planes, and a road with a
+// dozen cars on it would otherwise pay that bill a dozen times over at the
+// moment the course loads.
+//
+// The consequence is that these geometries outlive any one car, while the scene
+// graph that holds them disposes everything it can reach when a race ends (see
+// RaceWorld.destroy). resetBerylGeometry() below is how the two are kept
+// honest, and skipping the call leaves the *next* race with empty husks.
+let shapes = null;
+
+function berylShapes() {
+  if (shapes) return shapes;
 
   const body = BODY_STATIONS.map((s) => ({ ...s, profile: BODY_PROFILE }));
   const cabin = CABIN_STATIONS.map((s) => ({ ...s, profile: CABIN_PROFILE }));
-  const shell = loft(body, materials.body);
-  shell.geometry = wheelArches(shell.geometry);
-  chassis.add(shell);
-  chassis.add(loft(cabin, materials.body));
+
+  const shell = wheelArches(loftGeometry(body));
+  const greenhouse = loftGeometry(cabin);
 
   // Where the flank of the greenhouse is, at any point glass has to sit on it.
   const cabinSkin = (z, y) => skinAt(stationAt(cabin, z), y);
@@ -433,6 +449,11 @@ export function buildBeryl() {
     return [1 / len, ny / len, nz / len];
   };
 
+  // The panes, and the chrome surrounds of the two screens. Collected rather
+  // than added to a group, because the group is per car and these are not.
+  const glass = [];
+  const screenTrim = [];
+
   // A screen laid over the front or rear slope of the greenhouse. Only the z
   // range and the width are authored: the height at every point comes from the
   // shell, so the windscreen's rake *is* the shell's rake and cannot drift.
@@ -453,11 +474,11 @@ export function buildBeryl() {
         ];
       }));
     }
-    chassis.add(sheet(rows, materials.glass));
+    glass.push(sheetGeometry(rows));
     const outline = [...rows[0], ...rows.slice(1).map(r => r.at(-1)),
       ...rows.at(-1).slice(0, -1).reverse(), ...rows.slice(1, -1).reverse().map(r => r[0])];
-    chassis.add(new Mesh(new TubeGeometry(new CatmullRomCurve3(
-      outline.map(p => new Vector3(...p)), true), 48, 0.7, 5, true), materials.chrome));
+    screenTrim.push(new TubeGeometry(new CatmullRomCurve3(
+      outline.map(p => new Vector3(...p)), true), 48, 0.7, 5, true));
   };
 
   // A side window, as a bottom and top edge run along the cabin flank. Each
@@ -483,42 +504,32 @@ export function buildBeryl() {
           ]);
         }
       }
-      chassis.add(sheet(rows, materials.glass));
+      glass.push(sheetGeometry(rows));
     }
   };
 
   // Rounded wings. The front pair are the car's full width and carry the
   // headlamps; the rear pair are low blisters on the flank. They are what makes
-  // the narrow bonnet read as a Minor rather than as a slab.
+  // the narrow bonnet read as a Minor rather than as a slab. Each is baked where
+  // it sits and then has the wheel arch cut out of it, exactly as the shell does.
+  const wings = [];
   for (const sx of [-1, 1]) {
-    chassis.add(ellipsoid(
+    wings.push(wheelArches(ellipsoidGeometry(
       W * 0.155,
       16,
       L * 0.155,
       sx * W * 0.345,
       38,
-      AXLE_FRONT - L * 0.005,
-      materials.body
-    ));
-    chassis.add(ellipsoid(
+      AXLE_FRONT - L * 0.005
+    )));
+    wings.push(wheelArches(ellipsoidGeometry(
       W * 0.15,
       18,
       L * 0.15,
       sx * W * 0.36,
       35,
-      AXLE_REAR,
-      materials.body
-    ));
-  }
-
-  for (const mesh of chassis.children) {
-    if (mesh.geometry?.type !== 'SphereGeometry') continue;
-    mesh.updateMatrix();
-    mesh.geometry.applyMatrix4(mesh.matrix);
-    mesh.position.set(0, 0, 0);
-    mesh.scale.set(1, 1, 1);
-    mesh.rotation.set(0, 0, 0);
-    mesh.geometry = wheelArches(mesh.geometry);
+      AXLE_REAR
+    )));
   }
 
   // Windscreen, then the two side windows, then the rear screen. The shell
@@ -540,6 +551,73 @@ export function buildBeryl() {
   ]);
 
   screen(L * 0.248, L * 0.304, CABIN_HW * 0.68, CABIN_HW * 0.62);
+
+  // Beryl's number plate, as one mesh rather than a draw call per painted
+  // square. Only she wears it — see `identity` in buildBeryl.
+  const letters = ['110/101/110/101/110', '111/100/110/100/111',
+    '110/101/110/101/101', '101/101/010/010/010', '100/100/100/100/111'];
+  const ink = [];
+  letters.forEach((glyph, i) => glyph.split('/').forEach((row, y) => {
+    [...row].forEach((pixel, x) => {
+      if (pixel !== '1') return;
+      const px = (i * 4 + x - 9.5) * 1.2, py = 38.4 - y * 1.2;
+      const z = L * 0.505 + 1.7, r = 0.425;
+      ink.push(px-r, py-r, z, px+r, py-r, z, px-r, py+r, z,
+        px-r, py+r, z, px+r, py-r, z, px+r, py+r, z);
+    });
+  }));
+  const lettering = new BufferGeometry();
+  lettering.setAttribute('position', new Float32BufferAttribute(ink, 3));
+  lettering.computeVertexNormals();
+
+  shapes = { body, shell, greenhouse, wings, glass, screenTrim, lettering };
+  return shapes;
+}
+
+// Let the shared geometry go. The scene graph disposes everything it can reach
+// when a race ends, and every car in it reaches all of the above, so the cache
+// has to be dropped at the same moment — otherwise the next race hangs its
+// meshes off buffers that have already been freed.
+export function resetBerylGeometry() {
+  shapes = null;
+}
+
+// `bodyColor` paints the shell, the greenhouse, both pairs of wings and the
+// wheel dishes: every panel the eye reads as the car's colour.
+//
+// `identity` is what makes a car *Beryl* rather than merely a Minor — her red
+// pinstripe and her number plate. Traffic keeps the chrome, the grille and the
+// lamps, because those are the model rather than the car; it gives up the two
+// details that are hers, because a road full of Minors all wearing her plate
+// would read worse than an empty one.
+export function buildBeryl({ bodyColor = TURQUOISE, identity = true } = {}) {
+  const materials = {
+    // A flat body colour under restrained sunlight highlights — the turquoise
+    // default is photo-informed. Phong needs no environment map and keeps the
+    // rounded body readable at chase distance.
+    body: new MeshPhongMaterial({ color: bodyColor, specular: 0x88c9ce, shininess: 65 }),
+    glass: new MeshPhongMaterial({ color: 0x426b78, specular: 0xb3d4dc, shininess: 90, side: DoubleSide }),
+    chrome: new MeshPhongMaterial({ color: 0xdbe6e3, specular: 0xffffff, shininess: 100 }),
+    accent: lambert(C.red, { flatShading: false }),
+    lamp: lambert(0xfff2c4, { flatShading: false }),
+    tyre: lambert(0x181a1d, { flatShading: false }),
+    whitewall: lambert(0xe9e9e2, { flatShading: false }),
+    grille: lambert(0x3f474d, { flatShading: false }),
+    plate: lambert(0x20292c, { flatShading: false }),
+  };
+
+  const { body, shell, greenhouse, wings, glass, screenTrim, lettering } = berylShapes();
+
+  const root = new Group();
+  root.rotation.order = 'YXZ';
+  const chassis = new Group();
+  root.add(chassis);
+
+  chassis.add(new Mesh(shell, materials.body));
+  chassis.add(new Mesh(greenhouse, materials.body));
+  for (const wing of wings) chassis.add(new Mesh(wing, materials.body));
+  for (const pane of glass) chassis.add(new Mesh(pane, materials.glass));
+  for (const surround of screenTrim) chassis.add(new Mesh(surround, materials.chrome));
 
   // Trim and lamps keep their established colours and identity details. Each is
   // hung off the shell it belongs to rather than a remembered coordinate.
@@ -569,44 +647,33 @@ export function buildBeryl() {
     chassis.add(ellipsoid(5, 6, 5.5, sx * W * 0.30, 47, L * 0.462, materials.accent));
   }
 
+  // Every Minor carries a plate; only Beryl's has her letters on it.
   chassis.add(box(W * 0.29, 10, 3, 0, 36, L * 0.505, materials.plate));
-  const letters = ['110/101/110/101/110', '111/100/110/100/111',
-    '110/101/110/101/101', '101/101/010/010/010', '100/100/100/100/111'];
-  // One mesh for the lettering, rather than a draw call per painted square.
-  const ink = [];
-  letters.forEach((glyph, i) => glyph.split('/').forEach((row, y) => {
-    [...row].forEach((pixel, x) => {
-      if (pixel !== '1') return;
-      const px = (i * 4 + x - 9.5) * 1.2, py = 38.4 - y * 1.2;
-      const z = L * 0.505 + 1.7, r = 0.425;
-      ink.push(px-r, py-r, z, px+r, py-r, z, px-r, py+r, z,
-        px-r, py+r, z, px+r, py-r, z, px+r, py+r, z);
-    });
-  }));
-  const lettering = new BufferGeometry();
-  lettering.setAttribute('position', new Float32BufferAttribute(ink, 3));
-  lettering.computeVertexNormals();
-  chassis.add(new Mesh(lettering, materials.chrome));
+  if (identity) chassis.add(new Mesh(lettering, materials.chrome));
 
-  // The red pinstripe along the shoulder, just under the belt line, laid on the
-  // body skin in short segments so it follows the flank as it tapers.
   const bodySkin = (z, y) => skinAt(stationAt(body, z), y);
-  // It starts at the front door, not the bonnet: ahead of that the flank is the
-  // wing, which stands proud of the skin the stripe is laid on, and the stripe
-  // would hang in the valley between the two.
+  // Door handles, seated on the flank they open.
   for (const sx of [-1, 1]) {
     for (const z of [L * 0.012, L * 0.205]) {
       chassis.add(box(2, 2.5, 10, sx * (bodySkin(z, 54) + 0.7), 54, z, materials.chrome));
     }
   }
-  const STRIPE_Y = 55;
-  for (const sx of [-1, 1]) {
-    for (const z of [-L * 0.07, L * 0.04, L * 0.15, L * 0.25]) {
-      chassis.add(box(
-        1.8, 1.8, L * 0.115,
-        sx * (bodySkin(z, STRIPE_Y) + 0.5), STRIPE_Y, z,
-        materials.accent
-      ));
+  // The red pinstripe along the shoulder, just under the belt line, laid on the
+  // body skin in short segments so it follows the flank as it tapers.
+  //
+  // It starts at the front door, not the bonnet: ahead of that the flank is the
+  // wing, which stands proud of the skin the stripe is laid on, and the stripe
+  // would hang in the valley between the two.
+  if (identity) {
+    const STRIPE_Y = 55;
+    for (const sx of [-1, 1]) {
+      for (const z of [-L * 0.07, L * 0.04, L * 0.15, L * 0.25]) {
+        chassis.add(box(
+          1.8, 1.8, L * 0.115,
+          sx * (bodySkin(z, STRIPE_Y) + 0.5), STRIPE_Y, z,
+          materials.accent
+        ));
+      }
     }
   }
 

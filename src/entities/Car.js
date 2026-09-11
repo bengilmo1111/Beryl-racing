@@ -5,6 +5,23 @@ import { CAR, WORLD } from '../config.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
+// Beryl's collision footprint, for anything that is the same shape as a Minor
+// but has no Phaser scene to ask: the ambient traffic in src/traffic.js is the
+// same car, so it is the same size.
+//
+// The real derivation stays in the constructor below, off the actual texture —
+// those numbers are pinned by the determinism baselines and reading them from
+// beryl.png is what guarantees they stay exactly what they were. What is here is
+// the same arithmetic in the same order, because 60.928 written out as a decimal
+// is *not* the double that (256 * 0.85) * 0.28 produces, and a footprint that is
+// a few billionths adrift is a difference nobody would ever find on purpose.
+// playtest/arcade-driving.mjs holds the two in agreement.
+const SPRITE = { width: 128, height: 256, scale: 0.85 };
+export const CAR_FOOTPRINT = {
+  collideRadius: SPRITE.width * SPRITE.scale * 0.5,
+  axleOffset: SPRITE.height * SPRITE.scale * 0.28,
+};
+
 // Fraction of top speed above which a sideways slide counts as a drift. Matched
 // to the `CAR.maxSpeed * 0.3` gate applyFx already uses for handbrake skids, so
 // the two ways of laying a skid mark now agree with each other.

@@ -29,6 +29,35 @@ export const C = {
   chrome: new Color(COLORS.chrome),
 };
 
+// What the other Minors on the road are painted.
+//
+// These are the shades the factory actually offered a Minor 1000 owner, which is
+// why they are muted and slightly dusty: a road full of saturated primaries
+// would read as a colour picker rather than as 1960s Eastbourne. Order is the
+// order they are handed out in (see render3d/traffic.js), so neighbours in the
+// list are cars that may end up in sight of each other — hence no two adjacent
+// greys.
+//
+// Beryl's turquoise is deliberately absent. She is the only one of her colour on
+// the road, and meeting herself coming the other way would be a poor joke.
+//
+// A note for whoever unifies these one day: the car mesh hard-codes its own
+// turquoise (TURQUOISE in render3d/beryl.js, 0x19bdd0) and COLORS.berylBody in
+// config.js says 0x2ec4d6. They have disagreed for a while. This list does not
+// settle that argument; it just declines to add a third opinion to it.
+export const MINOR_COLOURS = [
+  0x7d8f6b, // almond green
+  0x8d9aa4, // clarendon grey
+  0x6d2f30, // maroon
+  0xe6e0cd, // old english white
+  0x40688c, // bermuda blue
+  0x5a5f63, // smoke grey
+  0xa8b2a0, // porcelain green
+  0x23343f, // trafalgar blue
+  0xc9c3b4, // birch grey
+  0x1d1f21, // black
+];
+
 // Fog distances are per course now — see FOG in config.js and the `fog` blocks
 // in tracks.js. The engine-wide constants that used to live here were tuned for
 // the point-to-point courses, where fog hiding the far end of the route is a
