@@ -146,30 +146,41 @@ export function remutakaPointContext(track, x, z) {
 
 // Turn the old nearest-road plateau into the characteristic Remutaka cross
 // section: a steep cut rising immediately on the inboard side and a fast fall
-// into the valley on the outside. The road itself and a generous shoulder remain
-// pinned to the simulation height, so the rendered tarmac never floats.
+// into the valley on the outside. The road itself and a narrow survivable
+// shoulder remain pinned to the simulation height, so the rendered tarmac never
+// floats while the hill still feels as though it starts at the white line.
 export function remutakaVisualHeight(point, x, z, baseHeight, roadHalf) {
   if (!point) return baseHeight;
   const signed = (x - point.x) * point.nx + (z - point.z) * point.nz;
   const insideDistance = signed * point.inside;
-  const shoulder = roadHalf * 2.3;
+  // The reference road has very little spare ground between seal and cut/drop.
+  // 2.3x road-half left a broad, park-like verge; 1.62 keeps a small recovery
+  // strip without losing the claustrophobic mountain-road cross section.
+  const shoulder = roadHalf * 1.62;
   const edgeDistance = Math.max(0, Math.abs(signed) - shoulder);
   if (edgeDistance <= 0) return baseHeight;
 
-  // Te Mārua starts broad and approachable. The cut and drop become increasingly
-  // severe through the sweepers, reaching full drama before the summit hairpins.
-  const drama = 0.16 + 0.84 * smoothstep(0.1, 0.7, point.progress);
+  // Te Mārua starts broad and approachable, but the road should feel committed
+  // to the hill early. Reach most of the drama through the sweepers rather than
+  // waiting until the summit hairpins.
+  const drama = 0.28 + 0.72 * smoothstep(0.05, 0.56, point.progress);
   const grain =
-    Math.sin(x * 0.0041 + z * 0.0023) * 42 +
-    Math.sin(x * 0.0017 - z * 0.0037 + point.progress * 17) * 30;
+    Math.sin(x * 0.0041 + z * 0.0023) * 48 +
+    Math.sin(x * 0.0017 - z * 0.0037 + point.progress * 17) * 34;
 
   if (insideDistance >= 0) {
-    const cut = smoothstep(0, 560, edgeDistance) * (300 + 1180 * drama);
-    const upperSlope = smoothstep(560, 2200, edgeDistance) * (220 + 620 * drama);
+    // A close road cut: the first few metres do most of the vertical work, then
+    // the mountain keeps rising behind it. That makes the bank loom in the chase
+    // camera instead of reading as a distant smooth green hill.
+    const cut = smoothstep(0, 300, edgeDistance) * (430 + 1420 * drama);
+    const upperSlope = smoothstep(300, 1750, edgeDistance) * (300 + 760 * drama);
     return baseHeight + cut + upperSlope + grain * drama;
   }
 
-  const cliff = smoothstep(0, 430, edgeDistance) * (230 + 980 * drama);
-  const valley = smoothstep(430, 2500, edgeDistance) * (260 + 1080 * drama);
-  return baseHeight - cliff - valley - Math.abs(grain) * drama * 0.55;
+  // The exposed edge should drop immediately behind the Armco. The valley then
+  // keeps falling away so gaps in the vegetation reveal actual air rather than
+  // another strip of grass a few metres down.
+  const cliff = smoothstep(0, 250, edgeDistance) * (340 + 1180 * drama);
+  const valley = smoothstep(250, 2250, edgeDistance) * (420 + 1420 * drama);
+  return baseHeight - cliff - valley - Math.abs(grain) * drama * 0.6;
 }
