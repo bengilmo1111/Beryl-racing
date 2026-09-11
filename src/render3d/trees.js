@@ -58,6 +58,19 @@ function hashAngle(x, y) {
   return hashUnit(x, y) * Math.PI * 2;
 }
 
+// Remutaka's seeded scenery is also gameplay: changing the number or placement
+// of trees changes collision circles and therefore deterministic replays. The
+// real-road video, though, has long exposed stretches of low wind-cut vegetation
+// rather than a continuous wall of mature trees. Solve that here, render-only:
+// keep every tree/collider exactly where simulation put it, but deterministically
+// render many of them as scrubby saplings. No RNG is consumed and obstacle
+// fingerprints stay unchanged.
+function remutakaVisualScale(tree) {
+  const h = hashUnit(tree.x * 0.031, tree.y * 0.017);
+  if (h < 0.58) return 0.24 + h * 0.34;       // low scrub / saplings
+  return 0.72 + (h - 0.58) * 0.52;            // scattered mature trees
+}
+
 const tint = new Color();
 
 export function buildTrees(trees, terrain, theme = null) {
@@ -102,8 +115,18 @@ export function buildTrees(trees, terrain, theme = null) {
       // and the collision circle is the trunk rather than a fraction of the
       // canopy. So what you hit is the trunk you can see standing under it,
       // instead of a bumper the width of the branches.
-      const width = tree.canopyWidth * (theme === 'eastbourne' ? 0.85 : 1);
-      const height = width * (theme === 'eastbourne' ? 1.05 : spec.heightFactor);
+      const themeScale = theme === 'eastbourne'
+        ? 0.85
+        : theme === 'remutaka'
+          ? remutakaVisualScale(tree)
+          : 1;
+      const width = tree.canopyWidth * themeScale;
+      const heightFactor = theme === 'eastbourne'
+        ? 1.05
+        : theme === 'remutaka'
+          ? spec.heightFactor * 0.9
+          : spec.heightFactor;
+      const height = width * heightFactor;
       const yaw = hashAngle(tree.x, tree.y);
 
       dummy.position.set(tree.x, ground + height * 0.34, tree.y);
@@ -113,7 +136,12 @@ export function buildTrees(trees, terrain, theme = null) {
       canopy.setMatrixAt(i, dummy.matrix);
 
       dummy.position.set(tree.x, ground, tree.y);
-      const trunkWidth = theme === 'eastbourne' ? tree.trunkRadius / 0.09 : width;
+      // On Eastbourne and Remutaka the trunk should represent the actual
+      // collision circle, not balloon and shrink with decorative canopy scale.
+      // This is particularly important for Remutaka's render-only saplings.
+      const trunkWidth = (theme === 'eastbourne' || theme === 'remutaka')
+        ? tree.trunkRadius / 0.09
+        : width;
       dummy.scale.set(trunkWidth, height * 0.4, trunkWidth);
       dummy.updateMatrix();
       trunk.setMatrixAt(i, dummy.matrix);
