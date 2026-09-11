@@ -23,8 +23,8 @@ The road's identity comes from a few strong things:
 
 ### Must do
 
-1. Reduce Remutaka tree density by roughly half. Keep enough taller vegetation to read as Wellington hill country, but stop the road reading as a forest tunnel.
-2. Replace that visual mass with scrub, tussock/gorse-like low cover and more exposed rock/slip debris.
+1. Break up the wall of mature Remutaka trees. Keep the seeded tree/collision placement unchanged, but render many existing trees as low scrubby saplings so exposed sections have open air and sightlines.
+2. Let low vegetation and exposed rock/slip debris carry more of the visual mass than large tidy canopies.
 3. Move the terrain drama closer to the carriageway: tighter inboard cut, faster outboard fall-away, bigger visible vertical separation.
 4. Start the outboard guardrail earlier and keep it visually continuous through exposed sections.
 5. Add more curve warnings/chevrons and roadside delineation before the upper hairpins, not only at the hairpins.
@@ -37,7 +37,7 @@ The road's identity comes from a few strong things:
 - Current route and summit finish.
 - Bright-morning art direction; do not copy the grey weather from the reference video.
 - Existing guardrail collision/gameplay behaviour (the visual pass must not create invisible new barriers).
-- Deterministic scenery generation.
+- Seeded scenery placement and obstacle fingerprints. Vegetation opening must be render-only.
 - Mobile performance: prefer instancing and cheap geometry.
 
 ## Acceptance check
