@@ -110,25 +110,24 @@ const THEMES = {
     rocks: 0,
   },
   remutaka: {
-    // The video reference is not a forest tunnel. Tall vegetation is broken up
-    // by wind-cut scrub, slips, rock faces and open views over the barrier. Keep
-    // enough trees for Wellington hill country, but let the terrain do the work.
-    species: ['tree-2', 'tree-1', 'tree-3'],
-    clustersPerKm: 108,
-    clusterMax: 4,
-    band: metres(52),
-    farSpecies: ['tree-2', 'tree-1', 'tree-3'],
-    farClustersPerKm: 52,
-    farClusterMax: 4,
-    farBand: [metres(72), metres(300)],
-    verge: metres(8),
+    // Bush to the road edge on both sides and no farm furniture at all — it is a
+    // hill road through a forest park.
+    species: ['tree-2', 'tree-2', 'tree-1', 'tree-3'],
+    clustersPerKm: 250,
+    clusterMax: 6,
+    band: metres(65),
+    farSpecies: ['tree-2', 'tree-2', 'tree-1'],
+    farClustersPerKm: 150,
+    farClusterMax: 6,
+    farBand: [metres(65), metres(330)],
+    verge: metres(7),
     fences: false,
     poles: false,
     gatesPerKm: 0,
     shelterBelts: 0,
-    scrub: 2200,
+    scrub: 1400,
     bales: 0,
-    rocks: 680,
+    rocks: 300,
   },
 };
 
