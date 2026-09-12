@@ -47,6 +47,43 @@ export function acquireContext(soundManager) {
   }
 }
 
+// Everything the game makes itself — the engine, the horn — goes out through one
+// bus with a limiter on the end of it, rather than straight at the destination.
+//
+// The arithmetic is why. The engine peaks around −6 dBFS at full chat, the horn
+// around −4, and the music is a mastered mp3 that touches 0 dBFS played at 0.4.
+// Those three summed are half again over full scale, and a Web Audio
+// destination does not politely turn that down: it clips, and a clipped horn
+// over a clipped engine is a crackle. The limiter only does anything in that
+// coincidence — press the horn flat out in top — and holds our half of the mix
+// just under 0.6 so there is room for the music.
+//
+// The music is Phaser's and does not come through here, which is deliberate:
+// ducking the soundtrack every time somebody honks would be a mixing decision,
+// and this is a safety net.
+const buses = new WeakMap();
+
+export function outputBus(ctx) {
+  if (!ctx) return null;
+  const existing = buses.get(ctx);
+  if (existing) return existing;
+  let bus;
+  try {
+    bus = ctx.createDynamicsCompressor();
+    bus.threshold.value = -7;
+    bus.knee.value = 5;
+    bus.ratio.value = 16;
+    bus.attack.value = 0.002;
+    bus.release.value = 0.25;
+  } catch (error) {
+    void error;
+    bus = ctx.createGain(); // no compressor here; better unlimited than silent
+  }
+  bus.connect(ctx.destination);
+  buses.set(ctx, bus);
+  return bus;
+}
+
 const GESTURES = ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'keydown', 'click'];
 
 function gestureTargets() {

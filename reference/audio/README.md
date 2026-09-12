@@ -26,11 +26,14 @@ into the 140 ms at its start. That last step is what makes the buffer joinable
 at all: the last sample runs straight into the first with no step, because the
 first 140 ms *is* the material that follows the last.
 
-| clip | source | from | length | measured firing rate |
-|---|---|---|---|---|
-| `beryl-engine-front.wav` | `beryl-front.aac` | 28.20 s | 1.8703 s | 77.33 Hz ≈ 2320 rpm |
-| `beryl-engine-rear.wav` | `beryl-rear.aac` | 3.60 s | 1.7170 s | 74.93 Hz ≈ 2248 rpm |
-| `beryl-horn.wav` | `beryl-horn.aac` | 14.45 s | 1.13 s | 315 Hz fundamental |
+| clip | source | from | length | measured firing rate | join |
+|---|---|---|---|---|---|
+| `beryl-engine-front.wav` | `beryl-front.aac` | 1.50 s | 2.8636 s | 74.51 Hz ≈ 2235 rpm | 0.950 |
+| `beryl-engine-rear.wav` | `beryl-rear.aac` | 21.00 s | 4.1479 s | 82.63 Hz ≈ 2479 rpm | 0.997 |
+| `beryl-horn.wav` | `beryl-horn.aac` | 14.45 s | 1.13 s | 315 Hz fundamental | — |
+
+"Join" is the correlation between the material either side of the seam, in the
+engine band. Anything under about 0.9 is audible as a lurch once per loop.
 
 Two firings per revolution of a four, hence the rpm. Those two numbers are in
 `src/audio/engineVoices.js` as `FRONT_FIRING_HZ` and `REAR_FIRING_HZ`, and they
@@ -38,14 +41,36 @@ are how playback rate is worked out — recut a loop from somewhere else in the
 recording and its reference frequency moves with it, so change both together or
 the whole rev range is transposed.
 
+### Length, and why these are not the shortest good loops
+
+The first cut of these was half the length: 1.87 s and 1.72 s, both from the
+steadiest passages either recording has. They were seamless and they were dull,
+because a two-second loop announces itself — you hear the same second of engine
+thirty times a minute and the ear files it as a machine.
+
+So the search was re-run for the longest passage that still joins, scored on
+join quality *and* on the two ends matching in level, and it found much better
+ones. The rear loop is now 4.15 s and joins at 0.997 with its ends 0.1 dB apart;
+the front is 2.86 s at 0.950. The two lengths are deliberately unrelated —
+4.1479 / 2.8636 is nothing like a simple ratio — so the layers only come back
+into step about every thirty-seven seconds.
+
+The front loop also keeps a 4 dB swell in the middle of it rather than being
+flattened out. Evenness is what a loop is bad at; the variation is the point.
+
 The horn was taken from the fourth press in the recording: the cleanest one,
 with silence either side. It has a 6 ms fade in and a 70 ms fade out so that
 retriggering it cannot click.
 
-Processing, in order: trim, 45 Hz highpass (30 Hz for the horn's own 80 Hz
-highpass), gain to a mean of −14 dBFS for the engine loops so the two layers
-balance against each other in code, downmix to mono, resample to 22.05 kHz,
-wrap the loop.
+Processing, in order: trim, 28 Hz highpass (80 Hz for the horn), gain to a mean
+of −14 dBFS for both engine loops so the two layers balance against each other
+in code, downmix to mono, resample to 22.05 kHz, wrap the loop.
+
+The highpass is at 28 Hz rather than the 45 Hz of the first cut because a four
+has a strong once-per-revolution component — 41 Hz on the rear loop, half its
+firing rate — and that is the lump in a slow engine's idle. There is almost
+nothing below it: highpassing at 45 Hz instead changes the level of either clip
+by 0.2 dB, so the only thing it was removing was the character.
 
 ## Why WAV
 

@@ -124,9 +124,10 @@ const v8 = await page.evaluate(async () => {
 //
 // An OfflineAudioContext is the only way to inspect what a Web Audio graph
 // actually produces: it renders faster than real time into a buffer that can be
-// read sample by sample. Three things are worth knowing and none of them can be
+// read sample by sample. Four things are worth knowing and none of them can be
 // heard from here — that the note follows the revs, that the loops join without
-// a click, and that nothing clips.
+// a click, that nothing clips, and that holding a steady speed does not produce
+// a steady noise.
 const recorded = await page.evaluate(async () => {
   const { RecordedVoice } = await import('/src/audio/engineVoices.js');
   const { loadSample, ENGINE_FRONT, ENGINE_REAR } = await import('/src/audio/samples.js');
@@ -138,31 +139,110 @@ const recorded = await page.evaluate(async () => {
   probe.close();
   if (!front || !rear) return { loaded: false };
 
-  // Zero crossings per second: a coarse pitch, and enough to tell 1200 rpm from
-  // 4200 rpm without an FFT.
-  const render = async (rpm) => {
-    const SR = 22050;
-    const ctx = new OfflineAudioContext(1, SR * 3, SR);
+  const SR = 22050;
+  // Everything is measured below 500 Hz. Over the full band the wind and road
+  // noise in the recordings swamps the firing pulses and every measure of pitch
+  // swings about by half without the pitch having moved at all.
+  const render = async (rpm, seconds) => {
+    const ctx = new OfflineAudioContext(1, SR * seconds, SR);
     const master = ctx.createGain();
     master.gain.value = 0.36;
-    master.connect(ctx.destination);
+    const band = ctx.createBiquadFilter();
+    band.type = 'lowpass';
+    band.frequency.value = 500;
+    master.connect(band).connect(ctx.destination);
     const voice = new RecordedVoice(ctx, master, { front, rear });
     const firing = (rpm / 60) * 2;
-    voice.render({ firing, rpm, load: 0.6, through: 0.5, shifting: false }, 0);
+    // Driven once per 200 ms. The game drives it every frame, but each step
+    // here is a suspend/resume round trip through the renderer, and fourteen
+    // seconds of those cost far more than rendering the audio does. What is
+    // being measured moves over seconds, and every parameter is glided anyway.
+    for (let t = 0; t < seconds; t += 0.2) {
+      ctx.suspend(t).then(() => {
+        voice.render({ firing, rpm, load: 0.6, through: 0.5, shifting: false }, ctx.currentTime);
+        ctx.resume();
+      });
+    }
     const data = (await ctx.startRendering()).getChannelData(0);
-    // Skip the first half second: the gains and filters are still gliding.
-    const from = SR / 2;
-    let crossings = 0;
+
+    // Coarse pitch: zero crossings per second, which is plenty to tell 1200 rpm
+    // from 4200 and costs nothing.
+    const perSecond = [];
     let peak = 0;
     let jump = 0;
-    for (let i = from + 1; i < data.length; i++) {
-      if ((data[i] >= 0) !== (data[i - 1] >= 0)) crossings++;
-      peak = Math.max(peak, Math.abs(data[i]));
-      jump = Math.max(jump, Math.abs(data[i] - data[i - 1]));
+    for (let s = 1; s < seconds; s++) {
+      let crossings = 0;
+      for (let i = s * SR + 1; i < (s + 1) * SR; i++) {
+        if ((data[i] >= 0) !== (data[i - 1] >= 0)) crossings++;
+        peak = Math.max(peak, Math.abs(data[i]));
+        jump = Math.max(jump, Math.abs(data[i] - data[i - 1]));
+      }
+      perSecond.push(crossings);
     }
-    return { rpm, crossings: crossings / ((data.length - from) / SR), peak, jump };
+
+    // Actual pitch, per second, by autocorrelation on a decimated copy. Needed
+    // because crossings also count timbre: the note can hold dead still while
+    // the crossing count moves by a third.
+    const D = 3;
+    const dsr = SR / D;
+    const small = new Float32Array(Math.floor(data.length / D));
+    for (let i = 0; i < small.length; i++) {
+      let acc = 0;
+      for (let k = 0; k < D; k++) acc += data[i * D + k];
+      small[i] = acc / D;
+    }
+    const pitch = [];
+    for (let s = 1; s < seconds; s++) {
+      const from = Math.floor(s * dsr);
+      const W = Math.floor(dsr);
+      const at = (lag) => {
+        let acc = 0;
+        for (let i = 0; i < W - lag; i++) acc += small[from + i] * small[from + i + lag];
+        return acc / (W - lag);
+      };
+      const lo = Math.floor(dsr / 200);
+      const hi = Math.floor(dsr / 40);
+      const scores = [];
+      let best = -Infinity;
+      for (let lag = lo; lag < hi; lag++) {
+        const acc = at(lag);
+        scores.push(acc);
+        if (acc > best) best = acc;
+      }
+      // The shortest lag that is nearly as good as the best one. A four has a
+      // strong once-per-revolution component at half the firing rate, and a
+      // plain maximum lands on that instead about a third of the time.
+      let bestLag = lo + scores.indexOf(best);
+      for (let lag = lo; lag < hi; lag++) {
+        if (scores[lag - lo] >= best * 0.9) {
+          bestLag = lag;
+          break;
+        }
+      }
+      const y0 = at(bestLag - 1);
+      const y1 = at(bestLag);
+      const y2 = at(bestLag + 1);
+      const adjust = (0.5 * (y0 - y2)) / (y0 - 2 * y1 + y2 || 1e-9);
+      pitch.push(dsr / (bestLag + adjust));
+    }
+    const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+    const swing = (a) => (Math.max(...a) - Math.min(...a)) / mean(a);
+    return {
+      rpm,
+      crossings: mean(perSecond),
+      pitch: mean(pitch),
+      pitchSwing: swing(pitch),
+      peak,
+      jump,
+    };
   };
-  return { loaded: true, low: await render(1200), high: await render(4200) };
+  // The third is a long hold at one speed: the case a loop gives itself away in.
+  return {
+    loaded: true,
+    low: await render(1200, 4),
+    high: await render(4200, 4),
+    hold: await render(2600, 14),
+  };
 });
 
 // The horn, through the two things a player can actually press: the H key and
@@ -251,10 +331,31 @@ assert.ok(
   `the note does not follow the revs: ${Math.round(recorded.low.crossings)} crossings/s at 1200 rpm, `
   + `${Math.round(recorded.high.crossings)} at 4200`
 );
+// The note must land where the gearbox says. 2600 rpm on a four is 86.7
+// firings a second, and the measured pitch of the hold has to be that — this is
+// the check that the reference frequencies in engineVoices.js still match the
+// clips they describe, which nothing else would notice if a loop were recut.
+assert.ok(
+  Math.abs(recorded.hold.pitch - 86.7) < 4,
+  `2600 rpm should sound like 86.7 firings a second, measured ${recorded.hold.pitch.toFixed(1)}`
+);
+// And a car held at one speed must not sound like a machine held at one speed.
+// The loops are different lengths, the playback rate wanders about a per cent
+// and the front layer breathes; between them the note should drift by a
+// noticeable fraction of a semitone over fourteen seconds. The upper bound is
+// the other failure: wander enough and it is a wobble.
+assert.ok(
+  recorded.hold.pitchSwing > 0.008,
+  `holding 2600 rpm is dead even (${(recorded.hold.pitchSwing * 100).toFixed(2)}% pitch swing across 14 s)`
+);
+assert.ok(
+  recorded.hold.pitchSwing < 0.08,
+  `holding 2600 rpm wobbles (${(recorded.hold.pitchSwing * 100).toFixed(2)}% pitch swing across 14 s)`
+);
 // A loop whose ends do not meet clicks once per lap of the buffer, and a click
 // is a step. Ordinary engine noise moves a fiftieth of full scale between
 // samples; a joint that has come apart moves a quarter of it.
-for (const point of [recorded.low, recorded.high]) {
+for (const point of [recorded.low, recorded.high, recorded.hold]) {
   assert.ok(point.jump < 0.1, `the engine loop clicks at ${point.rpm} rpm (step of ${point.jump.toFixed(3)})`);
   assert.ok(point.peak < 0.99, `the engine clips at ${point.rpm} rpm (peak ${point.peak.toFixed(3)})`);
 }
@@ -268,8 +369,13 @@ console.log(`audio-check: PASS — four gears, revs to ${peak}, dropping on ever
 console.log(`audio-check: PASS — survives a sound manager with no AudioContext (${fallback.status})`);
 console.log(
   `audio-check: PASS — real recordings, ${Math.round(recorded.low.crossings)}→`
-  + `${Math.round(recorded.high.crossings)} zero crossings/s from 1200 to 4200 rpm, `
+  + `${Math.round(recorded.high.crossings)} crossings/s below 500 Hz from 1200 to 4200 rpm, `
   + `no click (largest step ${Math.max(recorded.low.jump, recorded.high.jump).toFixed(3)})`
+);
+console.log(
+  `audio-check: PASS — a fourteen-second hold at 2600 rpm sits at `
+  + `${recorded.hold.pitch.toFixed(1)} Hz and still moves `
+  + `(${(recorded.hold.pitchSwing * 100).toFixed(1)}% pitch swing, second to second)`
 );
 console.log(`audio-check: PASS — horn sounds the ${hornBefore.source} on H and on the button`);
 console.log(`audio-check: PASS — Manfeild V8, ${v8.firingsPerRev} firings/rev to ${v8.redline}, "${v8.intro}"`);

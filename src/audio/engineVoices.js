@@ -45,22 +45,49 @@ class Voice {
   }
 }
 
+// An engine at a steady throttle is never quite steady, and a loop is. That
+// difference is the whole tell: hold a constant speed for ten seconds with a
+// fixed playback rate and the ear stops hearing a car and starts hearing a
+// sample, however good the sample is.
+//
+// So the rate wanders, by a per-cent or so, on two slow sines whose periods
+// share no common multiple — the pattern never comes back around. Each layer
+// gets its own periods and phases, so the front and the rear drift against each
+// other as well, which is most of what makes two mics sound like one car rather
+// than like one recording played twice.
+//
+// It wanders more off throttle than on it, because that is what an engine does:
+// held wide open it settles, and on a trailing throttle it hunts.
+const WANDER = 0.014;
+
+function wander(now, load, shape) {
+  const depth = WANDER * (1.2 - load * 0.5);
+  return 1 + depth * (Math.sin(now * shape.a + shape.pa) * 0.62
+    + Math.sin(now * shape.b + shape.pb) * 0.38);
+}
+
 // Beryl herself.
 //
 // The reference frequencies are measured, not guessed: each loop was cut from a
-// steady passage of its recording and its firing rate found by autocorrelation.
-// 77.3 Hz and 74.9 Hz are two firings per revolution of a four, so the front
-// clip is the car at about 2320 rpm and the rear at about 2250 — the same
+// steady passage of its recording and its firing rate found from the spectrum.
+// 74.5 Hz and 82.6 Hz are two firings per revolution of a four, so the front
+// clip is the car at about 2235 rpm and the rear at about 2480 — both in the
 // unhurried middle of the rev range, which is why they sit together.
 //
 // Playback rate is then simply the ratio: to hear her at 3500 rpm, play the
 // clip fast enough that its firing rate is the firing rate of 3500 rpm. The
 // wide bounds are guards against a silly number, not a tuning — idle works out
 // at about 0.35× and the redline at about 2.1×, and both are wanted.
-const FRONT_FIRING_HZ = 77.33;
-const REAR_FIRING_HZ = 74.93;
+const FRONT_FIRING_HZ = 74.51;
+const REAR_FIRING_HZ = 82.63;
 const MIN_RATE = 0.25;
 const MAX_RATE = 2.6;
+
+// Periods of about 2.4 s and 1.1 s for one layer, 2.9 s and 1.3 s for the
+// other. Nothing here divides into anything else here.
+const FRONT_WANDER = { a: 2.62, b: 5.71, pa: 0.0, pb: 2.1 };
+const REAR_WANDER = { a: 2.17, b: 4.83, pa: 1.3, pb: 3.7 };
+const SYNTH_WANDER = { a: 2.41, b: 5.23, pa: 0.7, pb: 4.4 };
 
 export class RecordedVoice extends Voice {
   constructor(ctx, destination, buffers) {
@@ -69,13 +96,15 @@ export class RecordedVoice extends Voice {
 
     // Rear first: the exhaust is the note you hear from a chase camera, and it
     // is the layer that is always there.
-    this.rear = this.#layer(buffers.rear, REAR_FIRING_HZ, 0);
+    this.rear = this.#layer(buffers.rear, REAR_FIRING_HZ, 0, REAR_WANDER);
     // The front is the one that shouts when she is working. Started part-way
-    // through its own loop so the two recordings do not line up and beat.
-    this.front = this.#layer(buffers.front, FRONT_FIRING_HZ, 0.37);
+    // through its own loop so the two recordings do not line up and beat — and
+    // the loops are different lengths (4.1 s and 2.9 s), so they only come back
+    // into step every half a minute or so.
+    this.front = this.#layer(buffers.front, FRONT_FIRING_HZ, 0.37, FRONT_WANDER);
   }
 
-  #layer(buffer, referenceHz, offsetFraction) {
+  #layer(buffer, referenceHz, offsetFraction, shape) {
     const ctx = this.ctx;
     const source = ctx.createBufferSource();
     source.buffer = buffer;
@@ -104,16 +133,17 @@ export class RecordedVoice extends Voice {
 
     source.connect(rumble).connect(tone).connect(gain).connect(this.gain);
     source.start(0, buffer.duration * offsetFraction);
-    return { source, rumble, tone, gain, referenceHz };
+    return { source, rumble, tone, gain, referenceHz, shape };
   }
 
-  #rate(layer, firing) {
-    return Math.max(MIN_RATE, Math.min(MAX_RATE, firing / layer.referenceHz));
+  #rate(layer, firing, load, now) {
+    const rate = (firing / layer.referenceHz) * wander(now, load, layer.shape);
+    return Math.max(MIN_RATE, Math.min(MAX_RATE, rate));
   }
 
   render({ firing, load, through, shifting }, now) {
-    const rearRate = this.#rate(this.rear, firing);
-    const frontRate = this.#rate(this.front, firing);
+    const rearRate = this.#rate(this.rear, firing, load, now);
+    const frontRate = this.#rate(this.front, firing, load, now);
     this.rear.source.playbackRate.setTargetAtTime(rearRate, now, GLIDE);
     this.front.source.playbackRate.setTargetAtTime(frontRate, now, GLIDE);
 
@@ -123,7 +153,12 @@ export class RecordedVoice extends Voice {
     // sweep through both: a voice that is 6 dB quieter than the one it replaced
     // reads as "the engine sound is broken" rather than as a mix decision.
     const rearLevel = shifting ? 0.62 : 0.86 + load * 0.3;
-    const frontLevel = shifting ? 0.16 : 0.19 + load * 0.78 * (0.35 + through * 0.65);
+    // The front layer breathes as well as wanders. Same idea, slower, and only
+    // on the layer that is meant to sound like effort.
+    const breath = 1 + 0.11 * Math.sin(now * 1.37 + 0.6);
+    const frontLevel = shifting
+      ? 0.16
+      : (0.19 + load * 0.78 * (0.35 + through * 0.65)) * breath;
     this.rear.gain.gain.setTargetAtTime(rearLevel, now, GLIDE);
     this.front.gain.gain.setTargetAtTime(frontLevel, now, GLIDE);
 
@@ -204,15 +239,18 @@ export class SynthVoice extends Voice {
   }
 
   render({ firing, load, through, shifting }, now) {
-    this.body.frequency.setTargetAtTime(firing * 0.5, now, GLIDE);
-    this.bark.frequency.setTargetAtTime(firing, now, GLIDE);
-    this.whine.frequency.setTargetAtTime(firing * 2, now, GLIDE);
+    // Oscillators are the most even thing in this file, so they want the wander
+    // more than the recordings do.
+    const f = firing * wander(now, load, SYNTH_WANDER);
+    this.body.frequency.setTargetAtTime(f * 0.5, now, GLIDE);
+    this.bark.frequency.setTargetAtTime(f, now, GLIDE);
+    this.whine.frequency.setTargetAtTime(f * 2, now, GLIDE);
 
     // Under load the bandpass opens and the whine comes up: more harmonics, more
     // effort. Off throttle it closes and she just burbles.
-    this.barkFilter.frequency.setTargetAtTime(420 + firing * 3.2 + load * 900, now, GLIDE);
+    this.barkFilter.frequency.setTargetAtTime(420 + f * 3.2 + load * 900, now, GLIDE);
     this.barkFilter.Q.setTargetAtTime(1.4 + load * 2.6, now, GLIDE);
-    this.bodyFilter.frequency.setTargetAtTime(160 + firing * 1.1, now, GLIDE);
+    this.bodyFilter.frequency.setTargetAtTime(160 + f * 1.1, now, GLIDE);
     const whine = this.bigEngine ? 0.35 : 1;
     this.whineGain.gain.setTargetAtTime(
       shifting ? 0.004 : (0.012 + load * 0.05 * (0.25 + through * 0.75)) * whine,

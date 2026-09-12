@@ -2303,3 +2303,89 @@ sweep, correlation at the joins, levels matched against the old voice — and
 measurement cannot tell you that 0.35× playback at idle sounds like a Morris
 Minor rather than a tractor. That wants a person, a phone and a pair of
 headphones.
+
+## 2026-09-12 — Louder, and never quite the same twice
+
+Two notes back from the first listen: the engine wants to be louder against the
+music, and it is too even.
+
+### Even is the thing a loop is worst at
+
+The first cuts were 1.87 s and 1.72 s, both taken from the steadiest passages in
+the recordings, because steady is what a loop needs. That was the mistake. A
+two-second loop announces itself: you hear the same second of engine thirty
+times a minute and the ear stops hearing a car.
+
+So the search was run again with a different question — not "where is this
+recording most constant" but "what is the longest passage that still joins" —
+and scored on the join *and* on the two ends matching in level, because a loop
+whose ends differ by 3 dB swells once per lap even when the waveform is
+continuous. It found much better material than the first pass did.
+
+| | first cut | now |
+|---|---|---|
+| rear | 1.72 s from 3.60 s, join 0.976 | **4.15 s from 21.00 s, join 0.997** |
+| front | 1.87 s from 28.20 s, join 0.984 | **2.86 s from 1.50 s, join 0.950** |
+| ends match to | 1.6 / 3.2 dB | **0.1 / 0.9 dB** |
+
+The two lengths are deliberately unrelated: 4.1479 against 2.8636 is nothing
+like a simple ratio, so the layers only come back into step about every
+thirty-seven seconds. And the front loop keeps a 4 dB swell in the middle of it
+instead of being cut to avoid one — the variation is the point.
+
+The highpass came down from 45 Hz to 28 Hz on the way past. A four has a strong
+once-per-revolution component — 41 Hz on the rear clip, half its firing rate —
+and that lump is the character of a slow engine at low revs. There is almost
+nothing below it either way: at 45 Hz the clip measures 0.2 dB quieter, so the
+only thing that filter was removing was the thump.
+
+### Nothing holds still
+
+Better loops are still loops. An engine at a fixed throttle is never quite fixed
+and a buffer played at a fixed rate always is, so the rate now wanders — about a
+per cent, on two slow sines whose periods share no common multiple, so the
+pattern never comes back around. Each layer has its own periods and phases, so
+the front and the rear drift against each other as well, which is most of what
+makes two microphones sound like one car rather than one recording played twice.
+It wanders more off throttle than on it, because that is what an engine does:
+held wide open it settles, on a trailing throttle it hunts. The front layer
+breathes in level as well, slower again.
+
+The synth got the same treatment. It is only Manfeild's V8 now, and three
+oscillators are the most even thing in the file.
+
+Measured, holding 2600 rpm dead still for fourteen seconds: the note sits at
+86.4 Hz — 86.7 is what the gearbox asked for — and drifts across a 2.5% band,
+about a quarter tone, never twice the same. That is now a test, with the pitch
+measured by autocorrelation rather than by counting zero crossings: crossings
+also count timbre, and they swing by a third across the hold while the note
+itself moves by a fortieth of that.
+
+### Three decibels up, two and a half down
+
+The engine's volume range went up about 3 dB and the music came down from 0.5 to
+0.38, which is five and a bit decibels of balance moved towards the car.
+
+That opened a hole worth closing. The music is a mastered mp3 that touches
+0 dBFS, the engine peaks around −6 and the horn around −4; all three at once is
+half again over full scale, and a Web Audio destination does not politely turn
+that down. Everything the game makes itself now goes out through one
+`DynamicsCompressorNode` acting as a limiter (−7 dB, 16:1) and holds our half of
+the mix under about 0.87. The music is Phaser's and deliberately stays outside
+it — ducking the soundtrack whenever somebody honks is a mixing decision, and
+this is a safety net.
+
+Rendering the whole thing offline — engine, two horn presses, music, the real
+graph — the mix peaks at 0.2 dBFS and clips **2 samples in 26 seconds**, both in
+the coincidence of a horn sustain with a music peak. Chasing those two would
+mean lowering the limiter onto the engine and giving back the 3 dB that started
+this. Left alone, and written down here so the next person does not rediscover
+it as a mystery.
+
+### Also checked, since the files were open again
+
+Both engine clips: mean exactly −14.0 dBFS, peaks −3.0 and −7.4, wrap steps of
+0.0035 and 0.0002 of full scale (a click is a tenth), ends matching in level,
+and the rear's internal level range down to 0.5 dB from 1.6. The horn is
+unchanged — 1.13 s, 315 Hz, still the fourth press in the recording — but plays
+0.9 dB quieter, for the headroom above.
