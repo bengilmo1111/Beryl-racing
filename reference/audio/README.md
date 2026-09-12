@@ -30,7 +30,7 @@ first 140 ms *is* the material that follows the last.
 |---|---|---|---|---|---|
 | `beryl-engine-front.wav` | `beryl-front.aac` | 1.50 s | 2.8636 s | 74.51 Hz ≈ 2235 rpm | 0.950 |
 | `beryl-engine-rear.wav` | `beryl-rear.aac` | 21.00 s | 4.1479 s | 82.63 Hz ≈ 2479 rpm | 0.997 |
-| `beryl-horn.wav` | `beryl-horn.aac` | 14.45 s | 1.13 s | 315 Hz fundamental | — |
+| `beryl-horn.wav` | `beryl-horn.aac` | 14.45 s | 0.77 s | 315 Hz fundamental | — |
 
 "Join" is the correlation between the material either side of the seam, in the
 engine band. Anything under about 0.9 is audible as a lurch once per loop.
@@ -59,8 +59,18 @@ The front loop also keeps a 4 dB swell in the middle of it rather than being
 flattened out. Evenness is what a loop is bad at; the variation is the point.
 
 The horn was taken from the fourth press in the recording: the cleanest one,
-with silence either side. It has a 6 ms fade in and a 70 ms fade out so that
-retriggering it cannot click.
+with silence either side. It has a 6 ms fade in so that retriggering it cannot
+click.
+
+That press is 1.13 s long and the clip is 0.77 s, which is not a trim: cutting
+the end off a horn removes the release, and a horn that stops dead sounds like
+a sample running out rather than like a button being let go. So the note is
+shortened in the middle and the real release spliced back on — 0.50 s of held
+note, then the 0.285 s from 15.295 s where the driver actually lifts their
+hand. The splice is phase-aligned against the sustain (a 315 Hz tone joined out
+of phase cancels into an audible dip) and crossfaded over 15 ms; the largest
+sample-to-sample step in the result is identical to the largest in the
+untouched press, and it is in the attack, not at the joint.
 
 Processing, in order: trim, 28 Hz highpass (80 Hz for the horn), gain to a mean
 of −14 dBFS for both engine loops so the two layers balance against each other

@@ -2,8 +2,9 @@
 //
 // A recording of the real one: a single note at about 315 Hz with the harmonic
 // stack on top of it that makes a car horn sound like a car horn rather than a
-// beep. One press, one honk, about a second of it — held or tapped, it is the
-// same honk, which is what the real button does once you let go of it.
+// beep. One press, one honk, three quarters of a second of it — held or tapped,
+// it is the same honk, which is what the real button does once you let go of
+// it.
 //
 // It shares the engine's AudioContext (see context.js) and, like the engine,
 // keeps a synthesised fallback for the case where the clip cannot be fetched:
@@ -17,7 +18,7 @@ const HORN_HZ = 315;
 // finger on a button that repeats — or leaning on the H key — stacks a new
 // source every frame and the horn turns into a wall of noise.
 const RETRIGGER_SECONDS = 0.18;
-const FALLBACK_SECONDS = 0.75;
+const FALLBACK_SECONDS = 0.55;
 
 export class Horn {
   constructor(soundManager) {
