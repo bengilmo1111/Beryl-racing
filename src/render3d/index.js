@@ -11,6 +11,7 @@ import {
   buildRoad, buildKerbs, buildApron, buildGround, buildCentreLine,
   findJunctions, junctionMask, buildJunctions,
 } from './road.js';
+import { buildRemutakaCentreLine } from './remutakaCentreLine.js';
 import { buildStartLine, buildStartGantry } from './markers.js';
 import { buildBeryl, updateBeryl, resetBerylGeometry } from './beryl.js';
 import { buildTrafficFleet, updateTrafficFleet } from './traffic.js';
@@ -22,6 +23,7 @@ import { buildOtaki } from './themes/otaki.js';
 import { buildOtakiParallax, updateOtakiParallax } from './themes/otakiParallax.js';
 import { buildManfeild } from './themes/manfeild.js';
 import { buildRemutaka } from './themes/remutaka.js';
+import { buildRemutakaReferenceDetails } from './themes/remutakaReferenceDetails.js';
 import { SkidRibbon } from './fx/skid.js';
 import { PuffPool } from './fx/puffs.js';
 import { ChaseCamera } from './chaseCamera.js';
@@ -83,7 +85,13 @@ class RaceWorld {
       // A race circuit has no centre line either — Manfeild gets rumble kerbs
       // and a start/finish line, which is what actually marks a racing surface.
       if (through && scene.def.theme !== 'manfield') {
-        this.scene3d.add(buildCentreLine(road, skip));
+        // Remutaka's double yellow no-passing line is a major recognition cue.
+        // Other public roads keep the generic dashed cream treatment.
+        this.scene3d.add(
+          scene.def.theme === 'remutaka'
+            ? buildRemutakaCentreLine(road, skip)
+            : buildCentreLine(road, skip)
+        );
       }
       if (through || scene.def.theme === 'eastbourne') {
         for (const strip of buildKerbs(road, scene.def.theme, skip, scene.def.theme === 'eastbourne' ? roads : null)) this.scene3d.add(strip);
@@ -117,6 +125,7 @@ class RaceWorld {
       // near-vertical inboard cut and a guarded drop into an open valley; its
       // bespoke theme uses the same side profile as the visual terrain grid.
       this.scene3d.add(buildRemutaka(scene.track, scene.def, this.terrain));
+      this.scene3d.add(buildRemutakaReferenceDetails(scene.track, this.terrain));
     }
 
     this.scene3d.add(buildTrees(scene.scenery.trees, this.terrain, scene.def.theme));

@@ -54,6 +54,18 @@ The current gameplay loop includes the countdown, keyboard and touch driving,
 ordered route checkpoints, an off-road penalty, a locally saved best time, and
 a retryable finish.
 
+**Controls:** arrow keys or WASD to drive, Space for the handbrake, **H for the
+horn** — or the on-screen controls on a phone, with fullscreen, sound and horn
+buttons stacked in the top-right corner.
+
+**She sounds like herself.** The engine is Beryl's own, recorded from the front
+of the car and from behind it, the two loops pitched to the crankshaft speed a
+four-speed gearbox model says she is doing and mixed by how hard she is working
+— so you hear her change gear, and you hear her labour up the Remutaka climb at
+a steady speed. The horn is hers too. Manfeild is the exception: that V8 is
+synthesised, because it does not exist. See
+[`reference/audio/README.md`](reference/audio/README.md).
+
 Beryl and the course furniture are drawn procedurally in `src/render3d/` rather
 than loaded as models, so there is no art pipeline to wait on and everything
 stays editable in the repo. The generated PNGs in `public/assets/` are strict

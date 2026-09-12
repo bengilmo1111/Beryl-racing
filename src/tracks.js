@@ -180,7 +180,12 @@ export const TRACKS = [
     intro: 'BERYL HAS A V8 IN FOR TRACK DAY',
     // Eight cylinders, so four firings per crankshaft revolution instead of two,
     // and it revs past where the A-series gives up. See src/audio/EngineSound.js.
-    engine: { cylinders: 8, redline: 6200, idle: 950 },
+    //
+    // `recorded: false` is the price of the joke: every other course plays back
+    // recordings of the real Beryl, and nobody has a recording of a Morris
+    // Minor with a V8 in it. This one is synthesised, which is the only voice
+    // that can play an engine that does not exist.
+    engine: { cylinders: 8, redline: 6200, idle: 950, recorded: false },
     physics: {
       topSpeedKmh: 220,
       accel: 1.2447,

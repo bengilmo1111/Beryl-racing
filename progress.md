@@ -2227,3 +2227,151 @@ two passes round twice and land about four millionths of a unit away from one �
 and a vertex four millionths the wrong side of a clip plane comes back as a
 different triangle. Composing one matrix, as the old code did by accident, makes
 the whole car vertex-identical to before. Worth the comment it now carries.
+## 2026-09-11 — Beryl sounds like Beryl
+
+Three recordings turned up: the engine from in front of the car, the engine from
+behind it near the exhaust, and the horn. Thirty seconds each, off a phone. The
+game has been synthesising that engine since the beginning, and doing it rather
+well, but a synth is a description of a car and these are the car.
+
+### What was kept
+
+All of it, above the oscillators. The valuable part of `EngineSound.js` was
+never the sawtooths — it is the gearbox: four ratios as fractions of top speed,
+hysteresis so a car sitting on a shift point does not chatter between two gears,
+a rev dip while the clutch is out, and a load term that counts gradient as well
+as throttle so she labours up the Remutaka climb at a steady speed. That model
+decides *what she is doing*. Only the part that turns it into sound was
+replaced, and it was replaced behind an interface with two implementations:
+
+- `RecordedVoice` — the real car, two loops, pitched by playback rate.
+- `SynthVoice` — the three oscillators, unchanged, still there.
+
+Which one plays is not a quality setting. It is `engine.recorded` on the course
+definition, and Manfeild sets it to `false`, because **nobody has a recording of
+a Morris Minor with a V8 in it**. The joke on that circuit only works because
+the synth can play an engine that does not exist. The recordings cannot.
+
+### Cutting a loop that does not click
+
+An engine loop has two ways to be obviously wrong and one way to be subtly
+wrong. Obviously: the ends do not meet and it ticks once per lap of the buffer.
+Subtly: the revs drift across the passage you cut, so the note wobbles with the
+period of the loop and the ear finds it in about four seconds even though
+nothing measurable is wrong.
+
+So neither end was chosen by hand. Each recording was tracked for firing
+frequency by autocorrelation, and the loop length was then found by correlating
+a candidate head against every possible tail at 22.05 kHz — over the engine band
+only, because the wind and road noise above 1 kHz is uncorrelated with itself
+and swamps the thing being measured. That picks a length that is a whole number
+of firing cycles by construction.
+
+| clip | from | length | correlation at the join | measured |
+|---|---|---:|---:|---|
+| front | 28.20 s | 1.8703 s | 0.992 | 77.33 Hz ≈ 2320 rpm |
+| rear | 3.60 s | 1.7170 s | 0.976 | 74.93 Hz ≈ 2248 rpm |
+
+The join itself is a wrap rather than a fade: the first 140 ms of the buffer is
+the 140 ms *following* the loop crossfaded into the 140 ms at its start. The
+last sample then runs into the first with no step at all, because the material
+either side of the seam is literally continuous. Measured on a steady render,
+the largest sample-to-sample step anywhere in the engine is 0.0195 of full
+scale — ordinary firing-pulse slope. A click is ten times that.
+
+**WAV, not mp3.** mp3 and AAC both carry encoder delay and padding, and
+`decodeAudioData` hands it back as silence at the head and tail of the buffer.
+Inaudible on a one-shot; on a loop it is a gap in the middle of the engine note
+every 1.8 seconds. Mono at 22.05 kHz, 210 kB for all three, against 3.5 MB for
+the music.
+
+### Playback rate is just arithmetic
+
+Both clips are Beryl at about 2300 rpm. To hear her at 3500, play the clip fast
+enough that its firing rate is the firing rate of 3500 rpm. That is the whole
+mapping, and it is why the measured frequencies above are constants in
+`engineVoices.js` rather than a tuning: recut a loop from elsewhere in the
+recording and its reference moves with it.
+
+Idle works out at 0.35× and the redline at 2.1×, which is a wide stretch for a
+sample, and deliberately not compressed — a Minor at 800 rpm really does sound
+like that recording slowed down, and the alternative is an idle that lies about
+the revs.
+
+The two layers then do different jobs, which is the whole reason there are two.
+The rear is the exhaust: nearly constant, and the note you hear from a chase
+camera. The front is the effort: quiet and dull off throttle, loud and open with
+load and revs, through a lowpass that tracks both. Started at different points
+in their own loops so the two recordings do not line up and beat.
+
+### The level, which was wrong and would not have been noticed
+
+Rendering the same rev sweep through both voices offline: the synth came out at
+−20.6 dB mean, the recordings at −26.3 dB. Nearly 6 dB quieter than the thing
+they replaced, which does not read as a mix decision — it reads as "the engine
+sound is broken". The layer gains are now set against that measurement, and both
+voices land within 0.3 dB of each other with the peak at −11 dB.
+
+### The horn, and one button to press it
+
+A single press of the real horn, cut from the fourth honk in the recording (the
+cleanest, with silence either side): 1.13 s, a 315 Hz fundamental with the
+harmonic stack that makes a horn sound like a car and not a beep. Tapped or
+held, it is the same honk, because that is what the real button does once you
+let go of it.
+
+It is on **H**, and on a new icon button below the sound toggle. Two small
+things that are easy to get wrong and were:
+
+- The button fires on `pointerdown`, not `pointerup`. A horn that waits for you
+  to lift your finger feels broken. `createIconButton` grew an `onPress` for it.
+- The key is read with `JustDown` in `update()`, not `isDown`. The operating
+  system repeats a held key about thirty times a second and every one of those
+  would be a honk. (The horn has its own 180 ms retrigger guard as well, which
+  is what stops a fast double-tap stacking two sources.)
+
+The glyph took three passes. A speaker with waves coming out of it is the sound
+button one row up, so the difference has to be in the silhouette: it is a bulb
+horn, and the bell had to be drawn as a proper cone about a slanted axis before
+it stopped reading as a pennant on a stick at 44 pixels.
+
+### One AudioContext, and a bug that was already there
+
+The context handling moved out of `EngineSound` into `audio/context.js`, shared
+by the engine and the horn, along with the hard-won Android knowledge attached
+to it — take Phaser's context if it has one, make our own if it does not, and
+keep trying to resume on every gesture, on `window`, in the capture phase.
+
+Moving it fixed something on the way past. `EngineSound.stop()` used to close
+the context it had made, and the race scene is rebuilt every time a player
+retries. Browsers allow a page somewhere around half a dozen AudioContexts;
+closing on shutdown was the only reason that was survivable, and any path that
+missed the close would have run the budget out. There is now exactly one for the
+life of the page, reused by every retry, and closed by nobody.
+
+### What `npm run test:audio` now knows
+
+It already drove the gearbox and asserted four gears with the revs dropping on
+every shift. It now also renders the recorded voice through an
+`OfflineAudioContext` — faster than real time, into a buffer that can be read
+sample by sample — and asserts three things that cannot be heard from CI:
+
+- the note follows the revs (133 → 350 zero crossings/s from 1200 to 4200 rpm),
+- the loops join without a click (largest step 0.025 of full scale),
+- nothing clips.
+
+Plus the horn: that it loaded the recording rather than falling back, and that
+it sounds on a real H keypress and on a real click at the button's screen
+position — the button, the hit area and the mute guard, not just the event bus.
+
+Every existing check still passes, and the four AC2 fingerprints are unchanged
+to the digit, as they must be: the harness disables audio outright, so none of
+this is reachable from a deterministic run.
+
+### What this still cannot see
+
+Nobody has heard it. Everything above is measured — spectrograms of the rendered
+sweep, correlation at the joins, levels matched against the old voice — and
+measurement cannot tell you that 0.35× playback at idle sounds like a Morris
+Minor rather than a tractor. That wants a person, a phone and a pair of
+headphones.

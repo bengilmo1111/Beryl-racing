@@ -89,9 +89,44 @@ export function drawSoundIcon(g, size, muted) {
   }
 }
 
+// Beryl's horn: the bulb horn off a pre-war car, which is not what she has but
+// is the only horn that reads as a horn at 44 pixels. A speaker with waves
+// coming out of it — the obvious drawing — is the sound button one row up, so
+// the difference has to be in the silhouette. Hence the squeeze bulb: a fat
+// circle and a wide flare, and nothing in between fine enough to disappear.
+export function drawHornIcon(g, size) {
+  g.fillStyle(INK, 1);
+
+  // The bell, as a cone about an axis running up to the right: both edges have
+  // to splay or the shape reads as a pennant on a stick rather than a horn.
+  // The mouth is cut square across that axis, which is what makes it look open.
+  g.fillPoints(
+    [
+      { x: size * 0.331, y: size * 0.547 },
+      { x: size * 0.699, y: size * 0.211 },
+      { x: size * 0.861, y: size * 0.509 },
+      { x: size * 0.389, y: size * 0.653 },
+    ],
+    true
+  );
+
+  // A stub of tube, thick enough to survive being 5 pixels long.
+  g.lineStyle(Math.max(3, Math.round(size * 0.11)), INK, 1);
+  g.beginPath();
+  g.moveTo(size * 0.35, size * 0.61);
+  g.lineTo(size * 0.28, size * 0.66);
+  g.strokePath();
+
+  // The bulb you squeeze, which is the half of this that is unmistakable.
+  g.fillCircle(size * 0.22, size * 0.71, size * 0.15);
+}
+
 // Builds a pinned, tappable square button. `draw(g, size)` renders the glyph
 // into a Graphics whose origin is the button's top-left corner.
-export function createIconButton(scene, { row = 0, draw, onTap, depth = 1000 }) {
+// `onTap` fires on release, which is right for a toggle. `onPress` fires on
+// the way down, which is right for anything that should feel like a button
+// being pressed rather than a setting being changed — the horn.
+export function createIconButton(scene, { row = 0, draw, onTap, onPress, depth = 1000 }) {
   const layer = scene.add.container(0, 0).setScrollFactor(0).setDepth(depth);
   const bg = scene.add.graphics();
   const icon = scene.add.graphics();
@@ -130,10 +165,18 @@ export function createIconButton(scene, { row = 0, draw, onTap, depth = 1000 }) 
   };
 
   redraw();
-  layer.on('pointerup', () => {
-    onTap();
-    redraw();
-  });
+  if (onPress) {
+    layer.on('pointerdown', () => {
+      onPress();
+      redraw();
+    });
+  }
+  if (onTap) {
+    layer.on('pointerup', () => {
+      onTap();
+      redraw();
+    });
+  }
 
   scene.scale.on('resize', redraw);
   scene.scale.on('enterfullscreen', redraw);
