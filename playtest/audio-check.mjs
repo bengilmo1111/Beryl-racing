@@ -5,9 +5,18 @@
 // ever constructs an EngineSound or draws a sign over real terrain. This loads
 // the game the way a person does and checks both.
 //
-// It also asserts the gearbox actually shifts. That is the whole point of the
-// synth: a Morris Minor revs hard and does not go fast, so if the revs only ever
-// slide upward the engine has lost its character and nothing else would notice.
+// It also asserts the gearbox actually shifts. That is the whole point of it: a
+// Morris Minor revs hard and does not go fast, so if the revs only ever slide
+// upward the engine has lost its character and nothing else would notice.
+//
+// And it asserts that what you hear is the real car. The engine is two loops cut
+// from recordings of Beryl and the horn is one press of hers, so there are three
+// new ways to be silent — a clip that 404s beneath the base path, a clip that
+// will not decode, a horn button wired to nothing — and every one of them falls
+// back quietly enough that nobody would notice until a player did. The clips are
+// rendered offline here and measured: pitch has to follow the revs, the loops
+// have to join without a click, and the horn has to sound when the button is
+// pressed and when H is.
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
@@ -111,6 +120,87 @@ const v8 = await page.evaluate(async () => {
   return out;
 });
 
+// The recordings, rendered offline and measured.
+//
+// An OfflineAudioContext is the only way to inspect what a Web Audio graph
+// actually produces: it renders faster than real time into a buffer that can be
+// read sample by sample. Three things are worth knowing and none of them can be
+// heard from here — that the note follows the revs, that the loops join without
+// a click, and that nothing clips.
+const recorded = await page.evaluate(async () => {
+  const { RecordedVoice } = await import('/src/audio/engineVoices.js');
+  const { loadSample, ENGINE_FRONT, ENGINE_REAR } = await import('/src/audio/samples.js');
+  const probe = new AudioContext();
+  const [front, rear] = await Promise.all([
+    loadSample(probe, ENGINE_FRONT),
+    loadSample(probe, ENGINE_REAR),
+  ]);
+  probe.close();
+  if (!front || !rear) return { loaded: false };
+
+  // Zero crossings per second: a coarse pitch, and enough to tell 1200 rpm from
+  // 4200 rpm without an FFT.
+  const render = async (rpm) => {
+    const SR = 22050;
+    const ctx = new OfflineAudioContext(1, SR * 3, SR);
+    const master = ctx.createGain();
+    master.gain.value = 0.36;
+    master.connect(ctx.destination);
+    const voice = new RecordedVoice(ctx, master, { front, rear });
+    const firing = (rpm / 60) * 2;
+    voice.render({ firing, rpm, load: 0.6, through: 0.5, shifting: false }, 0);
+    const data = (await ctx.startRendering()).getChannelData(0);
+    // Skip the first half second: the gains and filters are still gliding.
+    const from = SR / 2;
+    let crossings = 0;
+    let peak = 0;
+    let jump = 0;
+    for (let i = from + 1; i < data.length; i++) {
+      if ((data[i] >= 0) !== (data[i - 1] >= 0)) crossings++;
+      peak = Math.max(peak, Math.abs(data[i]));
+      jump = Math.max(jump, Math.abs(data[i] - data[i - 1]));
+    }
+    return { rpm, crossings: crossings / ((data.length - from) / SR), peak, jump };
+  };
+  return { loaded: true, low: await render(1200), high: await render(4200) };
+});
+
+// The horn, through the two things a player can actually press: the H key and
+// the button. Both are driven as real input — a synthetic Phaser event would
+// prove only that the event bus works, and the H key is read as a *fresh* press
+// (`JustDown`) precisely so that a held key does not honk thirty times a
+// second, which is state a synthesised event does not have.
+const hornBefore = await page.evaluate(() => {
+  const race = window.__BERYL_GAME__.scene.getScene('Race');
+  if (!race.horn) return null;
+  const buttons = race.children.list
+    .filter((child) => child.type === 'Container' && child.depth === 1000)
+    .sort((a, b) => a.y - b.y);
+  const button = buttons[buttons.length - 1];
+  return {
+    source: race.horn.describe().source,
+    lastPlayed: race.horn.lastPlayed,
+    buttons: buttons.length,
+    at: button ? { x: button.x + button.width / 2, y: button.y + button.height / 2 } : null,
+  };
+});
+assert.ok(hornBefore, 'the race built no horn');
+assert.equal(hornBefore.source, 'recording', `the horn is not playing the recording (${hornBefore.source})`);
+assert.equal(hornBefore.buttons, 3, `expected fullscreen, sound and horn buttons, saw ${hornBefore.buttons}`);
+assert.ok(hornBefore.at, 'no horn button on screen to press');
+
+await page.keyboard.press('h');
+await page.waitForTimeout(200);
+const afterKey = await page.evaluate(() => window.__BERYL_GAME__.scene.getScene('Race').horn.lastPlayed);
+assert.ok(afterKey > hornBefore.lastPlayed, 'H did not sound the horn');
+
+// Long enough after the last honk to be a second honk rather than a retrigger.
+await page.waitForTimeout(300);
+await page.mouse.click(hornBefore.at.x, hornBefore.at.y);
+await page.waitForTimeout(200);
+const afterTap = await page.evaluate(() => window.__BERYL_GAME__.scene.getScene('Race').horn.lastPlayed);
+assert.ok(afterTap > afterKey, 'tapping the horn button did not sound the horn');
+
 console.log('accelerating from rest, one update per frame:');
 let last = null;
 for (const d of drive) {
@@ -152,6 +242,23 @@ for (let i = 1; i < drive.length; i++) {
   );
 }
 
+assert.ok(recorded.loaded, 'the engine recordings did not load');
+// Both are two firings per revolution of a four, so 4200 rpm must cross zero a
+// great deal more often than 1200 does. Anything less means the playback rate is
+// not following the gearbox and the recordings are just a loop.
+assert.ok(
+  recorded.high.crossings > recorded.low.crossings * 1.8,
+  `the note does not follow the revs: ${Math.round(recorded.low.crossings)} crossings/s at 1200 rpm, `
+  + `${Math.round(recorded.high.crossings)} at 4200`
+);
+// A loop whose ends do not meet clicks once per lap of the buffer, and a click
+// is a step. Ordinary engine noise moves a fiftieth of full scale between
+// samples; a joint that has come apart moves a quarter of it.
+for (const point of [recorded.low, recorded.high]) {
+  assert.ok(point.jump < 0.1, `the engine loop clicks at ${point.rpm} rpm (step of ${point.jump.toFixed(3)})`);
+  assert.ok(point.peak < 0.99, `the engine clips at ${point.rpm} rpm (peak ${point.peak.toFixed(3)})`);
+}
+
 assert.equal(v8.cylinders, 8, 'Manfeild should have the V8');
 assert.equal(v8.firingsPerRev, 4, 'a V8 fires four times per crankshaft revolution');
 assert.ok(v8.redline > peak, 'the V8 should rev past where the A-series gives up');
@@ -159,5 +266,11 @@ assert.ok(v8.intro, 'Manfeild needs an intro line, or the joke goes unexplained'
 
 console.log(`audio-check: PASS — four gears, revs to ${peak}, dropping on every shift`);
 console.log(`audio-check: PASS — survives a sound manager with no AudioContext (${fallback.status})`);
+console.log(
+  `audio-check: PASS — real recordings, ${Math.round(recorded.low.crossings)}→`
+  + `${Math.round(recorded.high.crossings)} zero crossings/s from 1200 to 4200 rpm, `
+  + `no click (largest step ${Math.max(recorded.low.jump, recorded.high.jump).toFixed(3)})`
+);
+console.log(`audio-check: PASS — horn sounds the ${hornBefore.source} on H and on the button`);
 console.log(`audio-check: PASS — Manfeild V8, ${v8.firingsPerRev} firings/rev to ${v8.redline}, "${v8.intro}"`);
 

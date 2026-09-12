@@ -1,18 +1,27 @@
-// Beryl's engine: a 948cc BMC A-series, synthesised.
+// Beryl's engine: a 948cc BMC A-series, recorded and played back.
 //
 // The character of this engine is that it **revs hard and does not go fast**.
 // It is always busy, it is always working, and you hear every gearchange. That
 // is the whole personality of driving a Morris Minor, and it is the one thing a
-// synth driven by road speed alone can never produce — road speed rises once,
-// smoothly, over a whole course, so the note just slides upward for two minutes
-// and tells you nothing.
+// note driven by road speed alone can never produce — road speed rises once,
+// smoothly, over a whole course, so the pitch just slides upward for two
+// minutes and tells you nothing.
 //
 // So this models the thing that actually makes the noise: crankshaft speed.
 // Revs sweep up through a gear, drop when it shifts, and sweep again. On a climb
 // she sits at high revs going nowhere, which is exactly right.
 //
+// What comes out of the speaker is then the real car — two loops cut from
+// recordings made at the front and the rear of her, pitched to that crank speed
+// (see engineVoices.js). The synth those recordings replaced is still here and
+// still plays the V8, because there is no recording of a Morris Minor with a V8
+// in it.
+//
 // Determinism: constructed only when not harnessed (see RaceScene), because
 // AudioContext runs on wall-clock time. Nothing here is read by the simulation.
+import { acquireContext, resumeOnGesture } from './context.js';
+import { loadSample, ENGINE_FRONT, ENGINE_REAR } from './samples.js';
+import { RecordedVoice, SynthVoice } from './engineVoices.js';
 
 // Gear ratios as fractions of top speed. Four speeds, first is short and third
 // is long, as the real box is.
@@ -26,59 +35,26 @@ const GEARS = [0.0, 0.22, 0.42, 0.68];
 //
 // `cylinders` is the whole difference in the note: a four-stroke fires once per
 // cylinder every two revolutions, so a four gives two firing pulses per rev and
-// a V8 gives four. Double the pulse rate at the same crank speed is exactly why
-// one sounds thrashy and the other sounds like it is idling when it is not.
-const DEFAULT_ENGINE = { cylinders: 4, idle: 800, redline: 4800 };
+// a V8 gives four.
+//
+// `recorded` is whether this is Beryl. Only she was recorded, so only she can
+// be played back; anything else falls to the synth, which can play an engine
+// that does not exist. Manfeild's course definition turns it off.
+const DEFAULT_ENGINE = { cylinders: 4, idle: 800, redline: 4800, recorded: true };
 // A gear is left a little past its band and picked up a little before it, so a
 // car sitting exactly on a shift point does not chatter between two gears.
 const SHIFT_HYSTERESIS = 0.02;
 // How long the note dips while the clutch is out.
 const SHIFT_SECONDS = 0.28;
-
-// Getting hold of a usable AudioContext, which is harder than it looks on a
-// phone, and is why this was silent on Android while the music played fine.
-//
-// Two independent things go wrong, and both produce exactly that symptom:
-//
-//  1. Phaser picks its sound manager at boot and may land on
-//     HTML5AudioSoundManager or NoAudioSoundManager, neither of which has a
-//     `.context` at all. An mp3 still plays — that is an <audio> element — but
-//     a synth has nothing to build on. Borrowing Phaser's context therefore
-//     cannot be the only route to one.
-//  2. Even with the WebAudio manager, mobile browsers start the context
-//     *suspended* and only a user gesture may resume it. Phaser handles its own
-//     unlocking internally, so the music comes good on the first touch; a
-//     one-shot `resume()` at construction time runs before any touch has
-//     happened, is rejected, and nothing ever tries again.
-//
-// So: take Phaser's context if it has one, make our own if it does not, and keep
-// trying to resume on every gesture until it is actually running.
-function acquireContext(soundManager) {
-  if (soundManager && soundManager.context) {
-    return { ctx: soundManager.context, owned: false };
-  }
-  const Ctor = typeof window !== 'undefined'
-    && (window.AudioContext || window.webkitAudioContext);
-  if (!Ctor) return { ctx: null, owned: false };
-  try {
-    return { ctx: new Ctor(), owned: true };
-  } catch (error) {
-    void error;
-    return { ctx: null, owned: false };
-  }
-}
-
-const GESTURES = ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'keydown', 'click'];
+// Long enough not to click, short enough that nobody hears the handover if the
+// recordings arrive after the race has started.
+const VOICE_CROSSFADE = 0.12;
 
 export class EngineSound {
   constructor(soundManager, engine = null) {
     this.engine = { ...DEFAULT_ENGINE, ...(engine || {}) };
     // Firings per crankshaft revolution: cylinders / 2 on a four-stroke.
     this.firingsPerRev = this.engine.cylinders / 2;
-    // A big lazy V8 wants a fatter, lower body and less of the small-four
-    // intake thrash, so the mix shifts with the engine rather than being tuned
-    // once for the A-series and left.
-    this.bigEngine = this.engine.cylinders > 6;
 
     const acquired = acquireContext(soundManager);
     this.ctx = acquired.ctx;
@@ -93,100 +69,45 @@ export class EngineSound {
     if (!this.ok) return;
 
     const ctx = this.ctx;
-    this.#keepTryingToResume();
+    this.resume = resumeOnGesture(ctx);
 
     this.gear = 0;
     this.rpm = this.engine.idle;
     this.shiftUntil = 0;
+    this.stopped = false;
 
     this.out = ctx.createGain();
     this.out.gain.value = 0.0001;
     this.out.connect(ctx.destination);
 
-    // Body: the low thump of the firing pulses. A sawtooth an octave below the
-    // firing frequency, kept muffled — this is the part you feel.
-    this.body = ctx.createOscillator();
-    this.body.type = 'sawtooth';
-    this.bodyGain = ctx.createGain();
-    this.bodyGain.gain.value = this.bigEngine ? 0.72 : 0.5;
-    this.bodyFilter = ctx.createBiquadFilter();
-    this.bodyFilter.type = 'lowpass';
-    this.bodyFilter.frequency.value = 220;
-    this.bodyFilter.Q.value = 3;
-    this.body.connect(this.bodyGain).connect(this.bodyFilter).connect(this.out);
-
-    // Bark: the firing frequency itself through a resonant bandpass that opens
-    // with load. This is the part that sounds like it is working hard.
-    this.bark = ctx.createOscillator();
-    this.bark.type = 'sawtooth';
-    this.barkGain = ctx.createGain();
-    this.barkGain.gain.value = this.bigEngine ? 0.42 : 0.34;
-    this.barkFilter = ctx.createBiquadFilter();
-    this.barkFilter.type = 'bandpass';
-    this.barkFilter.frequency.value = 600;
-    this.barkFilter.Q.value = 1.6;
-    this.bark.connect(this.barkGain).connect(this.barkFilter).connect(this.out);
-
-    // Intake whine: a quiet square an octave up, which is what gives a small
-    // four its thrashiness near the redline.
-    this.whine = ctx.createOscillator();
-    this.whine.type = 'square';
-    this.whineGain = ctx.createGain();
-    this.whineGain.gain.value = 0.0;
-    this.whine.connect(this.whineGain).connect(this.out);
-
-    this.body.start();
-    this.bark.start();
-    this.whine.start();
+    // The synth starts immediately and unconditionally: it needs nothing but an
+    // AudioContext, so there is always a voice from the first frame even while
+    // the recordings are still being fetched.
+    this.voice = new SynthVoice(ctx, this.out, this.engine);
+    if (this.engine.recorded) this.#useRecordingsWhenReady();
   }
 
-  // Resume now, and again on every gesture until it takes.
-  //
-  // `resume()` on a suspended context is a promise that a mobile browser will
-  // reject unless it is called from inside a user gesture, so the listeners are
-  // the mechanism, not the fallback. They remove themselves once the context is
-  // running so there is nothing left attached to the document afterwards.
-  //
-  // On `window` in the **capture** phase, not on the canvas and not bubbling.
-  // Every touch on this game lands on a Phaser canvas that has its own input
-  // handling, and a bubble-phase listener is one `stopPropagation()` away from
-  // never being called. Capture runs top-down before the target sees the event,
-  // so nothing underneath can take the gesture away from us — which matters, as
-  // on a phone the gesture is the only chance there is.
-  #keepTryingToResume() {
-    if (!this.ctx) return;
-    const tryResume = () => {
-      if (!this.ctx || this.ctx.state === 'running') {
-        this.#stopListening();
-        return;
-      }
-      const attempt = this.ctx.resume();
-      if (attempt && attempt.then) attempt.then(() => this.#stopListening(), () => {});
-    };
-    this._resumeHandler = tryResume;
-    for (const target of this.#gestureTargets()) {
-      for (const type of GESTURES) {
-        target.addEventListener(type, tryResume, { passive: true, capture: true });
-      }
-    }
-    tryResume();
-  }
-
-  #gestureTargets() {
-    const targets = [];
-    if (typeof window !== 'undefined') targets.push(window);
-    if (typeof document !== 'undefined') targets.push(document);
-    return targets;
-  }
-
-  #stopListening() {
-    if (!this._resumeHandler) return;
-    for (const target of this.#gestureTargets()) {
-      for (const type of GESTURES) {
-        target.removeEventListener(type, this._resumeHandler, { capture: true });
-      }
-    }
-    this._resumeHandler = null;
+  // Swap the synth for the real car once both clips have decoded. Normally they
+  // were primed during the loading splash and this resolves on the next tick,
+  // before the first update; on a slow connection it can land mid-race, which
+  // is why it is a crossfade rather than a cut.
+  #useRecordingsWhenReady() {
+    Promise.all([
+      loadSample(this.ctx, ENGINE_FRONT),
+      loadSample(this.ctx, ENGINE_REAR),
+    ]).then(([front, rear]) => {
+      if (this.stopped || !front || !rear) return;
+      const recorded = new RecordedVoice(this.ctx, this.out, { front, rear });
+      recorded.gain.gain.value = 0.0001;
+      recorded.fade(1, VOICE_CROSSFADE);
+      const outgoing = this.voice;
+      outgoing.fade(0.0001, VOICE_CROSSFADE);
+      setTimeout(() => outgoing.stop(), VOICE_CROSSFADE * 1000 + 60);
+      this.voice = recorded;
+      this.status = this.ownsContext
+        ? 'ready (real recordings, own context — Phaser has no WebAudio manager)'
+        : 'ready (real recordings)';
+    });
   }
 
   // Crankshaft speed from road speed, by working out which gear she must be in.
@@ -232,22 +153,7 @@ export class EngineSound {
     const load = Math.max(0, Math.min(1, (throttle > 0 ? throttle : 0) * 0.7 + climb * 0.6));
 
     const firing = (rpm / 60) * this.firingsPerRev;
-    const glide = 0.055;
-    this.body.frequency.setTargetAtTime(firing * 0.5, now, glide);
-    this.bark.frequency.setTargetAtTime(firing, now, glide);
-    this.whine.frequency.setTargetAtTime(firing * 2, now, glide);
-
-    // Under load the bandpass opens and the whine comes up: more harmonics, more
-    // effort. Off throttle it closes and she just burbles.
-    this.barkFilter.frequency.setTargetAtTime(420 + firing * 3.2 + load * 900, now, glide);
-    this.barkFilter.Q.setTargetAtTime(1.4 + load * 2.6, now, glide);
-    this.bodyFilter.frequency.setTargetAtTime(160 + firing * 1.1, now, glide);
-    const whine = this.bigEngine ? 0.35 : 1;
-    this.whineGain.gain.setTargetAtTime(
-      shifting ? 0.004 : (0.012 + load * 0.05 * (0.25 + through * 0.75)) * whine,
-      now,
-      glide
-    );
+    this.voice.render({ firing, rpm, load, through, shifting }, now);
 
     // Audible on a laptop speaker, which the old 0.05-to-0.18 range was not: a
     // 46 Hz sawtooth under a 0.5-volume music bed is felt on headphones and gone
@@ -263,10 +169,11 @@ export class EngineSound {
     return {
       ok: this.ok,
       status: this.status,
+      voice: this.voice ? this.voice.kind : 'none',
       cylinders: this.engine ? this.engine.cylinders : 0,
       contextState: this.ctx ? this.ctx.state : 'none',
       ownsContext: !!this.ownsContext,
-      waitingForGesture: !!this._resumeHandler,
+      waitingForGesture: !!(this.resume && this.resume.waiting()),
       gear: this.gear + 1,
       rpm: Math.round(this.rpm),
     };
@@ -274,28 +181,17 @@ export class EngineSound {
 
   stop() {
     if (!this.ok) return;
-    this.#stopListening();
-    for (const osc of [this.body, this.bark, this.whine]) {
-      try {
-        osc.stop();
-      } catch (error) {
-        void error; // already stopped
-      }
-    }
+    this.stopped = true;
+    if (this.resume) this.resume.cancel();
+    this.voice.stop();
     try {
       this.out.disconnect();
     } catch (error) {
       void error;
     }
-    // Only close a context we made. Phaser's belongs to Phaser, and the music is
-    // still playing through it.
-    if (this.ownsContext && this.ctx && this.ctx.close) {
-      try {
-        this.ctx.close();
-      } catch (error) {
-        void error;
-      }
-    }
+    // The context itself stays open. It is shared with the horn and reused by
+    // the next race — see the note in context.js about how few of them a page
+    // is allowed.
     this.ok = false;
   }
 }

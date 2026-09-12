@@ -95,7 +95,7 @@ export class TitleScene extends Phaser.Scene {
     this.input.keyboard.once('keydown', kick);
 
     this.footer = this.add
-      .text(0, 0, 'Arrow keys / WASD or on-screen controls  •  a Gilmore Games production', {
+      .text(0, 0, 'Arrow keys / WASD  •  H for the horn  •  a Gilmore Games production', {
         fontFamily: FONT,
         color: '#fff8e7',
         align: 'center',
