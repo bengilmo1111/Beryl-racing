@@ -14,6 +14,7 @@ import {
 import { buildRemutakaCentreLine } from './remutakaCentreLine.js';
 import { buildStartLine, buildStartGantry } from './markers.js';
 import { buildBeryl, updateBeryl, resetBerylGeometry } from './beryl.js';
+import { applyBerylPhotoPass } from './berylPhotoPass.js';
 import { buildTrafficFleet, updateTrafficFleet } from './traffic.js';
 import { buildTrees } from './trees.js';
 import { buildProps } from './props.js';
@@ -136,7 +137,7 @@ class RaceWorld {
     this.scene3d.add(this.skid.mesh);
     this.puffs = new PuffPool(this.scene3d, this.terrain);
 
-    this.beryl = buildBeryl();
+    this.beryl = applyBerylPhotoPass(buildBeryl());
     this.scene3d.add(this.beryl.root);
 
     // The other cars on the road, where the course has any. They share Beryl's
