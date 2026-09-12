@@ -2461,3 +2461,27 @@ Both engine clips: mean exactly −14.0 dBFS, peaks −3.0 and −7.4, wrap step
 and the rear's internal level range down to 0.5 dB from 1.6. The horn is
 unchanged — 1.13 s, 315 Hz, still the fourth press in the recording — but plays
 0.9 dB quieter, for the headroom above.
+
+## 2026-09-12 — A shorter horn
+
+The blast was too long. It is 0.77 s now instead of 1.13 s.
+
+Not a trim. Cutting the end off a horn takes the release with it, and a note
+that stops dead sounds like a sample running out rather than like somebody
+letting go of a button. So the held part is shortened in the middle and the real
+release spliced back on: 0.50 s of note, then the 0.285 s from 15.295 s in the
+recording where the driver actually lifts their hand.
+
+The splice is phase-aligned before it is crossfaded, which matters more than it
+sounds like it should — this is a 315 Hz tone with a harmonic stack on top, and
+joining two pieces of it out of phase cancels into a dip you hear as a click.
+The alignment search walks a period either side of the cut and takes the best
+correlation (0.83, at −1.79 ms), then crossfades over 15 ms. The largest
+sample-to-sample step in the result is 0.136 of full scale, which is exactly the
+largest step in the untouched press, and it is in the attack where it always
+was: the joint adds nothing.
+
+Same peak (−1.7 dBFS) and the same sustain level, so it is the same horn, just
+a shorter press. The synthesised fallback came down from 0.75 s to 0.55 s to
+match. A shorter blast also spends less time overlapping the music, which is
+where the last two clipped samples were.
