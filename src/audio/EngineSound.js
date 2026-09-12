@@ -19,7 +19,7 @@
 //
 // Determinism: constructed only when not harnessed (see RaceScene), because
 // AudioContext runs on wall-clock time. Nothing here is read by the simulation.
-import { acquireContext, resumeOnGesture } from './context.js';
+import { acquireContext, resumeOnGesture, outputBus } from './context.js';
 import { loadSample, ENGINE_FRONT, ENGINE_REAR } from './samples.js';
 import { RecordedVoice, SynthVoice } from './engineVoices.js';
 
@@ -78,7 +78,7 @@ export class EngineSound {
 
     this.out = ctx.createGain();
     this.out.gain.value = 0.0001;
-    this.out.connect(ctx.destination);
+    this.out.connect(outputBus(ctx));
 
     // The synth starts immediately and unconditionally: it needs nothing but an
     // AudioContext, so there is always a voice from the first frame even while
@@ -156,9 +156,13 @@ export class EngineSound {
     this.voice.render({ firing, rpm, load, through, shifting }, now);
 
     // Audible on a laptop speaker, which the old 0.05-to-0.18 range was not: a
-    // 46 Hz sawtooth under a 0.5-volume music bed is felt on headphones and gone
-    // on anything else.
-    let volume = 0.16 + load * 0.2 + through * 0.1;
+    // 46 Hz sawtooth under a music bed is felt on headphones and gone on
+    // anything else.
+    //
+    // Raised by about 3 dB over the range that replaced it, with the music down
+    // 2 dB to meet it (see audio/sound.js). She is the thing you are driving;
+    // the music is the thing it is happening to.
+    let volume = 0.22 + load * 0.28 + through * 0.14;
     if (shifting) volume *= 0.55;
     if (muted) volume = 0;
     this.out.gain.setTargetAtTime(Math.max(volume, 0.0001), now, 0.05);

@@ -8,7 +8,7 @@
 // It shares the engine's AudioContext (see context.js) and, like the engine,
 // keeps a synthesised fallback for the case where the clip cannot be fetched:
 // a horn that does nothing when you press it is worse than an approximate one.
-import { acquireContext, resumeOnGesture } from './context.js';
+import { acquireContext, resumeOnGesture, outputBus } from './context.js';
 import { loadSample, HORN } from './samples.js';
 
 // The measured fundamental of the real horn, for the fallback to aim at.
@@ -33,8 +33,8 @@ export class Horn {
 
     this.resume = resumeOnGesture(this.ctx);
     this.out = this.ctx.createGain();
-    this.out.gain.value = 0.75;
-    this.out.connect(this.ctx.destination);
+    this.out.gain.value = 0.68;
+    this.out.connect(outputBus(this.ctx));
 
     loadSample(this.ctx, HORN).then((buffer) => {
       if (this.stopped) return;

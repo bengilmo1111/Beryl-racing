@@ -16,7 +16,7 @@ The authoritative art documents are:
 
 - **`beryl-photo.png`** — the real photo of Beryl, a turquoise 1960s Morris Minor 1000. Loaded via `BERYL_PHOTO_URL` in `src/art.js`, shown on the title screen and used as the primary identity reference for the gameplay sprite.
 - **`music-race.mp3`** — the current looping 1960s-inspired race music. Loaded in `BootScene` and played through `src/audio/sound.js`.
-- **`beryl-engine-front.wav`**, **`beryl-engine-rear.wav`** — Beryl's real engine, recorded at the front of the car and at the back of it. Seamless loops, played back pitched to crankshaft speed by `src/audio/engineVoices.js`.
+- **`beryl-engine-front.wav`** (2.86 s), **`beryl-engine-rear.wav`** (4.15 s) — Beryl's real engine, recorded at the front of the car and at the back of it. Seamless loops of deliberately unrelated lengths, played back pitched to crankshaft speed by `src/audio/engineVoices.js`.
 - **`beryl-horn.wav`** — one press of Beryl's real horn, played by `src/audio/Horn.js`.
 - **`tarmac.png`** — seamless asphalt surface texture. Not currently loaded; kept for the 3D road material (see `src/render3d/road.js`, which generates the UVs for it).
 - **`grass.png`** — seamless grass texture. Used on the title screen and the 3D ground plane.
