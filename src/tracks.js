@@ -51,6 +51,50 @@ export const TRACKS = [
     geometry: EASTBOURNE_GEOMETRY,
     layout: EASTBOURNE_LAYOUT,
     physics: { ...ROAD_CAR_PHYSICS },
+    // Other people on the road (src/traffic.js). Marine Drive is a real road
+    // through a real village, and an empty one reads as a film set.
+    //
+    // Authored rather than generated. A seeded scatter would have to draw from
+    // the same RNG the scenery placement uses, and everything downstream of that
+    // stream is pinned by the AC2 baselines; a written list draws nothing. It
+    // also puts the cars where they are worth meeting — an overtake on a
+    // straight, an oncoming car arriving out of a bend — instead of wherever
+    // twelve random numbers happened to land.
+    //
+    // `at` is a fraction of the stretch traffic is allowed to occupy, not of the
+    // route: src/traffic.js keeps the start box and the RSA arrival clear.
+    // Within each direction the leaders are the quicker cars, so nobody spends
+    // the run nose-to-tail behind somebody slower.
+    //
+    // The speeds are open-road speeds, 52-70 km/h against Beryl's 100, and that
+    // is a gameplay number as much as a realistic one. Traffic here is something
+    // to flow past, not a wall: an ambling 30 km/h car that you cannot get by is
+    // a roadblock rather than a road, and it cost the test driver forty per cent
+    // of its run before these were raised. Catching one now costs you a few
+    // seconds and a decision about the other lane, which is the point.
+    //
+    // Only three go your way. They are the ones you have to do something about,
+    // and three is enough to meet on a 2.15 km run without the road turning into
+    // a queue.
+    traffic: {
+      // Half the road's half-width, so each lane's traffic sits squarely in it
+      // and two cars passing have most of a car's width between them.
+      laneFraction: 0.5,
+      cars: [
+        // Heading for Eastbourne, same as you — the ones you come up behind.
+        { at: 0.14, direction: 1, speedKmh: 55 },
+        { at: 0.47, direction: 1, speedKmh: 62 },
+        { at: 0.80, direction: 1, speedKmh: 68 },
+        // Coming the other way, towards Days Bay, keeping their own left.
+        { at: 0.06, direction: -1, speedKmh: 70 },
+        { at: 0.21, direction: -1, speedKmh: 66 },
+        { at: 0.36, direction: -1, speedKmh: 62 },
+        { at: 0.52, direction: -1, speedKmh: 58 },
+        { at: 0.67, direction: -1, speedKmh: 56 },
+        { at: 0.83, direction: -1, speedKmh: 54 },
+        { at: 0.95, direction: -1, speedKmh: 52 },
+      ],
+    },
     storageKey: 'beryl-racing-3d.eastbourne-dash.bestTimeMs.v4',
     hud: { current: 'DASH TIME', progress: 'TO EASTBOURNE' },
     bestLabel: 'Eastbourne best',

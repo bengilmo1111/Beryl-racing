@@ -77,10 +77,33 @@ function primaryDriveTarget(scene) {
   // enough to respect gorge bends and town corners. A closed circuit wraps;
   // a point-to-point clamps at the finish.
   const ahead = nearest + 18;
-  const target = scene.track.closed
-    ? line[ahead % line.length]
-    : line[Math.min(line.length - 1, ahead)];
-  return { x: round(target.x), y: round(target.y) };
+  const index = scene.track.closed ? ahead % line.length : Math.min(line.length - 1, ahead);
+  const target = line[index];
+
+  // On a course with oncoming traffic, aim at the left lane rather than at the
+  // crown of the road. A driver on the centreline meets every car coming the
+  // other way head-on, which is not a test of the course.
+  //
+  // Keyed on the course *having* traffic rather than on which course it is —
+  // same rule as the look-ahead above, and for the same reason. A course with no
+  // traffic to avoid keeps the centreline it has always aimed at, so nothing
+  // about it moves.
+  const traffic = scene.def && scene.def.traffic;
+  if (!traffic) return { x: round(target.x), y: round(target.y) };
+
+  const behind = line[scene.track.closed
+    ? (index - 1 + line.length) % line.length
+    : Math.max(0, index - 1)];
+  let tx = target.x - behind.x;
+  let ty = target.y - behind.y;
+  const length = Math.hypot(tx, ty) || 1;
+  tx /= length;
+  ty /= length;
+  // Left of travel. The car's right is (cos r, sin r) for forward (sin r,
+  // -cos r) — see render3d/coords.js, which is where that convention is
+  // settled — so left is the other one.
+  const lane = traffic.laneFraction * scene.track.half;
+  return { x: round(target.x + ty * lane), y: round(target.y - tx * lane) };
 }
 
 export function startHarness({ Phaser, config, createGame }) {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { TRACKS } from '../src/tracks.js';
 import { CAR, applyTrack } from '../src/config.js';
-import { Car } from '../src/entities/Car.js';
+import { Car, CAR_FOOTPRINT } from '../src/entities/Car.js';
 
 // Car's only scene dependency is its old, invisible sprite footprint. Exercise
 // the real update method with that small adapter; no copied physics or browser.
@@ -20,6 +20,10 @@ export function testCar(x = 10000, y = 10000, rotation = 0) {
 const eastbourne = TRACKS.find((track) => track.id === 'eastbourne-dash');
 applyTrack(eastbourne);
 const still = testCar();
+// The traffic in src/traffic.js is the same car, and has no scene to derive its
+// footprint from, so it quotes these numbers instead. Keep the two in step.
+assert.equal(still.collideRadius, CAR_FOOTPRINT.collideRadius, 'CAR_FOOTPRINT.collideRadius must match the sprite derivation');
+assert.equal(still.axleOffset, CAR_FOOTPRINT.axleOffset, 'CAR_FOOTPRINT.axleOffset must match the sprite derivation');
 for (let i = 0; i < 60; i++) still.update(1 / 60, { throttle: 0, steer: 1 }, true);
 assert.equal(still.rotation, 0, 'A stopped car must not pivot');
 

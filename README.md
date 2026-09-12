@@ -29,7 +29,9 @@ Pick a course on the title screen (**Choose your course**):
 
 - **Eastbourne Dash** — a coastal point-to-point from Days Bay to the Eastbourne
   RSA. One run against the clock, harbour on your left, starting with a steep
-  drop off Ferry Road to get you moving.
+  drop off Ferry Road to get you moving. You do not have the road to yourself:
+  other Morris Minors are out on Marine Drive, some going your way and some
+  coming the other, and they are solid — keep left, and pick your moment to pass.
 - **Manfeild Circuit** — the real Manfeild Chris Amon circuit at Feilding,
   traced from MotorSport NZ's official circuit map: 3.03 km clockwise, main
   straight, the infield loop and ess, the top loop and the long return.

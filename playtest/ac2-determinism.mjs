@@ -134,12 +134,34 @@ import { TRACKS } from '../src/tracks.js';
 // Re-recorded 2026-09-09: Eastbourne now finishes on the painted full-width
 // stripe, one frame before the old checkpoint circle. Three runs agree;
 // every obstacle fingerprint and the other three course baselines are unchanged.
+// - Re-recorded 2026-09-11 for ambient traffic on Eastbourne (src/traffic.js):
+//   ten Morris Minors on Marine Drive, three going your way and seven coming the
+//   other, solid enough to bump. Eastbourne goes 67.33 s -> 69.65 s, which is
+//   the cost of sharing a road with other people: the test driver now keeps left
+//   (primaryDriveTarget offsets into the lane on a course that declares traffic)
+//   and cannot overtake, so it sits behind a slower car until that car turns off
+//   the band it wraps within.
+//
+//   Every obstacle fingerprint is unchanged, Eastbourne's included, and that is
+//   the check worth reading: traffic is deliberately NOT in scene.obstacles —
+//   this hash is taken over that list, and playtest/eastbourne-arrival.mjs
+//   asserts the same list clears the RSA finish. Moving cars belong in neither
+//   claim, so they live in scene.traffic and are resolved as a second pass.
+//   Manfeild, Remutaka and Ōtaki are identical in every pinned value, which is
+//   the check that a course declaring no traffic runs the same code it always
+//   did — including the split of resolveObstacles() into pushOutOf().
+//
+//   Traffic draws no random numbers at all: the fleet is an authored list in
+//   tracks.js and each car walks the centreline kinematically, so the seeded
+//   scenery stream everything above depends on is untouched.
 const BASELINES = {
-  // Re-recorded 2026-09-07: shorter Ferry Road, Marine Parade primary route,
-  // triangular parking finish, and tree/building clearance. Other courses unchanged.
+  // Re-recorded 2026-09-11 for ambient traffic; see the note above. The obstacle
+  // fingerprint is the one recorded 2026-09-07 for the shorter Ferry Road,
+  // Marine Parade primary route, triangular parking finish and tree/building
+  // clearance, and has not moved since.
   'eastbourne-dash': {
-    finishTimeMs: 67333.333333,
-    pos: { x: 14968.386559974, y: 114381.352176054 },
+    finishTimeMs: 69650,
+    pos: { x: 15016.774606269, y: 114401.789514074 },
     obstacles: '5413700bd6646f7f',
   },
   // Manfeild has no trees, so every circle on the circuit belongs to a building:

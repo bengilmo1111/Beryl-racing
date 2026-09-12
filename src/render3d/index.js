@@ -13,7 +13,8 @@ import {
 } from './road.js';
 import { buildRemutakaCentreLine } from './remutakaCentreLine.js';
 import { buildStartLine, buildStartGantry } from './markers.js';
-import { buildBeryl, updateBeryl } from './beryl.js';
+import { buildBeryl, updateBeryl, resetBerylGeometry } from './beryl.js';
+import { buildTrafficFleet, updateTrafficFleet } from './traffic.js';
 import { buildTrees } from './trees.js';
 import { buildProps } from './props.js';
 import { buildSigns } from './signs.js';
@@ -138,6 +139,11 @@ class RaceWorld {
     this.beryl = buildBeryl();
     this.scene3d.add(this.beryl.root);
 
+    // The other cars on the road, where the course has any. They share Beryl's
+    // geometry and differ only in paint — see MINOR_COLOURS in palette.js.
+    this.trafficFleet = scene.traffic ? buildTrafficFleet(scene.traffic) : null;
+    if (this.trafficFleet) this.scene3d.add(this.trafficFleet.group);
+
     this.chase = new ChaseCamera(isCompact(scene), scene.track);
     showCanvas(true);
 
@@ -182,6 +188,9 @@ class RaceWorld {
     const grade = this.terrain.roadGradeAlong(car.x, car.y, f.x, f.y);
     updateBeryl(this.beryl, car, this.scene.lastInput, dt, ground, grade,
       (x, y) => this.terrain.heightAt(x, y));
+    if (this.trafficFleet) {
+      updateTrafficFleet(this.trafficFleet, this.scene.traffic, dt, this.terrain);
+    }
     this.puffs.update(dt);
     this.chase.update(car, dt, this.terrain);
     if (this.otakiParallax) updateOtakiParallax(this.otakiParallax, car, dt);
@@ -202,6 +211,10 @@ class RaceWorld {
       }
     });
     this.scene3d.clear();
+    // Every car in the scene shares one set of body geometries, and the traverse
+    // above has just disposed them. Drop the cache that hands them out, or the
+    // next race builds its cars over freed buffers.
+    resetBerylGeometry();
   }
 }
 

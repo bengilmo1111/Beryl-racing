@@ -2155,6 +2155,78 @@ to its pinned baseline. Which is the point: the whole change is machinery, and
 machinery that moves gameplay numbers of its own cannot be told apart from a
 regression the next time somebody looks.
 
+## 2026-09-11 — Other people on the road
+
+Marine Drive was empty. Every villa, shop and pōhutukawa along it has been
+placed with care over the last month, and there was still nothing on the road
+but Beryl — which is the one thing a real coastal road is never short of.
+
+Eastbourne now has ambient traffic: ten Morris Minors, three going your way and
+seven coming the other, each keeping its own left. They are the same car you
+drive, in the shades the factory actually offered, and they are solid.
+
+### They are not simulated, and that is the point
+
+A traffic car holds a distance along the centreline, a lane offset and a
+cruising speed, and every frame it walks a little further. It does not run
+`Car.update` and no bot drives it (`src/traffic.js`).
+
+That is what makes this safe to add to a course whose finish times are pinned. A
+simulated car can understeer into the sea, stall at zero speed, or need a random
+number to vary its line. This one can do none of those, and draws no random
+numbers at all — so the seeded scenery stream that `src/scenery.js` and the AC2
+baselines are built on is untouched. The fleet is an authored list in
+`tracks.js`, which also puts the cars where they are worth meeting rather than
+wherever twelve random numbers happened to land.
+
+### Traffic is not in `scene.obstacles`, deliberately
+
+That list is fingerprinted by `ac2-determinism.mjs` and asserted to clear the RSA
+finish by `eastbourne-arrival.mjs`. Moving cars belong in neither claim. So they
+live in `scene.traffic` and are resolved as a second pass —
+`resolveObstacles()` split into a `pushOutOf(circles)` helper called twice, the
+static list first and in exactly its old order.
+
+The reward is in the baselines: **all four obstacle fingerprints are unchanged,
+Eastbourne's included**, and Manfeild, Remutaka and Ōtaki are identical in every
+pinned value. That is the check that a course declaring no traffic runs the same
+code it always did.
+
+Only Eastbourne's run moves, 67.33 s → 69.65 s, and it moves for a reason worth
+stating: the test driver now keeps left (`primaryDriveTarget` offsets into the
+lane on a course that declares traffic — keyed on *having* traffic, not on which
+course it is) and it cannot overtake, so it sits behind a slower car until it
+barges past. 3.4% is the cost of sharing the road.
+
+### The first fleet was a roadblock
+
+Authored at 30–42 km/h, which felt like village traffic and read as a wall: the
+bot went 67 s → 94 s, forty per cent, because a car doing 30 against a top speed
+of 100 is something you get stuck behind rather than something you pass. At
+52–70 km/h — open-road speeds, and what traffic on that road actually does —
+catching one costs a few seconds and a decision about the other lane, which is
+the whole idea. A gameplay number found by measuring, not by looking.
+
+### One car, built once
+
+`buildBeryl()` takes `{ bodyColor, identity }` now. `identity: false` drops the
+red pinstripe and the `BERYL` number plate and keeps everything else, because
+the chrome, the grille and the lamps are the *model* — a road full of Minors all
+wearing her plate would read worse than an empty one.
+
+The geometry is built once and shared by every car. `wheelArches()` clips each
+triangle of the shell and all four wings against forty-eight planes, and a dozen
+cars would otherwise pay that at load. The sharp edge is that `RaceWorld.destroy`
+disposes every geometry it can reach, so `resetBerylGeometry()` has to be called
+in the same breath or the *next* race builds its cars over freed buffers.
+
+One thing worth writing down. Baking the wings used to be
+`mesh.updateMatrix(); geometry.applyMatrix4(mesh.matrix)`; the obvious rewrite is
+`geometry.scale(...)` then `geometry.translate(...)`. Positions are float32, so
+two passes round twice and land about four millionths of a unit away from one —
+and a vertex four millionths the wrong side of a clip plane comes back as a
+different triangle. Composing one matrix, as the old code did by accident, makes
+the whole car vertex-identical to before. Worth the comment it now carries.
 ## 2026-09-11 — Beryl sounds like Beryl
 
 Three recordings turned up: the engine from in front of the car, the engine from

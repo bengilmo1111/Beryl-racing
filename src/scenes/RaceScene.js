@@ -5,6 +5,7 @@ import { getSelectedTrack } from '../tracks.js';
 import { buildTrack, distanceToCenterline, surfaceAt } from '../track.js';
 import { scatterScenery } from '../scenery.js';
 import { buildStructures, structureObstacles } from '../structures.js';
+import { buildTraffic } from '../traffic.js';
 import { eastbourneCoast } from '../coast.js';
 import { coastalProfile } from '../coastalProfile.js';
 import { crossesRsaFinish } from '../arrival.js';
@@ -65,6 +66,12 @@ export class RaceScene extends Phaser.Scene {
       this.summerTrees = summerTrees(this.track, this.structures, this.scenery.trees);
       for (const tree of this.summerTrees) this.obstacles.push({ x: tree.x, y: tree.z, r: tree.r });
     }
+
+    // Other cars on the road. Solid, but deliberately NOT in this.obstacles:
+    // that list is fingerprinted by the determinism baselines and asserted to
+    // clear the RSA finish, and neither claim survives moving cars being added
+    // to it. Traffic is resolved as a second pass in resolveObstacles().
+    this.traffic = buildTraffic(this.def, this.track);
 
     this.lastSkid = null;
 
@@ -417,6 +424,9 @@ export class RaceScene extends Phaser.Scene {
       this.car.vy *= decay;
     }
     const beforeMovement = { x: this.car.x, y: this.car.y };
+    // Traffic moves before contacts are resolved, so Beryl is pushed out of
+    // where the other car is now rather than where it was last frame.
+    if (this.traffic) this.traffic.update(dt);
     this.car.update(dt, input, onTrack, surface, grade);
     this.resolveObstacles();
     this.applyFx(onTrack, input, surface);
@@ -461,10 +471,23 @@ export class RaceScene extends Phaser.Scene {
     }
   }
 
-  // Push Beryl out of any scenery she's overlapping and kill the velocity that
-  // drove her in, so she bumps and slides along trees, tyres and bales instead
-  // of driving through them.
+  // Everything solid Beryl can run into: the scenery, and the other cars.
   resolveObstacles() {
+    // Scenery first, in its fixed order, then the other cars on the road. The
+    // static list is walked exactly as it always was, so a course with no
+    // traffic resolves bit-for-bit identically to before traffic existed.
+    let contact = this.pushOutOf(this.obstacles);
+    if (this.traffic) contact = this.pushOutOf(this.traffic.collisionCircles()) || contact;
+    if (contact && !this.hadContact) this.contactEvents++;
+    this.hadContact = contact;
+    this.car.sync();
+  }
+
+  // Push Beryl out of every circle in `circles` she is overlapping and kill the
+  // velocity that drove her in, so she bumps and slides along trees, tyres,
+  // bales and other cars instead of driving through them. Reports whether she
+  // touched any of them.
+  pushOutOf(circles) {
     let contact = false;
     const car = this.car;
     const cr = car.collideRadius;
@@ -475,7 +498,7 @@ export class RaceScene extends Phaser.Scene {
       [ax, ay],
       [-ax, -ay],
     ];
-    for (const o of this.obstacles) {
+    for (const o of circles) {
       const min = o.r + cr;
       const min2 = min * min;
       for (const off of offsets) {
@@ -503,9 +526,7 @@ export class RaceScene extends Phaser.Scene {
         }
       }
     }
-    if (contact && !this.hadContact) this.contactEvents++;
-    this.hadContact = contact;
-    car.sync();
+    return contact;
   }
 
   applyFx(onTrack, input, surface) {
