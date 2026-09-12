@@ -234,3 +234,49 @@ seed 779426 finishes at 91916.666667 ms (166 contacts); seed 779425 reaches the
 RSA area but keeps circling on grass (162 contacts, 6/7 gates). Its final trace
 shows speed around 290 units/s and throttle 0.3, not the original zero-input
 deadlock. These are new diagnostic outcomes, not evidence of improved fun.
+
+## 2026-09-13: post-finish-fix audit — no gameplay change
+
+Baseline: main `f419cdd9cfcd7e5b43812f1731619230f206e048`. Reviewed recent
+PRs #45–49 and the two subsequent real-car photo-detail commits. No open issues
+or PRs. Preserve the newer Remutaka reference pass, ambient traffic, recorded
+engine/horn and player-car details; do not repeat earlier work.
+
+Workflow collections: scheduled Playtest
+[34707324871](https://github.com/bengilmo1111/Beryl-racing/actions/runs/34707324871)
+and Exploration
+[34707703299](https://github.com/bengilmo1111/Beryl-racing/actions/runs/34707703299)
+passed on this exact main commit on September 12 UTC. Playtest includes all four
+courses, mobile shell and combined report. Latest Determinism
+[34673025485](https://github.com/bengilmo1111/Beryl-racing/actions/runs/34673025485)
+passed on PR #49, before the photo-detail commits; there is still no scheduled
+Determinism trigger. Do not describe that older run as current-main replay proof.
+Current-main road-contact (1,866 positions/four headings) and Eastbourne arrival
+geometry checks passed locally.
+
+Investigated the queued hypothesis that steeringTaps still circles at the RSA.
+Compared current exploration artifacts with previous successful PR #49
+exploration 34673025517 at the same bot/course/seeds. Both seeds now finish:
+779425 at 111400 ms, 141 contact episodes, 55.745% off-road; 779426 at 105700 ms,
+150 contact episodes, 52.665% off-road. These gameplay metrics match the prior
+run exactly. Reported p95 step cost is 0.3 ms versus 0.2 ms; this is not a real
+device-rendering benchmark. Both reports show no runtime errors/out-of-bounds
+events. High contact/off-road counts remain diagnostic, not proof of trapping
+geometry or evidence of fun.
+
+Matched seed-779425 frame-6000 screenshots show the same road/car position, with
+the expected newer car detail. Both final frame-6684 PNGs, however, are solid
+yellow: the capture catches the celebration flash. The completed metrics are
+valid evidence of finish state, but those images do NOT verify results-screen
+visibility. `captureShot` draws at the finishing simulation time; RaceScene's
+flash lasts 240 ms and Eastbourne results are delayed 2200 ms. Canvas-only
+capture also cannot include DOM results. This is an evidence-quality issue,
+not a demonstrated production rendering fault.
+
+Decision: no gameplay or subjective experiment change this iteration. Retire the
+old circling outcome as the current baseline; keep the historical entry above.
+Next test: add a post-finish presentation capture that advances presentation
+without changing recorded finish metrics and includes the DOM results panel.
+Require the panel to be visible rather than accepting a successfully written
+blank PNG. Keep unfinished-driver shots unchanged. Player check: cross an outer
+edge of the RSA stripe after completing the route and confirm results appear.
