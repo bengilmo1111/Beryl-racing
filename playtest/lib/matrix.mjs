@@ -32,6 +32,22 @@ async function captureShot(page, courseId, botId, frame, suffix = '') {
   return `shots/${fileName}`;
 }
 
+const PRESENTATION_DELAY_FRAMES = Math.ceil(2300 / (1000 / 60));
+const MIN_PRESENTATION_SHOT_BYTES = 20_000;
+
+async function captureResultsShot(page, courseId, botId, frame) {
+  const label = String(frame).padStart(6, '0');
+  const fileName = `${courseId}--${botId}--f${label}--results.png`;
+  const results = page.getByRole('dialog', { name: 'Eastbourne results' });
+  await results.waitFor({ state: 'visible', timeout: 5000 });
+  const png = await page.screenshot({ animations: 'disabled' });
+  if (png.length < MIN_PRESENTATION_SHOT_BYTES) {
+    throw new Error(`results screenshot is unexpectedly small (${png.length} bytes)`);
+  }
+  await writeFile(path.join(SHOTS_DIR, fileName), png);
+  return `shots/${fileName}`;
+}
+
 export async function runSimulation({
   browser,
   baseUrl,
@@ -55,6 +71,7 @@ export async function runSimulation({
   const screenshots = [];
   const runtimeMessages = [];
   let finalState = null;
+  let completedMetricState = null;
   let maxCheckpoints = 0;
   let offRoadFrames = 0;
   let sampledFrames = 0;
@@ -183,6 +200,25 @@ export async function runSimulation({
         failures.push(failure('screenshot-capture', scope, error.message));
       }
     }
+
+    if (finalState?.finished && course.id === 'eastbourne-dash') {
+      try {
+        // Freeze the completed driving state before advancing Phaser's clock to
+        // the delayed DOM results. Presentation frames must not change metrics.
+        completedMetricState = await page.evaluate((frames) => {
+          const completed = window.__h.state();
+          window.__h.setInput({ throttle: 0, brake: 1, steer: 0 });
+          window.__h._stepNoRender(frames);
+          window.__h._render();
+          return completed;
+        }, PRESENTATION_DELAY_FRAMES);
+        screenshots.push(
+          await captureResultsShot(page, course.id, artifactBotId, finalState.frame)
+        );
+      } catch (error) {
+        failures.push(failure('results-presentation', scope, error.message));
+      }
+    }
   } catch (error) {
     runtimeMessages.push(error.stack || error.message);
   }
@@ -191,7 +227,8 @@ export async function runSimulation({
   try {
     harnessErrors = await page.evaluate(() => window.__h?.errors?.() || []);
     const fullState = await page.evaluate(() => window.__h?.state?.() || null);
-    if (fullState) finalState = fullState;
+    if (completedMetricState) finalState = completedMetricState;
+    else if (fullState) finalState = fullState;
   } catch (error) {
     runtimeMessages.push(error.message);
   }
