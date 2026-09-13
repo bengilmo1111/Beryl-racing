@@ -63,9 +63,9 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 |---|---|---|---|
 | Done | Coarse terrain can obscure climbing roads despite correct wheel support | PR #38 fixed Remutaka; the follow-up reproduces and clears Ōtaki's smaller overlaps across every alternate road | Player check on Remutaka's later bends and Ōtaki's gorge/town transitions |
 | Done | Test-driver stalls can masquerade as collision traps | Eastbourne steeringTaps stopped requesting throttle when misaligned; the bot-only restart fix now completes both fixed seeds | Investigate only a future trace that shows motive input without movement |
-| 1 | Completed runs need visible presentation evidence | Eastbourne final PNGs are one-colour celebration flashes even when metrics prove completion | Capture and assert the delayed DOM results panel without changing finish metrics |
-| 2 | Steering taps may feel more predictable with a different return rate | Subjective experiment pending, do not merge unjudged | A/B one steering parameter on the same Days Bay route |
-| 3 | More distinct landmarks improve recognition without visual clutter | Earlier Days Bay/Beryl art shipped; player judgement needed | Ask where the player thinks they are at wharf, park and RSA reference views |
+| Done | Completed runs need visible presentation evidence | PR #51 captures and asserts the delayed DOM results panel while preserving finish metrics | Inspect future `--results.png` evidence alongside completion metrics |
+| 1 | Steering taps may feel more predictable with a different return rate | Subjective experiment pending, do not merge unjudged | A/B one steering parameter on the same Days Bay route |
+| 2 | More distinct landmarks improve recognition without visual clutter | Earlier Days Bay/Beryl art shipped; player judgement needed | Ask where the player thinks they are at wharf, park and RSA reference views |
 | Done | Long test runs duplicated the growing timing history every frame | Fixed internal steps to return current state; final report retains all timings | Verify lightweight-step contract and deterministic baselines |
 | Done | Reports and controlled mistakes shorten diagnosis | This release adds opt-in trace downloads and 24 exploration runs | Verify CI and obtain first player report |
 
@@ -308,9 +308,17 @@ before those presentation-only frames. A missing dialog or an implausibly small
 PNG is a `results-presentation` failure; unfinished runs keep their existing
 final screenshot and do not claim results evidence.
 
-Decision: merge only if the new screenshot visibly contains the results panel,
-matching scenario/seed metrics remain unchanged, and all required PR checks
-pass. Next test: inspect both fixed Eastbourne steeringTaps seeds plus the
-standard waypoint artifact, and confirm their `--results.png` files show the
-dialog rather than the yellow flash. Player check remains crossing an outer edge
-of the RSA stripe and confirming the results screen appears.
+Result ([PR #51](https://github.com/bengilmo1111/Beryl-racing/pull/51)):
+the standard waypoint artifact and both fixed Eastbourne steeringTaps seeds now
+contain 1280x720 `--results.png` images with the visible RSA dialog. The three
+files contain 6,141–6,535 colours and are 96,946–102,637 bytes, rather than the
+one-colour yellow baseline. Matching steeringTaps metrics are unchanged for both
+seeds, including finish time, contacts, off-road fraction and frame-time summary.
+On code commit `e91338b`, Determinism 34781849215, Playtest 34781849161 and
+Exploration 34781849156 all pass; both deployment checks pass. This is evidence
+coverage, not a claim that the UI is fun or that a production bug was fixed.
+
+Decision: accept after this final documentation commit passes the same required
+checks. Next test: inspect future `--results.png` evidence alongside completion
+metrics. Player check remains crossing an outer edge of the RSA stripe and
+confirming the results screen appears.
