@@ -481,7 +481,7 @@ export class RaceScene extends Phaser.Scene {
     // traffic resolves bit-for-bit identically to before traffic existed.
     let contact = this.pushOutOf(this.obstacles);
     if (this.traffic) contact = this.pushOutOf(this.traffic.collisionCircles()) || contact;
-    if (this.barriers.length) contact = bounceOffBarriers(this.car, this.barriers, beforeMovement) || contact;
+    if (this.barriers?.length) contact = bounceOffBarriers(this.car, this.barriers, beforeMovement) || contact;
     if (contact && !this.hadContact) this.contactEvents++;
     this.hadContact = contact;
     this.car.sync();
