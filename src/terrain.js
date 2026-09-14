@@ -146,7 +146,7 @@ export class Terrain {
           y: road.centerline[i].y,
           h: road.heights[i],
           index: i,
-          pinRadiusSq: (road.half * 2 * ROAD_PIN_FACTOR) ** 2,
+          pinRadiusSq: (def?.theme === 'remutaka' ? road.half + 65 : road.half * 2 * ROAD_PIN_FACTOR) ** 2,
         });
       }
     }

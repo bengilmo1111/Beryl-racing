@@ -47,6 +47,8 @@ jobs:
         run: node playtest/course-art.mjs
       - name: Elevated terrain clears every road
         run: node playtest/terrain-clearance.mjs
+      - name: Remutaka cliff, barriers and summit
+        run: npm run test:remutaka
       - name: Road index
         run: npm run test:road-index
       - name: Car contact with the rendered road

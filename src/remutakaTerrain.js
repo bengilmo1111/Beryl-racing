@@ -7,8 +7,6 @@
 // away on the other.
 
 const LOOK = 8;
-const TURN_THRESHOLD = 0.018;
-const MIN_SIDE_RUN = 10;
 const CACHE = new WeakMap();
 
 function clamp01(value) {
@@ -23,40 +21,6 @@ function smoothstep(edge0, edge1, value) {
 function unit(dx, dz) {
   const length = Math.hypot(dx, dz) || 1;
   return { x: dx / length, z: dz / length };
-}
-
-function mergeShortRuns(sides) {
-  // A tiny sign run is sampling noise around a near-straight, not a real change
-  // of mountain side. Merge those runs into the longer neighbour so the visual
-  // cliff and guardrail never flick rapidly across the carriageway.
-  let changed = true;
-  while (changed) {
-    changed = false;
-    const runs = [];
-    let start = 0;
-    for (let i = 1; i <= sides.length; i += 1) {
-      if (i < sides.length && sides[i] === sides[start]) continue;
-      runs.push({ start, end: i, side: sides[start] });
-      start = i;
-    }
-
-    for (let r = 0; r < runs.length; r += 1) {
-      const run = runs[r];
-      if (run.end - run.start >= MIN_SIDE_RUN) continue;
-      const before = runs[r - 1];
-      const after = runs[r + 1];
-      const replacement = !before
-        ? after?.side
-        : !after
-          ? before.side
-          : (before.end - before.start >= after.end - after.start ? before.side : after.side);
-      if (!replacement || replacement === run.side) continue;
-      for (let i = run.start; i < run.end; i += 1) sides[i] = replacement;
-      changed = true;
-      break;
-    }
-  }
-  return sides;
 }
 
 export function remutakaRoadProfile(track) {
@@ -77,24 +41,11 @@ export function remutakaRoadProfile(track) {
     const out = unit(c.x - b.x, c.y - b.y);
     const cross = into.x * out.z - into.z * out.x;
     curvature[i] = cross;
-    if (Math.abs(cross) >= TURN_THRESHOLD) sides[i] = cross > 0 ? 1 : -1;
   }
 
-  // Carry the nearest meaningful turn through the straights. On a mountain road
-  // the cut/drop relationship does not vanish just because the centreline is
-  // momentarily straight.
-  let side = 0;
-  for (let i = 0; i < count; i += 1) {
-    if (sides[i]) side = sides[i];
-    else if (side) sides[i] = side;
-  }
-  side = 0;
-  for (let i = count - 1; i >= 0; i -= 1) {
-    if (sides[i]) side = sides[i];
-    else if (side) sides[i] = side;
-  }
-  if (!sides[0]) sides.fill(1);
-  mergeShortRuns(sides);
+  // In X/Z with Y up, (-tz, tx) points to the driver's RIGHT.
+  // The Wellington ascent keeps the bank right and valley left through bends.
+  sides.fill(1);
 
   const profile = line.map((point, i) => {
     const prev = line[Math.max(0, i - 1)];
@@ -107,7 +58,7 @@ export function remutakaRoadProfile(track) {
       h: track.heights ? track.heights[i] : 0,
       tx: tangent.x,
       tz: tangent.z,
-      // Left normal in the X/Z ground plane.
+      // Driver-right normal in the X/Z ground plane.
       nx: -tangent.z,
       nz: tangent.x,
       curvature: curvature[i],
@@ -146,30 +97,29 @@ export function remutakaPointContext(track, x, z) {
 
 // Turn the old nearest-road plateau into the characteristic Remutaka cross
 // section: a steep cut rising immediately on the inboard side and a fast fall
-// into the valley on the outside. The road itself and a generous shoulder remain
+// into the valley on the outside. The road itself and a narrow shoulder remain
 // pinned to the simulation height, so the rendered tarmac never floats.
 export function remutakaVisualHeight(point, x, z, baseHeight, roadHalf) {
   if (!point) return baseHeight;
   const signed = (x - point.x) * point.nx + (z - point.z) * point.nz;
   const insideDistance = signed * point.inside;
-  const shoulder = roadHalf * 2.3;
+  const shoulder = roadHalf + 65;
   const edgeDistance = Math.max(0, Math.abs(signed) - shoulder);
   if (edgeDistance <= 0) return baseHeight;
 
-  // Te Mārua starts broad and approachable. The cut and drop become increasingly
-  // severe through the sweepers, reaching full drama before the summit hairpins.
-  const drama = 0.16 + 0.84 * smoothstep(0.1, 0.7, point.progress);
+  // The cliff is already pronounced at the foot and strengthens up the climb.
+  const drama = 0.65 + 0.35 * smoothstep(0.05, 0.5, point.progress);
   const grain =
     Math.sin(x * 0.0041 + z * 0.0023) * 42 +
     Math.sin(x * 0.0017 - z * 0.0037 + point.progress * 17) * 30;
 
   if (insideDistance >= 0) {
-    const cut = smoothstep(0, 560, edgeDistance) * (300 + 1180 * drama);
-    const upperSlope = smoothstep(560, 2200, edgeDistance) * (220 + 620 * drama);
+    const cut = smoothstep(0, 340, edgeDistance) * (500 + 1500 * drama);
+    const upperSlope = smoothstep(340, 2200, edgeDistance) * (220 + 620 * drama);
     return baseHeight + cut + upperSlope + grain * drama;
   }
 
-  const cliff = smoothstep(0, 430, edgeDistance) * (230 + 980 * drama);
-  const valley = smoothstep(430, 2500, edgeDistance) * (260 + 1080 * drama);
+  const cliff = smoothstep(0, 280, edgeDistance) * (500 + 1350 * drama);
+  const valley = smoothstep(280, 2500, edgeDistance) * (260 + 1080 * drama);
   return baseHeight - cliff - valley - Math.abs(grain) * drama * 0.55;
 }

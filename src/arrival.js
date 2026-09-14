@@ -33,6 +33,10 @@ export function inTriangle(x, y, [a, b, c]) {
 // without extending the finish into the grass beyond the car park edges.
 export function crossesRsaFinish(road, from, to) {
   const polygon = rsaArrival(road).finishBand;
+  return crossesFinishBand(polygon, from, to);
+}
+
+export function crossesFinishBand(polygon, from, to) {
   let enter = 0, leave = 1;
   for (let i = 0; i < polygon.length; i++) {
     const a = polygon[i], b = polygon[(i + 1) % polygon.length];

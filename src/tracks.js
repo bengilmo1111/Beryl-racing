@@ -256,11 +256,15 @@ export const TRACKS = [
         { x: 4500, y: 1040 },
         { x: 4380, y: 780 },
         { x: 4820, y: 680 },
+        { x: 5080, y: 570 },
+        { x: 5120, y: 300 },
       ],
       // 240 was all the old switchback radius allowed — 1.1 car lengths, a
       // single-track goat road on a state highway. The rescale lifts the
       // ceiling to ~930, so this is now an ordinary two-lane road.
       roadWidth: 420,
+      arrival: 'remutaka-summit',
+      checkpointFractions: [0, 0.09, 0.18, 0.27, 0.36, 0.45, 0.54, 0.63, 0.72, 0.84, 0.92],
       numCheckpoints: 11,
       closed: false,
       elevation: {
@@ -269,12 +273,14 @@ export const TRACKS = [
           { at: 0.3, h: 45 },
           { at: 0.55, h: 160 },
           { at: 0.8, h: 320 },
-          { at: 1, h: 440 },
+          { at: 0.91, h: 440 },
+          { at: 0.93, h: 440 },
+          { at: 1, h: 395 },
         ],
       },
     },
     physics: { ...ROAD_CAR_PHYSICS },
-    storageKey: 'beryl-racing-3d.remutaka.bestTimeMs.v2',
+    storageKey: 'beryl-racing-3d.remutaka.bestTimeMs.v3',
     hud: { current: 'CLIMB TIME', progress: 'TO THE SUMMIT' },
     bestLabel: 'Best climb',
     results: {

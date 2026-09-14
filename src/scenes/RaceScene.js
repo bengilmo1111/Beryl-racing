@@ -1,3 +1,5 @@
+import { remutakaBarriers, bounceOffBarriers } from '../remutakaBarriers.js';
+import { crossesSummitFinish } from '../remutakaSummit.js';
 import Phaser from 'phaser';
 import { installDrivingReport } from '../diagnostics.js';
 import { WORLD, TRACK, COLORS, STORAGE_KEY } from '../config.js';
@@ -53,6 +55,7 @@ export class RaceScene extends Phaser.Scene {
     // and resolves contacts in order, so shuffling it moves recorded finish
     // positions. Seawall, then buildings, then the seeded scatter.
     this.obstacles = [];
+    this.barriers = this.def.theme === 'remutaka' ? remutakaBarriers(this.track) : [];
     if (this.def.theme === 'eastbourne') this.placeSeawall();
     // Buildings are solid. Their footprints come from src/structures.js rather
     // than from the render themes, so what you can see and what you can hit are
@@ -417,7 +420,7 @@ export class RaceScene extends Phaser.Scene {
       ? this.terrain.roadGradeAlong(this.car.x, this.car.y, f.x, f.y)
       : this.terrain.gradeAlong(this.car.x, this.car.y, f.x, f.y);
 
-    if (this.finished && this.def.theme === 'eastbourne') {
+    if (this.finished && (this.def.theme === 'eastbourne' || this.track.summit)) {
       // Short controlled roll into the parking area; never coast into the grass.
       const decay = Math.exp(-10 * dt);
       this.car.vx *= decay;
@@ -428,7 +431,7 @@ export class RaceScene extends Phaser.Scene {
     // where the other car is now rather than where it was last frame.
     if (this.traffic) this.traffic.update(dt);
     this.car.update(dt, input, onTrack, surface, grade);
-    this.resolveObstacles();
+    this.resolveObstacles(beforeMovement);
     this.applyFx(onTrack, input, surface);
 
     // The horn, on H. Read as a fresh press rather than as "is down", because
@@ -472,12 +475,13 @@ export class RaceScene extends Phaser.Scene {
   }
 
   // Everything solid Beryl can run into: the scenery, and the other cars.
-  resolveObstacles() {
+  resolveObstacles(beforeMovement = this.car) {
     // Scenery first, in its fixed order, then the other cars on the road. The
     // static list is walked exactly as it always was, so a course with no
     // traffic resolves bit-for-bit identically to before traffic existed.
     let contact = this.pushOutOf(this.obstacles);
     if (this.traffic) contact = this.pushOutOf(this.traffic.collisionCircles()) || contact;
+    if (this.barriers.length) contact = bounceOffBarriers(this.car, this.barriers, beforeMovement) || contact;
     if (contact && !this.hadContact) this.contactEvents++;
     this.hadContact = contact;
     this.car.sync();
@@ -574,6 +578,10 @@ export class RaceScene extends Phaser.Scene {
     const cps = this.track.checkpoints;
     if (this.def.theme === 'eastbourne' && this.expected === cps.length - 1) {
       if (crossesRsaFinish(this.track, beforeMovement, this.car)) this.finishSprint();
+      return;
+    }
+    if (this.track.summit && this.expected === cps.length - 1) {
+      if (crossesSummitFinish(this.track, beforeMovement, this.car)) this.finishSprint();
       return;
     }
     const target = cps[this.expected];
