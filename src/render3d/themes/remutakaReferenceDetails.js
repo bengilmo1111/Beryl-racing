@@ -21,67 +21,6 @@ const COLOUR = {
   rock: 0x746d64,
 };
 
-function addEarlyGuardrail(group, track, terrain, profile) {
-  const start = Math.floor(profile.length * 0.07);
-  const end = Math.floor(profile.length * 0.205);
-  const posts = [];
-
-  for (let i = start; i < end; i += 3) {
-    const point = profile[i];
-    const offset = track.half + 105;
-    const x = point.x + point.nx * point.outside * offset;
-    const z = point.z + point.nz * point.outside * offset;
-    posts.push({
-      x,
-      z,
-      roadY: point.h,
-      groundY: Math.min(point.h, terrain.heightAt(x, z)),
-    });
-  }
-  if (posts.length < 2) return;
-
-  const unit = new BoxGeometry(1, 1, 1);
-  const postMesh = new InstancedMesh(unit, lambert(COLOUR.railShade), posts.length);
-  const beamMesh = new InstancedMesh(unit, lambert(COLOUR.rail), posts.length - 1);
-  const dummy = new Object3D();
-  const localX = new Vector3(1, 0, 0);
-  const direction = new Vector3();
-
-  posts.forEach((post, i) => {
-    const height = post.roadY + 70 - post.groundY;
-    dummy.position.set(post.x, post.groundY + height / 2, post.z);
-    dummy.quaternion.identity();
-    dummy.scale.set(12, height, 12);
-    dummy.updateMatrix();
-    postMesh.setMatrixAt(i, dummy.matrix);
-  });
-
-  for (let i = 0; i < posts.length - 1; i += 1) {
-    const a = posts[i];
-    const b = posts[i + 1];
-    const dx = b.x - a.x;
-    const dy = b.roadY - a.roadY;
-    const dz = b.z - a.z;
-    const distance = Math.hypot(dx, dy, dz);
-    dummy.position.set(
-      (a.x + b.x) / 2,
-      (a.roadY + b.roadY) / 2 + 58,
-      (a.z + b.z) / 2
-    );
-    direction.set(dx, dy, dz).normalize();
-    dummy.quaternion.setFromUnitVectors(localX, direction);
-    dummy.scale.set(distance + 8, 14, 12);
-    dummy.updateMatrix();
-    beamMesh.setMatrixAt(i, dummy.matrix);
-  }
-
-  for (const mesh of [postMesh, beamMesh]) {
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.frustumCulled = false;
-    group.add(mesh);
-  }
-}
-
 function addDelineators(group, track, terrain, profile) {
   const samples = [];
   for (let i = Math.floor(profile.length * 0.1); i < profile.length - 4; i += 8) {
@@ -224,7 +163,7 @@ export function buildRemutakaReferenceDetails(track, terrain) {
   const profile = remutakaRoadProfile(track);
   if (!profile.length) return group;
 
-  addEarlyGuardrail(group, track, terrain, profile);
+
   addDelineators(group, track, terrain, profile);
   addRockCuts(group, track, terrain, profile);
   addSweeperChevrons(group, track, terrain, profile);

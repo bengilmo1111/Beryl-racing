@@ -19,7 +19,8 @@
     "shots": "node playtest/shots.mjs",
     "test:gateway": "node playtest/gateway-smoke.mjs",
     "playtest:explore": "node playtest/explore.mjs",
-    "test:driving-trace": "node playtest/driving-trace.mjs"
+    "test:driving-trace": "node playtest/driving-trace.mjs",
+    "test:remutaka": "node playtest/remutaka-cliff.mjs"
   },
   "dependencies": {
     "phaser": "^3.80.1",

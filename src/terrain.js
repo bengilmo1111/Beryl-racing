@@ -227,12 +227,13 @@ export class Terrain {
 
     if (remutaka) {
       const profile = remutakaRoadProfile(track);
+      const visualPinned = Uint8Array.from(pinned, (value, i) => roadDistance[i] <= track.half + 65 ? value : 0);
       const visual = Float32Array.from(this.physicsGrid);
       for (let r = 0; r < this.rows; r++) {
         const wz = this.minY + r * CELL;
         for (let c = 0; c < this.cols; c++) {
           const k = r * this.cols + c;
-          if (pinned[k]) continue;
+          if (visualPinned[k]) continue;
           const wx = this.minX + c * CELL;
           const sample = samples[nearestSample[k]];
           const point = profile[sample?.index || 0];
@@ -242,11 +243,14 @@ export class Terrain {
       // One restrained smoothing pass joins the grid cells without sanding the
       // cliff back into the broad plateau this course used to have. Road cells
       // remain restored to their exact original heights by #blur.
-      this.grid = this.#blur(visual, pinned, 1);
+      this.grid = this.#blur(visual, visualPinned, 1);
     }
 
     this.grid = this.#addRelief(this.grid, pinned, roadDistance);
-    this.drivingGrid = this.grid;
+    // Exaggerated cliffs must not act as a gravity ramp when a wheel leaves
+    // the seal. Keep the real road triangles, with the smooth field off-road.
+    this.unclearedGrid = this.grid;
+    this.drivingGrid = remutaka ? this.physicsGrid : this.grid;
     // Coarse ground triangles can cross a curved road between pinned vertices.
     // Remutaka exposed this dramatically on its cliff face; Ōtaki has the same
     // geometry failure at a smaller scale across its primary and town roads.

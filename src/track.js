@@ -2,6 +2,7 @@
 // checkpoints, surfaces, elevation and helpers for testing whether a point is on
 // any driveable road.
 import { rsaArrival, inTriangle } from './arrival.js';
+import { remutakaSummit } from './remutakaSummit.js';
 import { TRACK } from './config.js';
 
 function catmullRom(p0, p1, p2, p3, t) {
@@ -234,6 +235,10 @@ export function buildTrack() {
   );
 
   if (TRACK.arrival === 'rsa-parking') primary.pavedAreas = [rsaArrival(primary).triangle];
+  if (TRACK.arrival === 'remutaka-summit') {
+    primary.summit = remutakaSummit(primary);
+    primary.pavedAreas = [primary.summit.triangle];
+  }
   const roads = [primary];
   for (const branchSpec of TRACK.branches || []) {
     const branch = buildRoad(branchSpec, TRACK);
@@ -262,6 +267,7 @@ export function buildTrack() {
   }
 
   const checkpoints = buildCheckpoints(primary);
+  if (primary.summit) checkpoints[checkpoints.length - 1] = primary.summit.finish;
   // Start pose: on the line, facing along the route from the first sample.
   const start = primary.centerline[0];
   const startNext = primary.centerline[1];

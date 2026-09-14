@@ -95,7 +95,7 @@ class RaceWorld {
         );
       }
       if (through || scene.def.theme === 'eastbourne') {
-        for (const strip of buildKerbs(road, scene.def.theme, skip, scene.def.theme === 'eastbourne' ? roads : null)) this.scene3d.add(strip);
+        for (const strip of buildKerbs(road, scene.def.theme, scene.track.summit ? i => skip?.(i) || Math.abs(i - scene.track.summit.index) < 28 : skip, scene.def.theme === 'eastbourne' ? roads : null)) this.scene3d.add(strip);
       }
     }
     this.scene3d.add(buildJunctions(junctions));
