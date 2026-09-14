@@ -64,6 +64,7 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 | Done | Coarse terrain can obscure climbing roads despite correct wheel support | PR #38 fixed Remutaka; the follow-up reproduces and clears Ōtaki's smaller overlaps across every alternate road | Player check on Remutaka's later bends and Ōtaki's gorge/town transitions |
 | Done | Test-driver stalls can masquerade as collision traps | Eastbourne steeringTaps stopped requesting throttle when misaligned; the bot-only restart fix now completes both fixed seeds | Investigate only a future trace that shows motive input without movement |
 | Done | Completed runs need visible presentation evidence | PR #51 captures and asserts the delayed DOM results panel while preserving finish metrics | Inspect future `--results.png` evidence alongside completion metrics |
+| Done | Remutaka should keep the cliff on the left, stop Beryl at rails and finish in the summit car park | PR #52 shares rendered/collision rails, fixes the terrain sides and moves arrival into a paved triangular summit area | Record one full player run; check left exposure, rebounds and car-park arrival |
 | 1 | Steering taps may feel more predictable with a different return rate | Subjective experiment pending, do not merge unjudged | A/B one steering parameter on the same Days Bay route |
 | 2 | More distinct landmarks improve recognition without visual clutter | Earlier Days Bay/Beryl art shipped; player judgement needed | Ask where the player thinks they are at wharf, park and RSA reference views |
 | Done | Long test runs duplicated the growing timing history every frame | Fixed internal steps to return current state; final report retains all timings | Verify lightweight-step contract and deterministic baselines |
@@ -322,3 +323,45 @@ Decision: accept after this final documentation commit passes the same required
 checks. Next test: inspect future `--results.png` evidence alongside completion
 metrics. Player check remains crossing an outer edge of the RSA stripe and
 confirming the results screen appears.
+
+## 2026-09-15: Remutaka cliff, solid rails and summit arrival
+
+Baseline: main `2fcf661623271c48ab28a57170e9d4a6d42817ff`. There were no open
+issues and one active PR, #52, already implementing the user's recorded Remutaka
+findings; this iteration reused and audited that work instead of starting a
+duplicate. Scheduled Playtest 34886326464 and Exploration 34887083236 passed on
+that exact main commit on September 14 UTC. The previous successful scheduled
+runs, 34771490851 and 34771624429, also passed. Matching lateBraking seeds 779425
+and 779426 were identical across both scheduled Exploration runs: 120966.666667
+ms, zero contacts, 10.926% off-road and all 11 gates. Matching waypoint frames
+600 through 7200 were pixel-identical. Determinism has no schedule, so no
+scheduled Determinism pass is claimed.
+
+Problem and hypothesis: the old visual terrain alternated the cliff side with
+corner curvature, decorative rails had no collision, and the route ended on the
+road. Keeping the bank on the driver's right and drop on the left, deriving
+rendered and swept-collision rails from one segment list, and moving the finish
+into a triangular paved summit area should fix those objective mismatches. The
+exact summit dimensions remain an authored approximation because the supplied
+real-drive clip does not show them.
+
+Result ([PR #52](https://github.com/bengilmo1111/Beryl-racing/pull/52)):
+the fixed cliff side, narrower shoulder, shared barrier collision, downhill road
+continuation and summit parking finish merged as `1818b8b`. The regression covers
+slow and fast barrier impacts, the open entrance, finish crossings in both
+directions, rejection of road/grass finishes, parking support and 265,925 terrain
+positions plus 565 rendered-mesh rays. On the final PR head, Determinism
+34895612837, Playtest 34895612965 and Exploration 34895612834 all passed, as did
+both deployment checks. Three deterministic Remutaka replays agreed on 122100 ms,
+position (120359.028346296, 16370.836788409) and obstacle fingerprint
+`b55a2b03c90e51a0`; the other three course baselines stayed unchanged.
+
+The PR's waypoint run finished at 122100 ms with 32 barrier-contact episodes and
+6.484% off-road; both lateBraking seeds finished at 122066.666667 ms with 31
+contacts and 6.526% off-road. Those changed metrics are expected from real rails
+and the new finish, but do not prove fun. Browser screenshots show a continuous
+left-side guardrail/drop and right-side bank through the sampled ascent, plus the
+new car park. Decision: accepted after all required checks passed. Next player
+test: record one full climb and check that the drop remains on the left, every
+rail rebounds Beryl, and crossing the white line inside the summit car park ends
+the run. Use that recording to judge the authored summit shape and remaining art.
