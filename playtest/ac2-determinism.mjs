@@ -171,10 +171,13 @@ const BASELINES = {
     pos: { x: 27528.050621921, y: 23092.101893972 },
     obstacles: 'de191f8062eae108',
   },
+  // Re-recorded 2026-09-14: fixed left cliff, solid rails, revised crest and
+  // parking finish. CI replayed this input three times identically; the other
+  // courses retain their previous baselines. Road extension changes scenery.
   remutaka: {
-    finishTimeMs: 124366.666667,
-    pos: { x: 119987.86879753, y: 17100.646603159 },
-    obstacles: '618c12d304463fb4',
+    finishTimeMs: 122100,
+    pos: { x: 120359.028346296, y: 16370.836788409 },
+    obstacles: 'b55a2b03c90e51a0',
   },
   // Re-recorded 2026-08-02 for the complete Ōtaki replacement: a much longer
   // Forks-to-coast route, realistic sealed/gravel split, eight gates, branch

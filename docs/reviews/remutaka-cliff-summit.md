@@ -36,3 +36,20 @@ real-drive recording does not establish the summit layout or exact dimensions.
 
 Browser playtesting and new chase-camera screenshots remain unverified: no
 Chromium executable was installed, and the Playwright download timed out.
+
+
+## CI follow-up
+
+Browser CI exposed an absent junction mask and a legacy test scene without a
+barrier collection; both now handle absent values. It also caught visual cliff
+gradients accelerating the car off-road. Remutaka now uses the original smooth
+physics field outside road triangles, independently of the exaggerated visual
+field. The road-resolution visual faces and narrow shoulder remain.
+
+The full course matrix and all twelve exploration scenarios passed on
+`ee9584a032f1ef007ff4a777040c67b748db905f`. Three identical Remutaka replays
+finished at 122100 ms, position (120359.028346296, 16370.836788409), with obstacle
+fingerprint `b55a2b03c90e51a0`. Only Remutaka's pinned baseline was updated; the
+other three courses' exact values remained unchanged. CI browser screenshots
+were inspected; the end-of-run screenshot catches the existing yellow finish
+flash, so it does not establish the settled results overlay.
