@@ -30,7 +30,8 @@ for (const id of Object.keys(expectations)) {
   applyTrack(def);
   const track = buildTrack();
   const terrain = new Terrain(track, def.world, def);
-  const original = Float32Array.from(terrain.drivingGrid);
+  const original = Float32Array.from(terrain.unclearedGrid || terrain.drivingGrid);
+  const driving = Float32Array.from(terrain.drivingGrid);
   assert.notEqual(terrain.grid, terrain.drivingGrid, `${id}: visual clearance must not mutate driving terrain`);
   assert.notEqual(terrain.grid, terrain.physicsGrid, `${id}: visual clearance must not mutate physics`);
   const mesh = buildGround(terrain, def.theme);
@@ -63,7 +64,7 @@ for (const id of Object.keys(expectations)) {
   }
   const expected = expectations[id];
   assert.ok(before > expected.intrusions && worst > expected.worst, `${id}: fixture must reproduce the original intrusion`);
-  assert.deepEqual(terrain.drivingGrid, original);
+  assert.deepEqual(terrain.drivingGrid, driving);
   assert.ok(terrain.grid.every((h, i) => h <= original[i]), `${id}: clearance must only lower terrain`);
   mesh.geometry.dispose(); mesh.material.dispose();
   totalChecked += checked;
