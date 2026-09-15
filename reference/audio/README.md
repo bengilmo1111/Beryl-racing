@@ -89,3 +89,17 @@ that into silence at the head and tail of the decoded buffer. On a one-shot that
 is inaudible; on a loop it is a gap in the middle of the engine note every 1.8
 seconds. WAV has no such thing. Mono at 22.05 kHz keeps all three under 210 kB
 together, against 3.5 MB for the music.
+
+## September 2026 mix pass
+
+The three supplied AAC files match these masters byte for byte (SHA-256).
+The engine already uses the front/rear loops and the horn already uses the
+recorded press, so their source clips and measured pitch calibration are retained.
+Music gain is now 0.22 (previously 0.38, down 4.7 dB); engine output is multiplied
+by 1.26 (up 2 dB). Horn gain stays at 0.68 to preserve headroom.
+
+Tyres previously had visual skid marks and smoke but no audio. `TyreSound.js`
+adds filtered noise for sealed-road sliding and softer loose-surface friction.
+This is procedural audio, not a sound extracted from the supplied engine clips.
+It follows speed, surface and slip, fades at rest, respects mute and is disposed
+on scene shutdown. All vehicle sounds share the existing compressor.

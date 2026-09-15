@@ -46,6 +46,39 @@ await page.waitForTimeout(1200);
 await page.keyboard.press('Enter');
 await page.waitForTimeout(6000);
 
+// Measure actual tyre output: ordinary sealed driving is quiet, a slide or
+// loose surface is audible, and mute/standstill silence it again.
+const tyreLevels = await page.evaluate(async () => {
+  const { TyreSound } = await import('/src/audio/TyreSound.js');
+  const ctx = new AudioContext();
+  await ctx.resume();
+  const tyres = new TyreSound({ context: ctx });
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 2048;
+  tyres.out.connect(analyser);
+  const data = new Float32Array(analyser.fftSize);
+  const levels = {};
+  for (const [name, override] of Object.entries({
+    road: {}, slide: { sliding: true }, gravel: { surface: 'gravel' },
+    muted: { sliding: true, muted: true }, stopped: { speed: 0, sliding: true },
+  })) {
+    tyres.update({ speed: 0.7, sliding: false, onTrack: true, surface: 'tarmac', muted: false, ...override });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    analyser.getFloatTimeDomainData(data);
+    levels[name] = Math.sqrt(data.reduce((sum, x) => sum + x * x, 0) / data.length);
+  }
+  tyres.stop();
+  tyres.stop(); // scene cleanup is safe if called twice
+  await ctx.close();
+  return levels;
+});
+assert.ok(tyreLevels.slide > 0.01, 'sliding tyres are silent');
+assert.ok(tyreLevels.gravel > 0.005, 'gravel tyres are silent');
+for (const key of ['road', 'muted', 'stopped']) {
+  assert.ok(tyreLevels[key] < 0.001, `${key} should silence the tyres: ${tyreLevels[key]}`);
+}
+console.log('audio-check: PASS — tyre scrub, gravel, mute and standstill', tyreLevels);
+
 // Drive her, and sample what the synth is doing as the game runs it. The
 // synthetic sweep this replaced called update() twice per sample with a sleep
 // between, which is not how the game drives it and made the shift dip look

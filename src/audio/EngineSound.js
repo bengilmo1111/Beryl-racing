@@ -155,14 +155,8 @@ export class EngineSound {
     const firing = (rpm / 60) * this.firingsPerRev;
     this.voice.render({ firing, rpm, load, through, shifting }, now);
 
-    // Audible on a laptop speaker, which the old 0.05-to-0.18 range was not: a
-    // 46 Hz sawtooth under a music bed is felt on headphones and gone on
-    // anything else.
-    //
-    // Raised by about 3 dB over the range that replaced it, with the music down
-    // 2 dB to meet it (see audio/sound.js). She is the thing you are driving;
-    // the music is the thing it is happening to.
-    let volume = 0.22 + load * 0.28 + through * 0.14;
+    // Bring the recorded engine up 2 dB; the shared compressor catches peaks.
+    let volume = (0.22 + load * 0.28 + through * 0.14) * 1.26;
     if (shifting) volume *= 0.55;
     if (muted) volume = 0;
     this.out.gain.setTargetAtTime(Math.max(volume, 0.0001), now, 0.05);
