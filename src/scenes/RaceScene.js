@@ -178,7 +178,32 @@ export class RaceScene extends Phaser.Scene {
     if (this.def.theme === 'eastbourne') this.createRecovery();
 
     this.input.keyboard.once('keydown-ESC', () => this.scene.start('Title'));
+    this.watchForPauses();
     this.startCountdown();
+  }
+
+  // The game can be paused out from under a race: the phone is turned portrait
+  // (see src/viewport.js), or the tab goes to the background. Phaser stops
+  // stepping this scene, and three things carry on regardless — the engine
+  // note, a touch button being held down, and the clock the climb is timed
+  // against.
+  watchForPauses() {
+    // When the pause began, in scene time, or null if we are not in one. The
+    // clock keeps running while the game is paused, so every deadline held as
+    // an absolute time has to be moved on by however long it lasted or the
+    // player is charged for it — see the top of update().
+    this.pausedAtTime = null;
+    const onPause = () => {
+      if (this.pausedAtTime === null) this.pausedAtTime = this.time.now;
+      // Web Audio does not pause with the game; left alone the engine holds
+      // one note for as long as the phone is sideways.
+      if (this.engine) this.engine.silence();
+      // And a finger that was on the gas never gets to let go of it.
+      if (this.touch) this.touch.releaseAll();
+    };
+    const events = this.game.events;
+    events.on(Phaser.Core.Events.PAUSE, onPause);
+    this.events.once('shutdown', () => events.off(Phaser.Core.Events.PAUSE, onPause));
   }
 
   onResize() {
@@ -405,6 +430,15 @@ export class RaceScene extends Phaser.Scene {
 
   update(time, delta) {
     if (this.harnessRenderOnly) return;
+    if (this.pausedAtTime !== null) {
+      const paused = time - this.pausedAtTime;
+      this.pausedAtTime = null;
+      // Only the deadlines this course actually keeps: the recovery and route
+      // fields belong to Eastbourne and are undefined everywhere else.
+      for (const key of ['lapStartTime', 'nextRecoveryAt', 'routeUpdateAt', 'offRoadSince']) {
+        if (typeof this[key] === 'number') this[key] += paused;
+      }
+    }
     const dt = Math.min(delta / 1000, 0.05);
     const input = this.readInput();
     // Stashed for the 3D layer, which steers Beryl's front wheels with it. Read

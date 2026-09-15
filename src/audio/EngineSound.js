@@ -168,6 +168,17 @@ export class EngineSound {
     this.out.gain.setTargetAtTime(Math.max(volume, 0.0001), now, 0.05);
   }
 
+  // Wind the engine down to nothing without tearing it apart.
+  //
+  // Web Audio plays to its own clock, so an engine whose update() has stopped
+  // being called does not fall quiet: it holds whatever note it was on. That is
+  // what a paused game sounds like without this. The voice keeps running, so
+  // the next update() brings it straight back.
+  silence() {
+    if (!this.ok) return;
+    this.out.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.02);
+  }
+
   // What the engine thinks it is doing, for the HUD and for diagnosing silence.
   describe() {
     return {
