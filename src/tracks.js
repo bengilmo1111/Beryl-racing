@@ -281,21 +281,21 @@ export const TRACKS = [
     },
     physics: { ...ROAD_CAR_PHYSICS },
     // The same Morris Minor traffic system as Eastbourne, thinned out for the
-    // narrower hill road. All six descend in their own lane: on a road without
-    // a safe passing shoulder, a slower car climbing ahead of Beryl becomes a
-    // rolling roadblock rather than useful traffic. They wrap below the summit
-    // so the finish stays clear.
+    // narrower hill road. Four slower uphill cars give Beryl something to
+    // overtake; two descending cars leave gaps to pass in. Uphill speeds rise
+    // along the route so the fleet spreads out instead of forming a convoy.
+    // They wrap below the summit so the finish stays clear.
     traffic: {
       laneFraction: 0.5,
       // The automated driver needs extra bend clearance on the cliff road. It
       // still keeps left, but does not hug the rail through the hairpins.
       botLaneFraction: 0.15,
       cars: [
-        { at: 0.22, direction: -1, speedKmh: 64 },
+        { at: 0.04, direction: 1, speedKmh: 32 },
         { at: 0.66, direction: -1, speedKmh: 60 },
-        { at: 0.12, direction: -1, speedKmh: 62 },
-        { at: 0.37, direction: -1, speedKmh: 58 },
-        { at: 0.62, direction: -1, speedKmh: 55 },
+        { at: 0.12, direction: 1, speedKmh: 34 },
+        { at: 0.22, direction: 1, speedKmh: 36 },
+        { at: 0.32, direction: 1, speedKmh: 38 },
         { at: 0.87, direction: -1, speedKmh: 52 },
       ],
     },
