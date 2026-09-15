@@ -137,7 +137,7 @@ class RaceWorld {
     this.scene3d.add(this.skid.mesh);
     this.puffs = new PuffPool(this.scene3d, this.terrain);
 
-    this.beryl = applyBerylPhotoPass(buildBeryl());
+    this.beryl = applyBerylPhotoPass(buildBeryl({ photoBody: true }));
     this.scene3d.add(this.beryl.root);
 
     // The other cars on the road, where the course has any. They share Beryl's

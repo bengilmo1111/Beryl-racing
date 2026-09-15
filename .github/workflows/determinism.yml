@@ -43,6 +43,8 @@ jobs:
         run: node playtest/eastbourne-settlement.mjs
       - name: Eastbourne coast geometry and materials
         run: node playtest/eastbourne-coast.mjs
+      - name: Beryl model and restart cache
+        run: node playtest/beryl-model.mjs
       - name: Course art geometry
         run: node playtest/course-art.mjs
       - name: Elevated terrain clears every road
