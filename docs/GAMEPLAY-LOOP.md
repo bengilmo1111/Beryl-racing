@@ -400,8 +400,16 @@ the road half-width, and when Beryl is already within about 32 degrees of the
 road. The regression uses the exact final seed-779425 position and heading,
 and guards ordinary moving and centre-road camera behaviour.
 
-Decision: leave the preview unmerged until player judgment. Required CI must
-pass before presenting it. Next test: in production and preview, climb to an
-ordinary right bank, stop with Beryl's nose angled into it, then reverse and
-steer back onto the seal. Choose which camera makes the road and intended
-recovery clearer without an unwelcome swing; do not compare bot finish times.
+Result ([draft PR #62](https://github.com/bengilmo1111/Beryl-racing/pull/62),
+code commit `da4f35d`): Playtest 35019784297, Exploration 35019784329 and
+Determinism 35019784290 all pass, including every course and the mobile journey.
+The two heldSteering metrics are unchanged (2/11 gates, 725 contacts and the
+same final state), while both final frames now show the lane, guardrail and
+escape direction instead of almost entirely hillside. Both deployments pass.
+This confirms isolation and the intended visual effect, not player preference.
+
+Decision: leave the preview unmerged until player judgment. Next test: in
+production and preview, climb to an ordinary right bank, stop with Beryl's nose
+angled into it, then reverse and steer back onto the seal. Choose which camera
+makes the road and intended recovery clearer without an unwelcome swing; do not
+compare bot finish times.
