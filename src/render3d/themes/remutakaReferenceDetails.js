@@ -11,16 +11,16 @@ import {
 } from 'three';
 import { basic, lambert } from '../palette.js';
 import { labelTexture } from '../textures.js';
-import { remutakaRoadProfile } from '../../remutakaTerrain.js';
+import { remutakaVisualHeight, remutakaRoadProfile } from '../../remutakaTerrain.js';
 
 const COLOUR = {
   rail: 0xd8dee2,
   railShade: 0x7b898e,
   post: 0xf4f0df,
   postPatch: 0x263238,
-  bushDeep: 0x214f35,
-  bushMid: 0x397047,
-  bushLight: 0x568455,
+  bushDeep: 0x31573a,
+  bushMid: 0x456c37,
+  bushLight: 0x71934b,
 };
 
 function addDelineators(group, track, terrain, profile) {
@@ -68,34 +68,41 @@ function addDelineators(group, track, terrain, profile) {
 
 function addBushyBank(group, track, terrain, profile) {
   const bushes = [[], [], []];
-  const start = Math.floor(profile.length * 0.17);
-  const end = Math.floor(profile.length * 0.9);
+  const start = 3;
+  const end = profile.length - 3;
 
-  for (let i = start; i < end; i += 3) {
+  for (let i = start; i < end; i += 4) {
     const point = profile[i];
+    if (track.summit && Math.abs(i - track.summit.index) < 50) continue;
     // Dense overlapping crowns hide the old bare cut face. Deterministic trig
     // variation keeps the bush natural without touching gameplay RNG state.
     const strength = 0.75 + point.progress * 0.45;
-    const count = (i % 9 === 0) ? 3 : 2;
+    const count = 7;
     for (let r = 0; r < count; r += 1) {
       const phase = i * 1.73 + r * 4.1;
-      const offset = track.half + 105 + (Math.sin(phase) * 0.5 + 0.5) * 390;
+      const offset = track.half + 125 + r * 65 + Math.sin(phase) * 20;
       const along = Math.sin(phase * 0.7) * 55;
       const x = point.x + point.nx * point.inside * offset + point.tx * along;
       const z = point.z + point.nz * point.inside * offset + point.tz * along;
       const sx = 75 + (Math.sin(phase * 1.17) * 0.5 + 0.5) * 135;
-      const sy = (65 + (Math.cos(phase * 0.91) * 0.5 + 0.5) * 120) * strength;
+      const sy = (140 + (Math.cos(phase * 0.91) * 0.5 + 0.5) * 120) * strength;
       const sz = 70 + (Math.sin(phase * 0.53 + 2) * 0.5 + 0.5) * 120;
-      const ground = terrain.heightAt(x, z);
+      // Match the steep near-face mesh, not the coarser terrain grid.
+      const farX = point.x + point.nx * (track.half + 450);
+      const farZ = point.z + point.nz * (track.half + 450);
+      const farHeight = remutakaVisualHeight(point, farX, farZ, point.h, track.half);
+      const ground = offset < track.half + 450
+        ? point.h - 8 + (farHeight - point.h + 8) * ((offset - track.half - 65) / 385)
+        : terrain.heightAt(x, z);
       bushes[(i + r) % bushes.length].push({ x, z, y: ground + sy * 0.42, sx, sy, sz, yaw: phase * 0.23 });
     }
   }
 
-  const geometry = new DodecahedronGeometry(1, 0);
+  const geometry = new DodecahedronGeometry(1, 1);
   const dummy = new Object3D();
   const colours = [COLOUR.bushDeep, COLOUR.bushMid, COLOUR.bushLight];
   bushes.forEach((batch, colourIndex) => {
-    const mesh = new InstancedMesh(geometry, lambert(colours[colourIndex], { flatShading: true }), batch.length);
+    const mesh = new InstancedMesh(geometry, lambert(colours[colourIndex], { flatShading: false }), batch.length);
     batch.forEach((bush, i) => {
       dummy.position.set(bush.x, bush.y, bush.z);
       dummy.rotation.set(0, bush.yaw, Math.sin(bush.yaw) * 0.08);

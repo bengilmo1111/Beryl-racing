@@ -23,6 +23,7 @@ import { buildEastbourne } from './themes/eastbourne.js';
 import { buildOtaki } from './themes/otaki.js';
 import { buildOtakiParallax, updateOtakiParallax } from './themes/otakiParallax.js';
 import { buildManfeild } from './themes/manfeild.js';
+import { buildRemutakaGround } from './themes/remutakaDescent.js';
 import { buildRemutaka } from './themes/remutaka.js';
 import { buildRemutakaReferenceDetails } from './themes/remutakaReferenceDetails.js';
 import { SkidRibbon } from './fx/skid.js';
@@ -52,14 +53,15 @@ class RaceWorld {
     //
     // No shadow maps: they cost, SwiftShader in CI is happier without them, and
     // flat contact-shadow discs read fine at this scale.
-    this.scene3d.add(new HemisphereLight(0xdfefff, 0xa9c69a, 1.35));
-    const sun = new DirectionalLight(0xfff3d0, 0.55);
+    const hillLight = scene.def.theme === 'remutaka';
+    this.scene3d.add(new HemisphereLight(0xdfefff, 0xa9c69a, hillLight ? 1.1 : 1.35));
+    const sun = new DirectionalLight(0xfff3d0, hillLight ? 0.85 : 0.55);
     sun.position.set(-1, 2, -0.6);
     this.scene3d.add(sun);
 
     this.terrain = scene.terrain;
     this.otakiParallax = null;
-    this.scene3d.add(buildGround(this.terrain, scene.def.theme));
+    this.scene3d.add(hillLight ? buildRemutakaGround(this.terrain, scene.track) : buildGround(this.terrain, scene.def.theme));
 
     // Ground first, then every driveable road, each painted outward-in and
     // bottom-up: apron, road, centre line, kerbs.

@@ -6,6 +6,7 @@
 // early chevrons make the exposed edge legible before the player reaches it.
 import {
   BoxGeometry,
+  Color,
   BufferGeometry,
   DoubleSide,
   IcosahedronGeometry,
@@ -19,19 +20,21 @@ import {
 } from 'three';
 import { remutakaBarriers } from '../../remutakaBarriers.js';
 import { remutakaVisualHeight } from '../../remutakaTerrain.js';
-import { buildPavedAreas } from '../road.js';
+import { buildPavedAreas, buildRoad, buildApron, buildKerbs } from '../road.js';
+import { buildRemutakaCentreLine } from '../remutakaCentreLine.js';
+import { remutakaDescent } from './remutakaDescent.js';
 import { metres } from '../../scale.js';
 import { WORLD } from '../../config.js';
 import { basic, lambert } from '../palette.js';
 import { labelTexture } from '../textures.js';
-import { addCloud, markDecorative, ridge } from './parallax.js';
+import { addCloud, markDecorative } from './parallax.js';
 import { remutakaRoadProfile } from '../../remutakaTerrain.js';
 
 const COLOUR = {
   rail: 0xd8dee2,
   railShade: 0x87959a,
-  reflector: 0xfff8e7,
-  reflectorRed: 0xe84a5f,
+  reflector: 0xf2cc36,
+  reflectorRed: 0xf2cc36,
   bankFace: 0x315f3d,
   dropFace: 0x24553b,
   farRange: 0x718f7c,
@@ -131,20 +134,22 @@ function addGuardrail(group, track, terrain, profile) {
   }
 
   const unitBox = new BoxGeometry(1, 1, 1);
-  const postMesh = new InstancedMesh(unitBox, lambert(COLOUR.railShade), posts.length);
+  const visiblePosts = posts.filter((p, i) => i % 12 === 0 || i >= posts.length - 4);
+  const postMesh = new InstancedMesh(unitBox, lambert(COLOUR.railShade), visiblePosts.length);
   const beamMesh = new InstancedMesh(unitBox, lambert(COLOUR.rail), beams.length);
-  const reflectorCount = Math.ceil(posts.length / 3);
+  const reflectorCount = Math.ceil(posts.length / 36);
   const reflectorMesh = new InstancedMesh(unitBox, basic(COLOUR.reflector, { fog: true }), reflectorCount);
   const redMesh = new InstancedMesh(unitBox, basic(COLOUR.reflectorRed, { fog: true }), reflectorCount);
   const dummy = new Object3D();
   const localX = new Vector3(1, 0, 0);
   const direction = new Vector3();
 
-  posts.forEach((post, i) => {
-    const height = post.y + 70 - post.groundY;
-    dummy.position.set(post.x, post.groundY + height / 2, post.z);
+  visiblePosts.forEach((post, i) => {
+    const foot = Math.max(post.y - 24, post.groundY);
+    const height = post.y + 48 - foot;
+    dummy.position.set(post.x, foot + height / 2, post.z);
     dummy.quaternion.identity();
-    dummy.scale.set(12, height, 12);
+    dummy.scale.set(8, height, 8);
     dummy.updateMatrix();
     postMesh.setMatrixAt(i, dummy.matrix);
   });
@@ -152,35 +157,35 @@ function addGuardrail(group, track, terrain, profile) {
   beams.forEach((beam, i) => {
     dummy.position.set(
       (beam.a.x + beam.b.x) / 2,
-      (beam.a.y + beam.b.y) / 2 + 58,
+      (beam.a.y + beam.b.y) / 2 + 42,
       (beam.a.z + beam.b.z) / 2
     );
     direction.set(beam.dx, beam.dy, beam.dz).normalize();
     dummy.quaternion.setFromUnitVectors(localX, direction);
-    dummy.scale.set(beam.distance + 8, 14, 12);
+    dummy.scale.set(beam.distance + 4, 16, 6);
     dummy.updateMatrix();
     beamMesh.setMatrixAt(i, dummy.matrix);
   });
 
   let reflector = 0;
-  for (let i = 0; i < posts.length; i += 3) {
+  for (let i = 0; i < posts.length; i += 36) {
     const post = posts[i];
     const inward = -post.point.outside;
     const yaw = Math.atan2(-post.point.tz, post.point.tx);
 
     dummy.position.set(
       post.x + post.point.nx * inward * 8,
-      post.y + 76,
+      post.y + 43,
       post.z + post.point.nz * inward * 8
     );
     dummy.rotation.set(0, yaw, 0);
-    dummy.scale.set(18, 15, 5);
+    dummy.scale.set(12, 9, 3);
     dummy.updateMatrix();
     reflectorMesh.setMatrixAt(reflector, dummy.matrix);
 
     dummy.position.set(
       post.x + post.point.nx * post.point.outside * 8,
-      post.y + 76,
+      post.y + 43,
       post.z + post.point.nz * post.point.outside * 8
     );
     dummy.updateMatrix();
@@ -250,7 +255,43 @@ function addHairpinChevrons(group, track, terrain, profile) {
   }
 }
 
-function addDistantRanges(root) {
+
+function foldedRidge(options, colour) {
+  const positions = [], colours = [], indices = [];
+  const base = new Color(colour);
+  const rows = 12, width = 28000;
+  for (let i = 0; i <= options.segments; i++) {
+    const t = i / options.segments;
+    const along = options.start + (options.end - options.start) * t;
+    for (let j = 0; j <= rows; j++) {
+      const across = j / rows;
+      const outward = options.at < 0 ? -1 : 1;
+      const cross = options.at + outward * (across * width - 1800) + options.driftAt(t);
+      const fold = 0.87 + Math.sin(t * 91 + across * 6) * 0.09 + Math.sin(t * 173) * 0.04;
+      const height = options.bottom + (options.heightAt(t) - options.bottom)
+        * Math.pow(Math.sin(across * Math.PI), 1.25) * fold;
+      if (options.along === 'x') positions.push(along, height, cross);
+      else positions.push(cross, height, along);
+      const tint = base.clone().multiplyScalar(0.88 + Math.sin(t * 91 + 0.8) * 0.12 + across * 0.1);
+      colours.push(tint.r, tint.g, tint.b);
+      if (i < options.segments && j < rows) {
+        const a = i * (rows + 1) + j, b = a + rows + 1;
+        indices.push(a, b, a + 1, a + 1, b, b + 1);
+      }
+    }
+  }
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new Float32BufferAttribute(colours, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  const mesh = new Mesh(geometry, basic(0xffffff, { vertexColors: true, side: DoubleSide, fog: false }));
+  mesh.frustumCulled = false;
+  return mesh;
+}
+
+function addDistantRanges(root, track) {
+  const reliefScale = Math.max(1, Math.max(...track.heights) / 2100);
   const W = WORLD.width;
   const H = WORLD.height;
   const ranges = new Group();
@@ -262,7 +303,8 @@ function addDistantRanges(root) {
     { at: W + 1450, height: 2250, colour: COLOUR.nearRange, phase: 2.4, drift: 250 },
   ];
   east.forEach((band, layer) => {
-    ranges.add(ridge({
+    band.height *= reliefScale;
+    ranges.add(foldedRidge({
       along: 'z',
       at: band.at,
       start: -H * 0.35,
@@ -285,7 +327,8 @@ function addDistantRanges(root) {
     { at: -2300, height: 1220, colour: COLOUR.valleyNear, phase: 2.1 },
   ];
   west.forEach((band, layer) => {
-    ranges.add(ridge({
+    band.height *= reliefScale;
+    ranges.add(foldedRidge({
       along: 'z',
       at: band.at,
       start: -H * 0.3,
@@ -301,13 +344,13 @@ function addDistantRanges(root) {
     }, band.colour));
   });
 
-  ranges.add(ridge({
+  ranges.add(foldedRidge({
     along: 'x', at: -2600, start: -W * 0.25, end: W * 1.25, segments: 52,
     bottom: -1500,
     driftAt: (t) => Math.sin(t * Math.PI * 4.3) * 160,
     heightAt: (t) => 520 + Math.sin(t * Math.PI * 5.2 + 0.6) * 120,
   }, COLOUR.valleyFar));
-  ranges.add(ridge({
+  ranges.add(foldedRidge({
     along: 'x', at: H + 2900, start: -W * 0.25, end: W * 1.25, segments: 52,
     bottom: -1500,
     driftAt: (t) => Math.sin(t * Math.PI * 3.7 + 1.2) * 190,
@@ -386,7 +429,15 @@ export function buildRemutaka(track, def, terrain) {
   }
   addHairpinChevrons(group, track, terrain, profile);
   addValleyBushDetail(group, track, terrain, profile);
-  addDistantRanges(group);
+  addDistantRanges(group, track);
+  const descent = remutakaDescent(track);
+  const continuation = new Group();
+  continuation.name = 'remutaka-road-beyond-summit';
+  continuation.add(...buildApron(descent, 'remutaka'), buildRoad(descent),
+    buildRemutakaCentreLine(descent), ...buildKerbs(descent, 'remutaka'));
+  const descentProfile = remutakaRoadProfile(descent);
+  addGuardrail(continuation, descent, terrain, descentProfile);
+  group.add(markDecorative(continuation));
 
   return group;
 }
