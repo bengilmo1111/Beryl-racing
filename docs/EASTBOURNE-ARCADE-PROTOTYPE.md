@@ -25,8 +25,9 @@ first attempt and want another go.
 - Grass slows progressively. Glancing contacts preserve along-wall motion
   with a small rebound. BACK ON ROAD (or R) restores the latest safe pose in
   the validated route section and adds three seconds. It cannot skip a gate.
-- The camera previews the upcoming road with a bounded yaw offset. Location,
-  progress and tight-bend hints appear in the small top HUD label.
+- The camera previews the upcoming road with a bounded yaw offset. Route
+  progress is a rail along the foot of the timing panel; off-road, missed-gate
+  and tight-bend hints appear on the top status line, which is otherwise empty.
 - The finish compares the previous best, stores a local named top three, and
   offers retry/change course. The results panel scrolls on short displays.
 - A v3 best-time key keeps the new route's records separate from the old run.

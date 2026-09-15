@@ -1,5 +1,5 @@
-// On-screen touch controls for landscape mobile (PRD §4). Steering on the left
-// and accelerate/brake on the right.
+// On-screen touch controls for landscape mobile (PRD §4). Steering on the left,
+// accelerate and brake on the right, and the horn above the throttle.
 //
 // Input is handled from raw screen-space pointer events rather than per-button
 // Phaser interactivity. The race camera follows Beryl and zooms, and Phaser's
@@ -10,6 +10,7 @@
 // naturally supports multiple fingers at once.
 import Phaser from 'phaser';
 import { FONT, pinUiLayer } from './format.js';
+import { drawHornIcon } from './iconButton.js';
 import { COLORS } from '../config.js';
 
 export function isTouchDevice() {
@@ -22,7 +23,7 @@ export function isTouchDevice() {
 export class TouchControls {
   constructor(scene) {
     this.scene = scene;
-    this.state = { left: false, right: false, gas: false, brake: false };
+    this.state = { left: false, right: false, gas: false, brake: false, horn: false };
     // Which button (if any) each active pointer id is currently pressing.
     this.pointerButton = new Map();
 
@@ -31,10 +32,21 @@ export class TouchControls {
 
     this.layer = scene.add.container(0, 0).setScrollFactor(0).setDepth(999);
     this.buttons = [];
-    this.left = this._button('‹', COLORS.paper, 'left', 'STEER');
-    this.right = this._button('›', COLORS.paper, 'right', 'STEER');
-    this.gas = this._button('▲', COLORS.sunshine, 'gas', 'GAS');
-    this.brake = this._button('▼', COLORS.red, 'brake', 'BRAKE');
+    this.hornAction = null;
+    this.left = this._button({ label: '‹', color: COLORS.paper, stateKey: 'left', caption: 'STEER' });
+    this.right = this._button({ label: '›', color: COLORS.paper, stateKey: 'right', caption: 'STEER' });
+    this.gas = this._button({ label: '▲', color: COLORS.sunshine, stateKey: 'gas', caption: 'GAS' });
+    this.brake = this._button({ label: '▼', color: COLORS.red, stateKey: 'brake', caption: 'BRAKE' });
+    // The horn, as a real button rather than a 44-pixel icon in the far corner.
+    // It is in Beryl's own colour and it sounds on the way down, so honking is
+    // one thumb-press from the throttle instead of a reach across the screen.
+    this.horn = this._button({
+      color: COLORS.berylBody,
+      stateKey: 'horn',
+      caption: 'HORN',
+      draw: drawHornIcon,
+      action: () => this.hornAction && this.hornAction(),
+    });
 
     this.pin = () => pinUiLayer(scene, this.layer);
     this.layout();
@@ -61,29 +73,36 @@ export class TouchControls {
     });
   }
 
-  _button(label, color, stateKey, caption) {
+  // `label` is a text glyph; `draw(graphics, size, color)` is a vector one, for
+  // shapes no font can be trusted to have. `action` fires the moment the button
+  // goes down — the horn, as against the pedals, which are read every frame.
+  _button({ label = '', color, stateKey, caption, draw = null, action = null }) {
     const scene = this.scene;
     const button = scene.add.container(0, 0);
     const arc = scene.add.circle(0, 0, 80, color, 0.34).setStrokeStyle(5, color, 0.95);
     const text = scene.add
       .text(0, 0, label, { fontFamily: FONT, fontStyle: '700', color: '#fff8e7' })
       .setOrigin(0.5);
+    const glyph = draw ? scene.add.graphics() : null;
     const captionText = scene.add
       .text(0, 0, caption, { fontFamily: FONT, fontStyle: '700', color: '#15314b' })
       .setOrigin(0.5);
 
-    button.add([arc, text, captionText]);
+    button.add(glyph ? [arc, text, glyph, captionText] : [arc, text, captionText]);
     this.layer.add(button);
 
-    const b = { button, arc, text, caption: captionText, color, stateKey, cx: 0, cy: 0, radius: 80 };
+    const b = { button, arc, text, glyph, draw, caption: captionText, color, stateKey,
+      action, cx: 0, cy: 0, radius: 80 };
     this.buttons.push(b);
     return b;
   }
 
   _setPressed(b, pressed) {
+    const changed = this.state[b.stateKey] !== pressed;
     this.state[b.stateKey] = pressed;
     b.arc.setFillStyle(b.color, pressed ? 0.62 : 0.34);
     b.button.setScale(pressed ? 0.95 : 1);
+    if (pressed && changed && b.action) b.action();
   }
 
   // The button whose screen circle contains (x, y), or null.
@@ -135,6 +154,20 @@ export class TouchControls {
       .setStrokeStyle(Math.max(3, Math.round(r * 0.06)), b.color, 0.95);
     b.text.setPosition(0, -r * 0.08).setFontSize(Math.round(r * 0.78));
     b.caption.setPosition(0, r * 0.56).setFontSize(Math.round(r * 0.2));
+    if (b.glyph) {
+      // The drawn glyph's own ink sits at about (0.47, 0.54) of the box it is
+      // drawn into, so centring it means offsetting by that, not by half.
+      const size = Math.round(r * 1.05);
+      b.glyph.clear();
+      b.glyph.setPosition(-size * 0.47, -size * 0.54 - r * 0.08);
+      b.draw(b.glyph, size, 0xfff8e7);
+    }
+  }
+
+  // What the horn button should do when pressed. Set by the race scene once it
+  // knows whether there is any audio to play at all.
+  setHornAction(fn) {
+    this.hornAction = fn;
   }
 
   layout() {
@@ -154,6 +187,12 @@ export class TouchControls {
     // Gas against the bottom-right edge; brake immediately inside it.
     this._place(this.gas, w - edge - r, bottom, r);
     this._place(this.brake, w - edge - r - gap, bottom, r);
+
+    // The horn stacks directly above the throttle, where the same thumb finds
+    // it. Everything else along the top edge is a row rather than a column for
+    // this reason: on a short landscape phone this button reaches up into what
+    // used to be the icon stack's third slot.
+    this._place(this.horn, w - edge - r, bottom - 2 * r - Math.round(r * 0.22), r);
 
     this.pin();
   }

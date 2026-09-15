@@ -96,7 +96,7 @@ export const TRACKS = [
       ],
     },
     storageKey: 'beryl-racing-3d.eastbourne-dash.bestTimeMs.v4',
-    hud: { current: 'DASH TIME', progress: 'TO EASTBOURNE' },
+    hud: { current: 'DASH TIME' },
     bestLabel: 'Eastbourne best',
     results: {
       title: 'DASH COMPLETE!',
@@ -215,7 +215,7 @@ export const TRACKS = [
     // that way, and they are directly comparable with the 0.3/0.9 default.
     fogSpans: { near: 0.55, far: 1.4 },
     storageKey: 'beryl-racing-3d.manfield.bestLapMs.v1',
-    hud: { current: 'LAP TIME', progress: 'LAP 1', lapWord: 'LAP' },
+    hud: { current: 'LAP TIME', lapWord: 'LAP' },
     bestLabel: 'Best lap',
     landmarks: [
       [436, 1446, 'POST 1'],
@@ -300,7 +300,7 @@ export const TRACKS = [
       ],
     },
     storageKey: 'beryl-racing-3d.remutaka.bestTimeMs.v3',
-    hud: { current: 'CLIMB TIME', progress: 'TO THE SUMMIT' },
+    hud: { current: 'CLIMB TIME' },
     bestLabel: 'Best climb',
     results: {
       title: 'SUMMIT!',
@@ -332,7 +332,7 @@ export const TRACKS = [
     layout: OTAKI_LAYOUT,
     physics: { ...ROAD_CAR_PHYSICS },
     storageKey: 'beryl-racing-3d.otaki.bestTimeMs.v3',
-    hud: { current: 'RALLY TIME', progress: 'TO THE BEACH' },
+    hud: { current: 'RALLY TIME' },
     bestLabel: 'Best rally',
     results: {
       title: 'BEACH!',

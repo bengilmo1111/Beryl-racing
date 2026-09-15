@@ -8,6 +8,7 @@ import { TRACKS, getSelectedTrack, getSelectedTrackId, setSelectedTrack } from '
 import { FONT, formatTime, uiScale } from '../ui/format.js';
 import { createFullscreenButton } from '../ui/fullscreen.js';
 import { createSoundButton } from '../ui/soundButton.js';
+import { iconRowSpan } from '../ui/iconButton.js';
 import { startMusic, unlockAudio } from '../audio/sound.js';
 import { addBerylPhoto } from '../art.js';
 
@@ -151,8 +152,15 @@ export class TitleScene extends Phaser.Scene {
     this.titleText.setFontSize(titleSize);
     this.subtitleText.setFontSize(subSize);
 
-    // Banner sized to hold both lines, centred near the top.
-    const bannerW = Math.min(w * 0.86, Math.max(this.titleText.width, this.subtitleText.width, 520 * s) + 120 * s);
+    // Banner sized to hold both lines, centred near the top. It is centred, so
+    // the room it has is bounded by whichever side is busier: the fullscreen
+    // and sound buttons sit in the top-right corner, and on a narrow phone the
+    // banner would otherwise run underneath them.
+    const bannerW = Math.min(
+      w * 0.86,
+      w - iconRowSpan(this, 2) * 2,
+      Math.max(this.titleText.width, this.subtitleText.width, 520 * s) + 120 * s
+    );
     const bannerH = titleSize + subSize + 44 * s;
     const bannerX = w / 2;
     const bannerY = h * 0.06;

@@ -80,11 +80,15 @@ The HUD always shows: **current lap time**, **last lap**, and **best lap**.
 | → / D | Steer right |
 | Space | Handbrake (tighter cornering) — optional |
 | H | Horn |
+| Esc | Back to the course chooser |
 
 ### Landscape mobile (touch)
 - On-screen **steer left / right** buttons on one side of the screen.
 - **Accelerate** and **brake** buttons on the other side (thumb-friendly).
-- A **horn** button in the top-right stack, under fullscreen and sound.
+- A full-size **horn** button directly above the accelerator, in the same style
+  as the driving buttons.
+- **Fullscreen**, **sound** and **home** icon buttons in a row across the
+  top-right corner.
 - Optional **tilt-to-steer** toggle (device orientation).
 - Controls are sized and positioned for landscape thumbs and respect device
   safe-area insets (notches).

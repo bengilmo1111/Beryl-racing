@@ -53,7 +53,7 @@ const scene = Object.assign(new m.RaceScene(), { track, def, obstacles: [], car,
   routeProgress: m.buildRouteProgress(track), coastProfile: m.coastalProfile(track),
   time: { now: 10000 }, nextRecoveryAt: 0, recoveryCount: 0, lapStartTime: 0,
   lastSafe: { ...track.start }, world3d: { chase: { snap() {} } },
-  hud: { lap: { setText(t) { scene.hint = t; } }, showMessage() {} },
+  hud: { setStatus(t) { scene.hint = t; }, setProgress() {}, showMessage() {} },
 });
 scene.placeSeawall();
 const wall = m.eastbourneCoast(track).wall;

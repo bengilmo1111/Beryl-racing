@@ -235,9 +235,14 @@ export async function runNewMobilePlayerJourney({ browser, baseUrl, outDir }) {
       const beforeRecovery = await page.evaluate(() => {
         const scene = window.__BERYL_GAME__.scene.getScene('Race');
         const rect = scene.game.canvas.getBoundingClientRect();
+        // Tap the middle of whatever the button's bounds are, rather than
+        // deriving a centre from an assumed origin: the button has moved corner
+        // to bottom-centre once already, and an origin-dependent sum silently
+        // starts tapping the scenery next to it when it moves again.
+        const bounds = scene.recoverButton.getBounds();
         return { oldStart: scene.lapStartTime, expected: scene.expected,
-          x: rect.left + (scene.recoverButton.x - scene.recoverButton.displayWidth / 2) / scene.scale.width * rect.width,
-          y: rect.top + (scene.recoverButton.y + scene.recoverButton.displayHeight / 2) / scene.scale.height * rect.height };
+          x: rect.left + (bounds.centerX / scene.scale.width) * rect.width,
+          y: rect.top + (bounds.centerY / scene.scale.height) * rect.height };
       });
       await page.touchscreen.tap(beforeRecovery.x, beforeRecovery.y);
       const recovered = await page.evaluate((before) => {
