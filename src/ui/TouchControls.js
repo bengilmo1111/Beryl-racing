@@ -158,6 +158,14 @@ export class TouchControls {
     this.pin();
   }
 
+  // Let go of everything. A pointerup that lands while the game is paused is
+  // never delivered to the scene, so a phone turned portrait mid-corner would
+  // otherwise come back with the gas still held down.
+  releaseAll() {
+    this.pointerButton.clear();
+    for (const b of this.buttons) this._setPressed(b, false);
+  }
+
   getInput() {
     let steer = 0;
     if (this.state.left) steer -= 1;
