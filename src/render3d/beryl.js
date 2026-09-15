@@ -415,13 +415,28 @@ const TURQUOISE = 0x19bdd0;
 // graph that holds them disposes everything it can reach when a race ends (see
 // RaceWorld.destroy). resetBerylGeometry() below is how the two are kept
 // honest, and skipping the call leaves the *next* race with empty husks.
-let shapes = null;
+const shapeCache = new Map();
 
-function berylShapes() {
-  if (shapes) return shapes;
+function berylShapes(photoBody = false) {
+  if (shapeCache.has(photoBody)) return shapeCache.get(photoBody);
 
-  const body = BODY_STATIONS.map((s) => ({ ...s, profile: BODY_PROFILE }));
-  const cabin = CABIN_STATIONS.map((s) => ({ ...s, profile: CABIN_PROFILE }));
+  // The player keeps the real car's broad upright rear cabin and a continuous
+  // sloping boot. Traffic retains its established lightweight silhouette.
+  const rearBody = [
+    { z: L * 0.300, halfWidth: W * 0.48, bottom: 17, top: 63, crown: 1.5 },
+    { z: L * 0.390, halfWidth: W * 0.46, bottom: 19, top: 58, crown: 1.5 },
+    { z: L * 0.465, halfWidth: W * 0.425, bottom: 21, top: 44, crown: 1 },
+    { z: L * 0.505, halfWidth: W * 0.36, bottom: 23, top: 29, crown: 1 },
+  ];
+  const rearCabin = [
+    { z: L * 0.240, halfWidth: CABIN_HW * 0.99, bottom: 56, top: 85, crown: 2.5 },
+    { z: L * 0.305, halfWidth: CABIN_HW * 0.94, bottom: 56, top: 69, crown: 1.5 },
+    { z: L * 0.350, halfWidth: CABIN_HW * 0.82, bottom: 55, top: 60, crown: 1 },
+  ];
+  const body = (photoBody ? [...BODY_STATIONS.slice(0, 9), ...rearBody] : BODY_STATIONS)
+    .map((s) => ({ ...s, profile: BODY_PROFILE }));
+  const cabin = (photoBody ? [...CABIN_STATIONS.slice(0, 6), ...rearCabin] : CABIN_STATIONS)
+    .map((s) => ({ ...s, profile: CABIN_PROFILE }));
 
   const shell = wheelArches(loftGeometry(body));
   const greenhouse = loftGeometry(cabin);
@@ -523,12 +538,12 @@ function berylShapes() {
       AXLE_FRONT - L * 0.005
     )));
     wings.push(wheelArches(ellipsoidGeometry(
-      W * 0.15,
-      18,
-      L * 0.15,
+      W * (photoBody ? 0.17 : 0.15),
+      photoBody ? 23 : 18,
+      L * (photoBody ? 0.225 : 0.15),
       sx * W * 0.36,
-      35,
-      AXLE_REAR
+      photoBody ? 36 : 35,
+      AXLE_REAR + (photoBody ? L * 0.025 : 0)
     )));
   }
 
@@ -550,7 +565,8 @@ function berylShapes() {
     { z: L * 0.208, y: BELT - 1 },
   ]);
 
-  screen(L * 0.248, L * 0.304, CABIN_HW * 0.68, CABIN_HW * 0.62);
+  if (photoBody) screen(L * 0.245, L * 0.325, CABIN_HW * 0.82, CABIN_HW * 0.81);
+  else screen(L * 0.248, L * 0.304, CABIN_HW * 0.68, CABIN_HW * 0.62);
 
   // Beryl's number plate, as one mesh rather than a draw call per painted
   // square. Only she wears it — see `identity` in buildBeryl.
@@ -570,7 +586,8 @@ function berylShapes() {
   lettering.setAttribute('position', new Float32BufferAttribute(ink, 3));
   lettering.computeVertexNormals();
 
-  shapes = { body, shell, greenhouse, wings, glass, screenTrim, lettering };
+  const shapes = { body, shell, greenhouse, wings, glass, screenTrim, lettering };
+  shapeCache.set(photoBody, shapes);
   return shapes;
 }
 
@@ -579,7 +596,7 @@ function berylShapes() {
 // has to be dropped at the same moment — otherwise the next race hangs its
 // meshes off buffers that have already been freed.
 export function resetBerylGeometry() {
-  shapes = null;
+  shapeCache.clear();
 }
 
 // `bodyColor` paints the shell, the greenhouse, both pairs of wings and the
@@ -590,7 +607,7 @@ export function resetBerylGeometry() {
 // lamps, because those are the model rather than the car; it gives up the two
 // details that are hers, because a road full of Minors all wearing her plate
 // would read worse than an empty one.
-export function buildBeryl({ bodyColor = TURQUOISE, identity = true } = {}) {
+export function buildBeryl({ bodyColor = TURQUOISE, identity = true, photoBody = false } = {}) {
   const materials = {
     // A flat body colour under restrained sunlight highlights — the turquoise
     // default is photo-informed. Phong needs no environment map and keeps the
@@ -606,18 +623,30 @@ export function buildBeryl({ bodyColor = TURQUOISE, identity = true } = {}) {
     plate: lambert(0x20292c, { flatShading: false }),
   };
 
-  const { body, shell, greenhouse, wings, glass, screenTrim, lettering } = berylShapes();
+  const { body, shell, greenhouse, wings, glass, screenTrim, lettering } = berylShapes(photoBody);
 
   const root = new Group();
   root.rotation.order = 'YXZ';
   const chassis = new Group();
   root.add(chassis);
 
-  chassis.add(new Mesh(shell, materials.body));
-  chassis.add(new Mesh(greenhouse, materials.body));
-  for (const wing of wings) chassis.add(new Mesh(wing, materials.body));
+  const bodyMesh = new Mesh(shell, materials.body);
+  bodyMesh.name = 'body-shell';
+  chassis.add(bodyMesh);
+  const cabinMesh = new Mesh(greenhouse, materials.body);
+  cabinMesh.name = 'cabin-shell';
+  chassis.add(cabinMesh);
+  for (const wing of wings) {
+    const mesh = new Mesh(wing, materials.body);
+    mesh.name = 'wing';
+    chassis.add(mesh);
+  }
   for (const pane of glass) chassis.add(new Mesh(pane, materials.glass));
-  for (const surround of screenTrim) chassis.add(new Mesh(surround, materials.chrome));
+  for (const [i, surround] of screenTrim.entries()) {
+    const mesh = new Mesh(surround, materials.chrome);
+    mesh.name = i === 1 ? 'rear-window-seal' : 'front-window-trim';
+    chassis.add(mesh);
+  }
 
   // Trim and lamps keep their established colours and identity details. Each is
   // hung off the shell it belongs to rather than a remembered coordinate.
@@ -648,8 +677,14 @@ export function buildBeryl({ bodyColor = TURQUOISE, identity = true } = {}) {
   }
 
   // Every Minor carries a plate; only Beryl's has her letters on it.
-  chassis.add(box(W * 0.29, 10, 3, 0, 36, L * 0.505, materials.plate));
-  if (identity) chassis.add(new Mesh(lettering, materials.chrome));
+  const rearPlate = box(W * 0.29, 10, 3, 0, 36, L * 0.505, materials.plate);
+  rearPlate.name = 'generic-rear-plate';
+  chassis.add(rearPlate);
+  if (identity) {
+    const text = new Mesh(lettering, materials.chrome);
+    text.name = 'generic-rear-lettering';
+    chassis.add(text);
+  }
 
   const bodySkin = (z, y) => skinAt(stationAt(body, z), y);
   // Door handles, seated on the flank they open.
