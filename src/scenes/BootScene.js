@@ -4,6 +4,7 @@ import Phaser from 'phaser';
 import { drawPuff, preloadBerylPhoto } from '../art.js';
 import { acquireContext } from '../audio/context.js';
 import { primeSamples } from '../audio/samples.js';
+import { MUSIC_ASSETS } from '../audio/sound.js';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -21,8 +22,9 @@ export class BootScene extends Phaser.Scene {
     this.load.image('tree-2', `${B}assets/tree-2.png`);
     this.load.image('tree-3', `${B}assets/tree-3.png`);
     this.load.image('start-gantry', `${B}assets/start-gantry.png`);
-    // Background music.
-    this.load.audio('music-race', `${B}assets/music-race.mp3`);
+    // The original cue is the title/fallback music. Current courses each preload
+    // their own cue so switching tracks is immediate when a race begins.
+    for (const { key, path } of MUSIC_ASSETS) this.load.audio(key, `${B}${path}`);
   }
 
   async create() {
