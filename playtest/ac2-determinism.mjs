@@ -171,13 +171,14 @@ const BASELINES = {
     pos: { x: 27528.050621921, y: 23092.101893972 },
     obstacles: 'de191f8062eae108',
   },
-  // Re-recorded 2026-09-15 from PR #55 CI: six descending Morris Minors and a
-  // safer left-lane line through the hairpins move the finish by design. The
-  // run repeated three times identically and the obstacle fingerprint remains
-  // unchanged; the new full-width summit stripe is crossed on the through road.
+  // Re-recorded 2026-09-15 for PR #56's four slower uphill Morris Minors.
+  // The lane-following test driver takes longer in traffic: 130.05 -> 151.37 s.
+  // PR #57 CI run 34953868467 repeats this result three times, exactly matching
+  // the traffic-only PR #56. Scenery changes do not alter the simulation.
+  // All obstacle fingerprints and the other three course results are unchanged.
   remutaka: {
-    finishTimeMs: 130050,
-    pos: { x: 119965.901637843, y: 16836.4238248 },
+    finishTimeMs: 151366.666667,
+    pos: { x: 119979.872405479, y: 16828.892919658 },
     obstacles: 'b55a2b03c90e51a0',
   },
   // Re-recorded 2026-08-02 for the complete Ōtaki replacement: a much longer
