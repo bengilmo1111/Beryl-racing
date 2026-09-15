@@ -25,6 +25,34 @@ export function remutakaBarriers(track) {
   return segments;
 }
 
+// The cut bank is not a spare piece of drivable terrain. Keep a collision line
+// just beyond the inboard shoulder, while leaving the summit car-park entrance
+// open. It is intentionally separate from remutakaBarriers(): only the exposed
+// edge gets a visible Armco rail in the renderer.
+export function remutakaBankBarriers(track) {
+  const profile = remutakaRoadProfile(track), segments = [];
+  const summit = track.summit;
+  const edge = track.half + 50;
+  // A 150-unit chord still follows the tightest bend to within a few units,
+  // while avoiding another 3,600 collision segments in every physics frame.
+  const points = profile.filter((p, i) => i % 3 === 0 || i === profile.length - 1).map(p => ({
+    x: p.x + p.nx * edge,
+    y: p.z + p.nz * edge,
+    h: p.h,
+    index: p.index,
+  }));
+  for (let i = 0; i < points.length - 1; i += 1) {
+    if (summit && Math.abs(points[i].index - summit.index) < 80) {
+      const along = p => (p.x - summit.origin.x) * Math.cos(summit.angle)
+        + (p.y - summit.origin.y) * Math.sin(summit.angle);
+      if (Math.min(along(points[i]), along(points[i + 1])) < metres(23)
+        && Math.max(along(points[i]), along(points[i + 1])) > -metres(23)) continue;
+    }
+    segments.push({ a: points[i], b: points[i + 1] });
+  }
+  return segments;
+}
+
 // Sweep the nose and tail across each rail's plane. A fast frame cannot jump
 // through a thin beam. Keep tangential speed and rebound 25% of the impact.
 export function bounceOffBarriers(car, segments, before = car) {

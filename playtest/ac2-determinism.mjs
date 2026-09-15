@@ -171,12 +171,13 @@ const BASELINES = {
     pos: { x: 27528.050621921, y: 23092.101893972 },
     obstacles: 'de191f8062eae108',
   },
-  // Re-recorded 2026-09-14: fixed left cliff, solid rails, revised crest and
-  // parking finish. CI replayed this input three times identically; the other
-  // courses retain their previous baselines. Road extension changes scenery.
+  // Re-recorded 2026-09-15 from PR #55 CI: six descending Morris Minors and a
+  // safer left-lane line through the hairpins move the finish by design. The
+  // run repeated three times identically and the obstacle fingerprint remains
+  // unchanged; the new full-width summit stripe is crossed on the through road.
   remutaka: {
-    finishTimeMs: 122100,
-    pos: { x: 120359.028346296, y: 16370.836788409 },
+    finishTimeMs: 130050,
+    pos: { x: 119965.901637843, y: 16836.4238248 },
     obstacles: 'b55a2b03c90e51a0',
   },
   // Re-recorded 2026-08-02 for the complete Ōtaki replacement: a much longer

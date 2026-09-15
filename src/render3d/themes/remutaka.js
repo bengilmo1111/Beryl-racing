@@ -8,6 +8,7 @@ import {
   BoxGeometry,
   BufferGeometry,
   DoubleSide,
+  IcosahedronGeometry,
   Float32BufferAttribute,
   Group,
   InstancedMesh,
@@ -31,13 +32,16 @@ const COLOUR = {
   railShade: 0x87959a,
   reflector: 0xfff8e7,
   reflectorRed: 0xe84a5f,
-  rock: 0x81776a,
+  bankFace: 0x315f3d,
   dropFace: 0x24553b,
-  farRange: 0x9ab1a5,
-  middleRange: 0x6f9476,
-  nearRange: 0x3e714f,
-  valleyFar: 0xa9bbb0,
-  valleyNear: 0x7f9e84,
+  farRange: 0x718f7c,
+  middleRange: 0x4f7b5d,
+  nearRange: 0x2e6444,
+  valleyFar: 0x789984,
+  valleyMiddle: 0x527b61,
+  valleyNear: 0x315f43,
+  valleyBushDark: 0x1f5137,
+  valleyBushLight: 0x447754,
   cloud: 0xf6f2df,
   cloudShade: 0xdce6e3,
 };
@@ -276,8 +280,9 @@ function addDistantRanges(root) {
   });
 
   const west = [
-    { at: -5200, height: 430, colour: COLOUR.valleyFar, phase: 0.8 },
-    { at: -2500, height: 680, colour: COLOUR.valleyNear, phase: 2.1 },
+    { at: -6500, height: 760, colour: COLOUR.valleyFar, phase: 0.8 },
+    { at: -4300, height: 980, colour: COLOUR.valleyMiddle, phase: 1.45 },
+    { at: -2300, height: 1220, colour: COLOUR.valleyNear, phase: 2.1 },
   ];
   west.forEach((band, layer) => {
     ranges.add(ridge({
@@ -285,11 +290,14 @@ function addDistantRanges(root) {
       at: band.at,
       start: -H * 0.3,
       end: H * 1.3,
-      segments: 48,
+      segments: 72,
       bottom: -1500,
-      driftAt: (t) => Math.sin(t * Math.PI * (3.2 + layer) + band.phase) * 210,
+      driftAt: (t) => Math.sin(t * Math.PI * (3.2 + layer) + band.phase) * 240
+        + Math.sin(t * Math.PI * 14 + layer) * 55,
       heightAt: (t) =>
-        band.height + Math.sin(t * Math.PI * (4.5 + layer) + band.phase) * band.height * 0.22,
+        band.height
+        + Math.sin(t * Math.PI * (4.5 + layer) + band.phase) * band.height * 0.25
+        + Math.sin(t * Math.PI * 15 + layer * 0.7) * band.height * 0.07,
     }, band.colour));
   });
 
@@ -324,12 +332,48 @@ function addDistantRanges(root) {
   root.add(markDecorative(ranges));
 }
 
+// Tree-covered folds on the far side of the valley. The broad ridge silhouettes
+// supply depth; these small overlapping crowns stop them reading as flat green
+// cardboard, matching the detail level of Eastbourne's hills.
+function addValleyBushDetail(group, track, terrain, profile) {
+  const batches = [[], []];
+  for (let i = 8; i < profile.length - 8; i += 7) {
+    const point = profile[i];
+    for (let band = 0; band < 3; band += 1) {
+      const phase = i * 1.91 + band * 3.7;
+      const offset = track.half + 850 + band * 620 + (Math.sin(phase) * 0.5 + 0.5) * 360;
+      const along = Math.cos(phase * 0.73) * 210;
+      const x = point.x + point.nx * point.outside * offset + point.tx * along;
+      const z = point.z + point.nz * point.outside * offset + point.tz * along;
+      const scale = 42 + band * 12 + (Math.sin(phase * 1.31) * 0.5 + 0.5) * 54;
+      batches[(i + band) % 2].push({ x, z, y: terrain.heightAt(x, z) + scale * 0.55, scale, phase });
+    }
+  }
+  const geometry = new IcosahedronGeometry(1, 0);
+  const colours = [COLOUR.valleyBushDark, COLOUR.valleyBushLight];
+  const dummy = new Object3D();
+  batches.forEach((batch, colourIndex) => {
+    const mesh = new InstancedMesh(geometry, lambert(colours[colourIndex], { flatShading: true }), batch.length);
+    batch.forEach((bush, i) => {
+      dummy.position.set(bush.x, bush.y, bush.z);
+      dummy.rotation.set(0, bush.phase, 0);
+      dummy.scale.set(bush.scale * 1.15, bush.scale, bush.scale);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.frustumCulled = false;
+    mesh.userData.decorative = true;
+    group.add(mesh);
+  });
+}
+
 export function buildRemutaka(track, def, terrain) {
   const group = new Group();
   group.name = 'remutaka-cliff-road-environment';
   const profile = remutakaRoadProfile(track);
 
-  addLowerSideFace(group, track, terrain, profile, 'inside', track.half + 65, track.half + 450, COLOUR.rock);
+  addLowerSideFace(group, track, terrain, profile, 'inside', track.half + 65, track.half + 450, COLOUR.bankFace);
   addLowerSideFace(group, track, terrain, profile, 'outside', track.half + 65, track.half + 450, COLOUR.dropFace);
   addGuardrail(group, track, terrain, profile);
   if (track.summit) {
@@ -341,6 +385,7 @@ export function buildRemutaka(track, def, terrain) {
     group.add(new Mesh(geometry, basic(0xfff8e7, {side:DoubleSide})));
   }
   addHairpinChevrons(group, track, terrain, profile);
+  addValleyBushDetail(group, track, terrain, profile);
   addDistantRanges(group);
 
   return group;

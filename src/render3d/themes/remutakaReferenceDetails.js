@@ -18,7 +18,9 @@ const COLOUR = {
   railShade: 0x7b898e,
   post: 0xf4f0df,
   postPatch: 0x263238,
-  rock: 0x746d64,
+  bushDeep: 0x214f35,
+  bushMid: 0x397047,
+  bushLight: 0x568455,
 };
 
 function addDelineators(group, track, terrain, profile) {
@@ -64,45 +66,47 @@ function addDelineators(group, track, terrain, profile) {
   }
 }
 
-function addRockCuts(group, track, terrain, profile) {
-  const rocks = [];
+function addBushyBank(group, track, terrain, profile) {
+  const bushes = [[], [], []];
   const start = Math.floor(profile.length * 0.17);
   const end = Math.floor(profile.length * 0.9);
 
-  for (let i = start; i < end; i += 5) {
+  for (let i = start; i < end; i += 3) {
     const point = profile[i];
-    // More exposed rock as the climb gets steeper. Deterministic trig variation
-    // keeps the wall irregular without touching the seeded gameplay RNG.
-    const strength = 0.45 + point.progress * 0.8;
-    const count = (i % 15 === 0) ? 2 : 1;
+    // Dense overlapping crowns hide the old bare cut face. Deterministic trig
+    // variation keeps the bush natural without touching gameplay RNG state.
+    const strength = 0.75 + point.progress * 0.45;
+    const count = (i % 9 === 0) ? 3 : 2;
     for (let r = 0; r < count; r += 1) {
       const phase = i * 1.73 + r * 4.1;
-      const offset = track.half + 185 + (Math.sin(phase) * 0.5 + 0.5) * 230;
+      const offset = track.half + 105 + (Math.sin(phase) * 0.5 + 0.5) * 390;
       const along = Math.sin(phase * 0.7) * 55;
       const x = point.x + point.nx * point.inside * offset + point.tx * along;
       const z = point.z + point.nz * point.inside * offset + point.tz * along;
-      const sx = 65 + (Math.sin(phase * 1.17) * 0.5 + 0.5) * 110;
-      const sy = (90 + (Math.cos(phase * 0.91) * 0.5 + 0.5) * 210) * strength;
-      const sz = 48 + (Math.sin(phase * 0.53 + 2) * 0.5 + 0.5) * 90;
+      const sx = 75 + (Math.sin(phase * 1.17) * 0.5 + 0.5) * 135;
+      const sy = (65 + (Math.cos(phase * 0.91) * 0.5 + 0.5) * 120) * strength;
+      const sz = 70 + (Math.sin(phase * 0.53 + 2) * 0.5 + 0.5) * 120;
       const ground = terrain.heightAt(x, z);
-      rocks.push({ x, z, y: ground + sy * 0.22, sx, sy, sz, yaw: phase * 0.23 });
+      bushes[(i + r) % bushes.length].push({ x, z, y: ground + sy * 0.42, sx, sy, sz, yaw: phase * 0.23 });
     }
   }
-  if (!rocks.length) return;
 
   const geometry = new DodecahedronGeometry(1, 0);
-  const mesh = new InstancedMesh(geometry, lambert(COLOUR.rock), rocks.length);
   const dummy = new Object3D();
-  rocks.forEach((rock, i) => {
-    dummy.position.set(rock.x, rock.y, rock.z);
-    dummy.rotation.set(0, rock.yaw, Math.sin(rock.yaw) * 0.12);
-    dummy.scale.set(rock.sx, rock.sy, rock.sz);
-    dummy.updateMatrix();
-    mesh.setMatrixAt(i, dummy.matrix);
+  const colours = [COLOUR.bushDeep, COLOUR.bushMid, COLOUR.bushLight];
+  bushes.forEach((batch, colourIndex) => {
+    const mesh = new InstancedMesh(geometry, lambert(colours[colourIndex], { flatShading: true }), batch.length);
+    batch.forEach((bush, i) => {
+      dummy.position.set(bush.x, bush.y, bush.z);
+      dummy.rotation.set(0, bush.yaw, Math.sin(bush.yaw) * 0.08);
+      dummy.scale.set(bush.sx, bush.sy, bush.sz);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.frustumCulled = false;
+    group.add(mesh);
   });
-  mesh.instanceMatrix.needsUpdate = true;
-  mesh.frustumCulled = false;
-  group.add(mesh);
 }
 
 function addChevron(group, track, terrain, point) {
@@ -165,7 +169,7 @@ export function buildRemutakaReferenceDetails(track, terrain) {
 
 
   addDelineators(group, track, terrain, profile);
-  addRockCuts(group, track, terrain, profile);
+  addBushyBank(group, track, terrain, profile);
   addSweeperChevrons(group, track, terrain, profile);
   return group;
 }

@@ -1,4 +1,4 @@
-import { remutakaBarriers, bounceOffBarriers } from '../remutakaBarriers.js';
+import { remutakaBarriers, remutakaBankBarriers, bounceOffBarriers } from '../remutakaBarriers.js';
 import { crossesSummitFinish } from '../remutakaSummit.js';
 import Phaser from 'phaser';
 import { installDrivingReport } from '../diagnostics.js';
@@ -55,7 +55,9 @@ export class RaceScene extends Phaser.Scene {
     // and resolves contacts in order, so shuffling it moves recorded finish
     // positions. Seawall, then buildings, then the seeded scatter.
     this.obstacles = [];
-    this.barriers = this.def.theme === 'remutaka' ? remutakaBarriers(this.track) : [];
+    this.barriers = this.def.theme === 'remutaka'
+      ? [...remutakaBarriers(this.track), ...remutakaBankBarriers(this.track)]
+      : [];
     if (this.def.theme === 'eastbourne') this.placeSeawall();
     // Buildings are solid. Their footprints come from src/structures.js rather
     // than from the render themes, so what you can see and what you can hit are

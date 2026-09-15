@@ -16,8 +16,22 @@ export function remutakaSummit(road) {
     const t = (left - base) / depth;
     return [point(left, metres(-22 + 28*t)), point(left, metres(22 - 16*t))];
   };
-  const finishBand = [...section(base + metres(8)), ...section(base + metres(8.6)).reverse()].reverse();
-  const centre = point(base + metres(8.3), metres(2));
+  // One continuous stripe catches both the summit car park and the through
+  // carriageway. The old stripe lived wholly inside the parking triangle, so a
+  // player following the road could sail past it and over the end of the map.
+  // At this position the triangle is still broad, allowing the paint to run
+  // from the exposed road edge right across to the back of the parking area.
+  const finishAlong = 0;
+  const parkingWidth = depth * ((metres(22) - finishAlong) / metres(28));
+  const finishLeft = -road.half;
+  const finishRight = base + parkingWidth;
+  const finishBand = [
+    point(finishLeft, finishAlong - metres(0.3)),
+    point(finishRight, finishAlong - metres(0.3)),
+    point(finishRight, finishAlong + metres(0.3)),
+    point(finishLeft, finishAlong + metres(0.3)),
+  ];
+  const centre = point((finishLeft + finishRight) / 2, finishAlong);
   return { index, origin, h, angle, point, finishBand,
     triangle: [point(base, metres(-22)), point(base + depth, metres(6)), point(base, metres(22))],
     finish: { ...centre, index, angle: angle - Math.PI / 2 } };

@@ -74,9 +74,7 @@ function poseAt(centerline, cumulative, distance) {
   return { x: a.x + dx * t, y: a.y + dy * t, tx: dx / length, ty: dy / length };
 }
 
-// `def.traffic` is absent on every course but Eastbourne, and this returns null
-// for those — so the other three run no extra code at all, rather than running
-// an empty loop that would still have to be reasoned about.
+// Courses without `def.traffic` return null and run no extra code at all.
 export function buildTraffic(def, track) {
   const spec = def.traffic;
   if (!spec || !Array.isArray(spec.cars) || !spec.cars.length) return null;
