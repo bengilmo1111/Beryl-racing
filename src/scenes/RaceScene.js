@@ -19,6 +19,7 @@ import { Hud } from '../ui/Hud.js';
 import { createFullscreenButton } from '../ui/fullscreen.js';
 import { TouchControls, isTouchDevice } from '../ui/TouchControls.js';
 import { createSoundButton } from '../ui/soundButton.js';
+import { createHomeButton } from '../ui/homeButton.js';
 import { createHornButton } from '../ui/hornButton.js';
 import { startMusic, unlockAudio, isMuted } from '../audio/sound.js';
 import { EngineSound } from '../audio/EngineSound.js';
@@ -102,10 +103,11 @@ export class RaceScene extends Phaser.Scene {
     });
     this.touch = isTouchDevice() ? new TouchControls(this) : null;
 
-    // HUD + fullscreen + sound.
+    // HUD + fullscreen + sound + the way home.
     this.hud = new Hud(this);
     createFullscreenButton(this);
     createSoundButton(this);
+    createHomeButton(this, () => this.goHome());
     this.best = Number(localStorage.getItem(STORAGE_KEY)) || null;
     if (this.best) this.hud.setBest(this.best);
 
@@ -131,7 +133,11 @@ export class RaceScene extends Phaser.Scene {
     // and the on-screen button only exists if there is something to sound.
     this.horn = harnessed ? null : new Horn(this.sound);
     if (this.horn) {
-      createHornButton(this, this.horn);
+      // On a phone the horn is the big round button above the throttle; on a
+      // desktop it is an icon in the top-right row, next to the pointer that is
+      // already up there. Neither device gets both.
+      if (this.touch) this.touch.setHornAction(() => { if (!isMuted(this)) this.horn.play(); });
+      else createHornButton(this, this.horn);
       this.events.once('shutdown', () => this.horn.stop());
     }
     // Silent audio used to be undiagnosable: EngineSound would find no
@@ -157,7 +163,10 @@ export class RaceScene extends Phaser.Scene {
       }
     }
 
-    // Lap state.
+    // Lap state. `leaving` guards the way back to the title screen: this scene
+    // instance is reused across restarts, so it has to be cleared here rather
+    // than only set when the player goes home.
+    this.leaving = false;
     this.lapNumber = 1;
     this.expected = 1;
     this.lapStartTime = 0;
@@ -180,16 +189,32 @@ export class RaceScene extends Phaser.Scene {
 
     if (this.def.theme === 'eastbourne') this.createRecovery();
 
-    this.input.keyboard.once('keydown-ESC', () => this.scene.start('Title'));
+    this.input.keyboard.once('keydown-ESC', () => this.goHome());
     this.startCountdown();
+  }
+
+  // Back to the course chooser, from ESC or the home button. The scene's own
+  // shutdown handlers stop the engine, tyres, horn and music, so there is
+  // nothing to wind down by hand — but a second call while Phaser is already
+  // tearing the scene down is worth refusing.
+  goHome() {
+    if (this.leaving) return;
+    this.leaving = true;
+    this.scene.start('Title');
   }
 
   onResize() {
     // Keep the camera pull-back sensible if the device rotates or resizes.
     if (this.world3d) this.world3d.setCompact(isCompact(this));
     if (this.recoverButton) {
-      const s = Math.min(1, this.scale.height / 600);
-      this.recoverButton.setScale(Math.max(0.8, s)).setPosition(this.scale.width - 76, 16);
+      const s = Math.max(0.8, Math.min(1, this.scale.height / 600));
+      // Bottom centre — the one strip of a landscape phone that is not under a
+      // thumb, with the steering bottom-left and the pedals and horn
+      // bottom-right. It used to sit in the top-right corner, which is now a
+      // row of icon buttons and no place for a control you hit in a hurry.
+      this.recoverButton
+        .setScale(s)
+        .setPosition(this.scale.width / 2, this.scale.height - Math.round(14 * s));
     }
   }
 
@@ -202,10 +227,16 @@ export class RaceScene extends Phaser.Scene {
     this.nextRecoveryAt = 0;
     this.routeUpdateAt = 0;
     this.previousBest = this.best;
-    this.recoverButton = this.add.text(0, 0, 'BACK ON ROAD', {
+    // Empty, but present from the countdown: the panel is a different height
+    // with the progress rail in it, and growing as the flag drops is a flinch.
+    this.hud.setProgress(0);
+    this.recoverButton = this.add.text(0, 0, '↻  BACK ON ROAD', {
       fontFamily: FONT, fontSize: '18px', fontStyle: '700', color: '#15314b',
-      backgroundColor: '#fff8e7', padding: { x: 12, y: 12 },
-    }).setOrigin(1, 0).setDepth(1000).setInteractive({ useHandCursor: true });
+      backgroundColor: '#fff8e7', padding: { x: 18, y: 12 },
+    }).setOrigin(0.5, 1).setDepth(1000).setInteractive({ useHandCursor: true });
+    this.recoverButton.setShadow(0, 3, 'rgba(21, 49, 75, 0.35)', 6, true, true);
+    this.recoverButton.on('pointerover', () => this.recoverButton.setAlpha(0.92));
+    this.recoverButton.on('pointerout', () => this.recoverButton.setAlpha(1));
     this.recoverButton.on('pointerup', () => this.recover());
     const recoverKey = (event) => { if (!event.repeat) this.recover(); };
     this.input.keyboard.on('keydown-R', recoverKey);
@@ -246,12 +277,12 @@ export class RaceScene extends Phaser.Scene {
           > o.r + this.car.collideRadius + 10));
       if (clear) this.lastSafe = { x: pose.x, y: pose.y, rotation: pose.rotation + (Math.abs(headingError) > Math.PI / 2 ? Math.PI : 0) };
     }
-    const fraction = Math.min(0.99, Math.max(0, progress));
-    const place = fraction < 0.15 ? 'FERRY ROAD' : fraction < 0.36 ? 'DAYS BAY'
-      : fraction < 0.73 ? 'COASTAL CRUISE' : 'TO THE RSA';
-    const street = { 'muritai-road': 'MURITAI RD → RSA', 'village-inland': 'VILLAGE → RSA',
-      'rata-street-link': 'RĀTĀ STREET', 'school-link': 'SCHOOL LINK' }[pose.road.id];
-    let hint = `${street || place} · ${Math.floor(fraction * 100)}%`;
+    // How far along goes on the panel's progress rail. The top of the screen
+    // stays empty unless there is something to say: a standing "DAYS BAY · 41%"
+    // is read once and then ignored, which makes the genuine warnings that
+    // appear in the same place easy to ignore too.
+    this.hud.setProgress(Math.min(0.99, Math.max(0, progress)));
+    let hint = '';
     const offRoad = distanceToCenterline(this.car.x, this.car.y, this.track.centerline) > this.track.half;
     this.offRoadSince = offRoad ? (this.offRoadSince ?? time) : null;
     if (this.car.x < this.coastProfile(this.car.y).shoreX - metres(1)) {
@@ -272,7 +303,7 @@ export class RaceScene extends Phaser.Scene {
         hint = `EASE OFF · ${bend < 0 ? 'LEFT' : 'RIGHT'} BEND`;
       }
     }
-    this.hud.lap.setText(hint);
+    this.hud.setStatus(hint);
   }
 
   // --- Collision-only setpieces ----------------------------------------------
@@ -641,7 +672,10 @@ export class RaceScene extends Phaser.Scene {
     if (this.finished) return;
     this.finished = true;
     this.timing = false;
-    if (this.def.theme === 'eastbourne') this.hud.lap.setText('AT THE RSA · 100%');
+    if (this.def.theme === 'eastbourne') {
+      this.hud.setStatus('');
+      this.hud.setProgress(1);
+    }
     const now = this.time.now;
     const lapMs = now - this.lapStartTime;
     this.lastCompletionTimeMs = lapMs;

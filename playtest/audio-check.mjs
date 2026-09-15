@@ -286,10 +286,13 @@ const recorded = await page.evaluate(async () => {
 const hornBefore = await page.evaluate(() => {
   const race = window.__BERYL_GAME__.scene.getScene('Race');
   if (!race.horn) return null;
+  // The icon buttons run in a row along the top-right corner, laid out
+  // leftwards from it: fullscreen, sound, home, horn. The horn is therefore
+  // the leftmost of them — the one with the smallest x.
   const buttons = race.children.list
     .filter((child) => child.type === 'Container' && child.depth === 1000)
-    .sort((a, b) => a.y - b.y);
-  const button = buttons[buttons.length - 1];
+    .sort((a, b) => a.x - b.x);
+  const button = buttons[0];
   return {
     source: race.horn.describe().source,
     lastPlayed: race.horn.lastPlayed,
@@ -299,7 +302,11 @@ const hornBefore = await page.evaluate(() => {
 });
 assert.ok(hornBefore, 'the race built no horn');
 assert.equal(hornBefore.source, 'recording', `the horn is not playing the recording (${hornBefore.source})`);
-assert.equal(hornBefore.buttons, 3, `expected fullscreen, sound and horn buttons, saw ${hornBefore.buttons}`);
+assert.equal(
+  hornBefore.buttons,
+  4,
+  `expected fullscreen, sound, home and horn buttons, saw ${hornBefore.buttons}`
+);
 assert.ok(hornBefore.at, 'no horn button on screen to press');
 
 await page.keyboard.press('h');

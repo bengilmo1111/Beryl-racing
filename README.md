@@ -55,8 +55,10 @@ ordered route checkpoints, an off-road penalty, a locally saved best time, and
 a retryable finish.
 
 **Controls:** arrow keys or WASD to drive, Space for the handbrake, **H for the
-horn** — or the on-screen controls on a phone, with fullscreen, sound and horn
-buttons stacked in the top-right corner.
+horn**, ESC to go back to the course chooser — or the on-screen controls on a
+phone: steering bottom-left, throttle and brake bottom-right with the horn
+directly above them, and fullscreen, sound and home buttons in a row across the
+top-right corner.
 
 **She sounds like herself.** The engine is Beryl's own, recorded from the front
 of the car and from behind it, the two loops pitched to the crankshaft speed a

@@ -69,9 +69,10 @@ export async function inspectMobileControls({ browser, baseUrl, required }) {
     failures.push(failure('mobile-controls-error', error.stack || error.message));
   }
 
-  if (required && controls.length !== 4) {
+  // Steering left and right, gas, brake, and the horn above the throttle.
+  if (required && controls.length !== 5) {
     failures.push(
-      failure('mobile-controls-missing', `expected 4 touch controls, found ${controls.length}`)
+      failure('mobile-controls-missing', `expected 5 touch controls, found ${controls.length}`)
     );
   }
   const hidden = controls.filter((control) => !control.visible);
