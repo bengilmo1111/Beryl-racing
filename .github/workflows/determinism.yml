@@ -73,3 +73,8 @@ jobs:
         run: RECORD_BASELINES=1 npm run test:determinism
       - name: Engine sound
         run: npm run test:audio
+      # The player's path again: rotating the phone, which the deterministic
+      # harness never does and which broke the canvas size for a fullscreen
+      # player until src/viewport.js took the sizing over.
+      - name: Turning the phone
+        run: npm run test:rotation

@@ -79,14 +79,32 @@
         font-size: clamp(14px, 4vw, 18px);
         opacity: 0.85;
       }
+      #rotate button {
+        cursor: pointer;
+        min-height: 48px;
+        padding: 12px 26px;
+        border: 0;
+        border-radius: 12px;
+        font: 700 20px Fredoka, Nunito, sans-serif;
+        color: #15314b;
+        background: #ffd166;
+      }
+      /* Turning the phone back is the way out of the prompt, so the rocking
+         phone is the wrong picture once we are only waiting for a tap. */
+      #rotate.needs-tap .phone { display: none; }
       @keyframes rock {
         0%, 100% { transform: rotate(-20deg); }
         50% { transform: rotate(70deg); }
       }
-      /* Only show the prompt on coarse-pointer (touch) devices in portrait */
+      /* Only prompt on coarse-pointer (touch) devices in portrait. This rule is
+         the answer until the game boots; from then on src/viewport.js decides,
+         because it also has to keep the prompt up in landscape while it waits
+         for the tap that puts a dropped fullscreen back. */
       @media (orientation: portrait) and (pointer: coarse) {
         #rotate { display: flex; }
       }
+      html.rotate-shown #rotate { display: flex; }
+      html.rotate-hidden #rotate { display: none; }
       #loading {
         position: fixed;
         inset: 0;
@@ -132,12 +150,20 @@
     </style>
   </head>
   <body>
-    <div id="loading">Warming up Beryl…</div>
-    <div id="game"></div>
-    <div id="rotate">
-      <div class="phone">📱</div>
-      <h1>Rotate your device</h1>
-      <p>Beryl Racing plays best in landscape. Turn your phone sideways to start driving.</p>
+    <!-- Every DOM overlay lives inside #game, which is the fullscreen target:
+         a sibling of it would simply stop being rendered in fullscreen. That is
+         how the rotate prompt came to be invisible on a fullscreen phone, which
+         is exactly when it is most needed. -->
+    <div id="game">
+      <div id="loading">Warming up Beryl…</div>
+      <div id="rotate">
+        <div class="phone">📱</div>
+        <h1 id="rotate-title">Rotate your device</h1>
+        <p id="rotate-message">
+          Beryl Racing plays best in landscape. Turn your phone sideways to start driving.
+        </p>
+        <button id="rotate-resume" type="button" hidden>CARRY ON</button>
+      </div>
     </div>
     <script type="module" src="/src/main.js"></script>
   </body>

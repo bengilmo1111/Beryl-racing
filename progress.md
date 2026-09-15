@@ -2485,3 +2485,55 @@ Same peak (−1.7 dBFS) and the same sustain level, so it is the same horn, just
 a shorter press. The synthesised fallback came down from 0.75 s to 0.55 s to
 match. A shorter blast also spends less time overlapping the music, which is
 where the last two clipped samples were.
+
+## 2026-09-15 — The phone turned over
+
+Fullscreen on a phone, a rotation to portrait and back, and the game came back
+drawn into a portrait-wide strip of a landscape screen. The only way out was to
+tap fullscreen off and on again.
+
+It is not a fullscreen bug at all — fullscreen is only where it is visible,
+because the rest of the screen is the black fullscreen backdrop rather than the
+page behind it. It is in Phaser's `ScaleManager.updateScale()`, which re-reads
+the parent element's bounds *after* it has sized the canvas ("Update the
+parentSize in case the canvas / style change modified it"). When the rotation's
+reflow lands inside that gap, the canvas is sized from the old bounds and
+`parentSize` is then quietly updated to the new ones. `step()` only refreshes
+when `parentSize` disagrees with the element — and now it agrees, so nothing
+ever corrects it. The canvas stays exactly one orientation behind. Toggling
+fullscreen worked because it calls `refresh()` a second time, by which point the
+bounds have stopped moving.
+
+So `src/viewport.js` takes the sizing over rather than trusting the poll: it
+measures the viewport itself, pushes the answer into the Scale Manager, and
+keeps checking for a second and a half afterwards, because a phone reports its
+post-rotation size in stages. Every check is a no-op unless the canvas and the
+viewport actually disagree, so it settles instead of oscillating. The old
+`setTimeout` ladder in main.js — which addressed the *other* stale-size problem,
+a `position: fixed` element keeping its portrait width — is folded into the same
+loop.
+
+The same module answers the question the bug report asked for: a phone turned
+portrait now pauses the game (`game.pause()`, plus `sound.pauseAll()`) and says
+so, instead of running a race nobody can see. Fullscreen is never touched — the
+browser keeps it across a rotation — and if a browser does drop it, the prompt
+stays up in landscape and offers the single tap the Fullscreen API demands to
+put it back, which is the state the player used to have to fix by hand.
+
+Three things do not stop when Phaser does, and each needed saying so:
+
+- Web Audio plays to its own clock, so an engine whose `update()` has stopped
+  being called holds the note it was on. `EngineSound.silence()` winds it down.
+- A finger on the gas never gets its `pointerup`, so `TouchControls.releaseAll()`
+  lets go of everything.
+- Scene time is wall clock and keeps running while the game is paused, so the
+  climb clock was charged for however long the phone was sideways. RaceScene
+  moves its absolute deadlines on by the length of the pause, on the first frame
+  back — which also fixes the same overcharge when a player switches tabs.
+
+The rotate prompt moved inside `#game`. It was a sibling of it, and only the
+fullscreen element's own subtree is rendered in fullscreen: a fullscreen player
+in portrait was shown nothing at all, which is precisely when it is needed. The
+loading splash moved with it for the same reason. `playtest/rotation.mjs` drives
+the whole round trip on a phone-shaped context and fails with "the canvas is
+412x915 on a 915x412 screen" if the sizing ever regresses.
