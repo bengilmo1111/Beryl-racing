@@ -16,8 +16,8 @@ import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
-const LANDSCAPE = { width: 915, height: 412 };
-const PORTRAIT = { width: 412, height: 915 };
+const LANDSCAPE = { width: 915, height: 412, orientation: 'landscapePrimary', angle: 90 };
+const PORTRAIT = { width: 412, height: 915, orientation: 'portraitPrimary', angle: 0 };
 // Rotation is reported in stages and src/viewport.js keeps re-measuring for a
 // while afterwards, so give it longer than a frame to come to rest.
 const SETTLE_MS = 1500;
@@ -41,6 +41,14 @@ const context = await browser.newContext({
   deviceScaleFactor: 1,
 });
 const page = await context.newPage();
+// Rotation goes through CDP device metrics rather than Playwright's viewport
+// setter, which resizes the real browser window — and a browser refuses to
+// resize a window that is in fullscreen ("To resize minimized/maximized/
+// fullscreen window, restore it to normal state first"), which is exactly the
+// case this file exists to test. Overriding the metrics is closer to what a
+// phone does anyway: it moves the viewport and the reported screen orientation
+// together, and leaves the window alone.
+const cdp = await context.newCDPSession(page);
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.stack || e.message));
 page.on('console', (m) => {
@@ -74,8 +82,18 @@ function readState() {
   });
 }
 
+async function turnTo({ width, height, orientation, angle }) {
+  await cdp.send('Emulation.setDeviceMetricsOverride', {
+    width,
+    height,
+    deviceScaleFactor: 1,
+    mobile: true,
+    screenOrientation: { type: orientation, angle },
+  });
+}
+
 async function rotate(size) {
-  await page.setViewportSize(size);
+  await turnTo(size);
   await page.waitForTimeout(SETTLE_MS);
   return readState();
 }
@@ -143,7 +161,7 @@ const elapsed = () =>
   });
 
 const before = await elapsed();
-await page.setViewportSize(PORTRAIT);
+await turnTo(PORTRAIT);
 const pausedFor = 2500;
 await page.waitForTimeout(pausedFor);
 state = await readState();
@@ -152,7 +170,7 @@ assert.match(
   /paused/i,
   'the prompt should say the climb is paused when one is under way'
 );
-await page.setViewportSize(LANDSCAPE);
+await turnTo(LANDSCAPE);
 await page.waitForTimeout(SETTLE_MS);
 const charged = (await elapsed()) - before;
 // Scene time is wall clock, so without the correction in RaceScene.update the
@@ -165,7 +183,7 @@ assert.ok(
 // --- When the browser drops fullscreen on the way round ------------------------
 // Some do. Re-entering needs a gesture, so the prompt stays up and asks for one
 // rather than quietly demoting the player to a windowed game.
-await page.setViewportSize(PORTRAIT);
+await turnTo(PORTRAIT);
 await page.waitForTimeout(600);
 await page.evaluate(() => document.exitFullscreen && document.exitFullscreen());
 await page.waitForTimeout(400);
