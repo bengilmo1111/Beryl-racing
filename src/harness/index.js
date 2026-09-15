@@ -102,7 +102,10 @@ function primaryDriveTarget(scene) {
   // Left of travel. The car's right is (cos r, sin r) for forward (sin r,
   // -cos r) — see render3d/coords.js, which is where that convention is
   // settled — so left is the other one.
-  const lane = traffic.laneFraction * scene.track.half;
+  // A course may give the automated safety driver extra clearance without
+  // moving real traffic. Remutaka's narrow hairpins need this; Eastbourne keeps
+  // using the same lane position as its cars.
+  const lane = (traffic.botLaneFraction ?? traffic.laneFraction) * scene.track.half;
   return { x: round(target.x + ty * lane), y: round(target.y - tx * lane) };
 }
 

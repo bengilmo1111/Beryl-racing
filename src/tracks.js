@@ -287,6 +287,9 @@ export const TRACKS = [
     // so the finish stays clear.
     traffic: {
       laneFraction: 0.5,
+      // The automated driver needs extra bend clearance on the cliff road. It
+      // still keeps left, but does not hug the rail through the hairpins.
+      botLaneFraction: 0.15,
       cars: [
         { at: 0.22, direction: -1, speedKmh: 64 },
         { at: 0.66, direction: -1, speedKmh: 60 },
