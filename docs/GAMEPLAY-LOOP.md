@@ -65,6 +65,7 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 | Done | Test-driver stalls can masquerade as collision traps | Eastbourne steeringTaps stopped requesting throttle when misaligned; the bot-only restart fix now completes both fixed seeds | Investigate only a future trace that shows motive input without movement |
 | Done | Completed runs need visible presentation evidence | PR #51 captures and asserts the delayed DOM results panel while preserving finish metrics | Inspect future `--results.png` evidence alongside completion metrics |
 | Done | Remutaka should keep the cliff on the left, stop Beryl at rails and finish in the summit car park | PR #52 shares rendered/collision rails, fixes the terrain sides and moves arrival into a paved triangular summit area | Record one full player run; check left exposure, rebounds and car-park arrival |
+| Preview | A stopped car angled into Remutaka's bank needs a view of the road to recover | Scheduled heldSteering artifacts end with the hillside filling almost the entire frame; a camera-only preview frames the nearer road direction at walking pace near the edge | Compare production and preview by stopping nose-in at the right bank, then reverse back onto the road |
 | 1 | Steering taps may feel more predictable with a different return rate | Subjective experiment pending, do not merge unjudged | A/B one steering parameter on the same Days Bay route |
 | 2 | More distinct landmarks improve recognition without visual clutter | Earlier Days Bay/Beryl art shipped; player judgement needed | Ask where the player thinks they are at wharf, park and RSA reference views |
 | Done | Long test runs duplicated the growing timing history every frame | Fixed internal steps to return current state; final report retains all timings | Verify lightweight-step contract and deterministic baselines |
@@ -365,3 +366,42 @@ new car park. Decision: accepted after all required checks passed. Next player
 test: record one full climb and check that the drop remains on the left, every
 rail rebounds Beryl, and crossing the white line inside the summit car park ends
 the run. Use that recording to judge the authored summit shape and remaining art.
+
+## 2026-09-16: Remutaka bank-recovery camera preview
+
+Baseline: main `e01c44fd9ede3a4bbe837a2e43c370cfc24878a5`. No open issues or
+PRs. Scheduled Playtest 35005891203 and Exploration 35006476117 passed on
+`873d5b7eeeb95e01fc513409de6bc9d4bc974ec3`, the music merge immediately
+before the current HUD-only merge. They are strong evidence for that gameplay
+state, but not exact-current scheduled evidence. Determinism has no scheduled
+trigger; its latest successful run, 34962430985 for PR #61, covers that PR head
+before the final merge. Those gaps are recorded as missing evidence, not passes.
+
+The standard Remutaka waypoint run finishes in 151366.666667 ms with all 11
+gates, 77 contact episodes, no recoveries/out-of-bounds events and 0.5505%
+off-road time. Both lateBraking seeds finish in 150533.333333 ms with 78
+contacts and 0.5425% off-road time. The imperfect steeringTaps seeds reach 9/11
+gates with 268 contacts; their final traces are still moving and therefore do
+not establish a trap. Both heldSteering seeds stop at 2/11 gates with motive
+input and 725 contacts. This deliberately pathological input is not evidence
+that normal handling is broken or unfun.
+
+Problem and hypothesis: both heldSteering final frames show Beryl angled into
+the solid right bank while the chase camera looks along her body into the
+hillside, leaving only a sliver of road. When nearly stopped near the summit
+road edge and facing materially across the route, framing the nearer road
+direction should expose the recovery path without changing physics, inputs or
+the moving camera. This is a subjective camera experiment, not an automatic
+bug-fix merge.
+
+Change: a Remutaka-only low-speed edge recovery frame selects the closer of the
+two road directions. It is inactive above 2.5% of maximum speed, within 62% of
+the road half-width, and when Beryl is already within about 32 degrees of the
+road. The regression uses the exact final seed-779425 position and heading,
+and guards ordinary moving and centre-road camera behaviour.
+
+Decision: leave the preview unmerged until player judgment. Required CI must
+pass before presenting it. Next test: in production and preview, climb to an
+ordinary right bank, stop with Beryl's nose angled into it, then reverse and
+steer back onto the seal. Choose which camera makes the road and intended
+recovery clearer without an unwelcome swing; do not compare bot finish times.
