@@ -47,20 +47,9 @@ export function acquireContext(soundManager) {
   }
 }
 
-// Everything the game makes itself — the engine, the horn — goes out through one
-// bus with a limiter on the end of it, rather than straight at the destination.
-//
-// The arithmetic is why. The engine peaks around −6 dBFS at full chat, the horn
-// around −4, and the music is a mastered mp3 that touches 0 dBFS played at 0.4.
-// Those three summed are half again over full scale, and a Web Audio
-// destination does not politely turn that down: it clips, and a clipped horn
-// over a clipped engine is a crackle. The limiter only does anything in that
-// coincidence — press the horn flat out in top — and holds our half of the mix
-// just under 0.6 so there is room for the music.
-//
-// The music is Phaser's and does not come through here, which is deliberate:
-// ducking the soundtrack every time somebody honks would be a mixing decision,
-// and this is a safety net.
+// Engine, horn and tyres share a compressor to control overlapping peaks.
+// Music runs through Phaser at 0.22, leaving more headroom for driving sounds.
+// This compressor reduces peaks; it is not a brick-wall limiter.
 const buses = new WeakMap();
 
 export function outputBus(ctx) {

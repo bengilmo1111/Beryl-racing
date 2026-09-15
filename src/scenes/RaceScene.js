@@ -22,6 +22,7 @@ import { createSoundButton } from '../ui/soundButton.js';
 import { createHornButton } from '../ui/hornButton.js';
 import { startMusic, unlockAudio, isMuted } from '../audio/sound.js';
 import { EngineSound } from '../audio/EngineSound.js';
+import { TyreSound } from '../audio/TyreSound.js';
 import { Horn } from '../audio/Horn.js';
 import { CAR } from '../config.js';
 import { FONT, uiScale, isCompact } from '../ui/format.js';
@@ -122,6 +123,8 @@ export class RaceScene extends Phaser.Scene {
       unlockAudio(this);
       startMusic(this);
     }
+    this.tyres = harnessed ? null : new TyreSound(this.sound);
+    this.events.once('shutdown', () => this.tyres && this.tyres.stop());
     this.engine = harnessed ? null : new EngineSound(this.sound, this.def.engine);
     this.events.once('shutdown', () => this.engine && this.engine.stop());
     // The horn. Same bargain as the engine: nothing at all under the harness,
@@ -435,6 +438,11 @@ export class RaceScene extends Phaser.Scene {
     this.car.update(dt, input, onTrack, surface, grade);
     this.resolveObstacles(beforeMovement);
     this.applyFx(onTrack, input, surface);
+    this.tyres?.update({
+      speed: Math.abs(this.car.speed) / CAR.maxSpeed,
+      sliding: this.car.drifting || (input.handbrake && Math.abs(this.car.speed) > CAR.maxSpeed * 0.3),
+      onTrack, surface, muted: isMuted(this) || this.finished,
+    });
 
     // The horn, on H. Read as a fresh press rather than as "is down", because
     // the operating system repeats a held key thirty times a second and each
