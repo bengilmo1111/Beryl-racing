@@ -33,6 +33,24 @@ const A_LENS = 0.05;
 // stares at the horizon and hides the road. See the note where it is used.
 const LOOK_SLOPE_FOLLOW = 0.45;
 
+// At walking pace beside the Remutaka bank, following Beryl's body heading can
+// point the whole frame into the hillside just when the player needs to see the
+// road to recover. The summit property deliberately keeps this experiment off
+// the flatter courses. Choose the nearer route direction so turning around or
+// reversing at the edge does not whip the camera through 180 degrees.
+export function recoveryCameraYaw(track, car, carYaw) {
+  if (!track?.summit || Math.abs(car.speed) >= CAR.maxSpeed * 0.025) return carYaw;
+  const pose = nearestRoadPose(track, car.x, car.y);
+  if (!pose || pose.distance < pose.road.half * 0.62) return carYaw;
+
+  const forwardYaw = yawFor(pose.rotation);
+  const reverseYaw = forwardYaw + Math.PI;
+  const routeYaw = Math.abs(angleDelta(carYaw, forwardYaw))
+    <= Math.abs(angleDelta(carYaw, reverseYaw)) ? forwardYaw : reverseYaw;
+  if (Math.abs(angleDelta(carYaw, routeYaw)) < 0.55) return carYaw;
+  return carYaw + angleDelta(carYaw, routeYaw);
+}
+
 export class ChaseCamera {
   constructor(compact, track = null) {
     this.track = track;
@@ -93,6 +111,7 @@ export class ChaseCamera {
     // velocity heading — velocity heading swings wildly on the handbrake.
     const slip = Math.max(-1, Math.min(1, car.lateral / (CAR.driftLateral * 3)));
     let targetYaw = yawFor(car.rotation) + slip * 0.18;
+    targetYaw = recoveryCameraYaw(this.track, car, targetYaw);
     if (CAR.arcade && this.track && car.speed > CAR.maxSpeed * 0.08) {
       const pose = nearestRoadPose(this.track, car.x, car.y);
       if (pose && pose.distance < pose.road.half * 2) {

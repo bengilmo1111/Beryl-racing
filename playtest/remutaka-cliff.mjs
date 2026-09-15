@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { TRACKS } from '../src/tracks.js';
-import { applyTrack } from '../src/config.js';
+import { applyTrack, CAR } from '../src/config.js';
 import { buildTrack, distanceToCenterline } from '../src/track.js';
 import { remutakaRoadProfile, remutakaVisualHeight } from '../src/remutakaTerrain.js';
 import { remutakaBarriers, remutakaBankBarriers, bounceOffBarriers } from '../src/remutakaBarriers.js';
@@ -10,6 +10,8 @@ import { RoadSurface } from '../src/roadSurface.js';
 import { metres } from '../src/scale.js';
 import { Raycaster, Vector3 } from 'three';
 import { buildPavedAreas } from '../src/render3d/road.js';
+import { ChaseCamera, recoveryCameraYaw } from '../src/render3d/chaseCamera.js';
+import { nearestRoadPose } from '../src/driveRoute.js';
 applyTrack(TRACKS.find(t => t.id === 'remutaka'));
 const track=buildTrack(), profile=remutakaRoadProfile(track), rails=remutakaBarriers(track);
 for (const p of profile) {
@@ -66,4 +68,27 @@ for(let i=1;i<10;i++)for(let j=1;i+j<10;j++){
 }
 const traffic=buildTraffic(TRACKS.find(t => t.id === 'remutaka'),track);
 assert.equal(traffic.cars.length,6,'Remutaka should inherit a light Morris Minor fleet');
-console.log(`Remutaka PASS: ${profile.length} side profiles, ${rails.length} solid rails, ${banks.length} solid bank segments, full-width summit finish, traffic and descent`);
+
+// Scheduled exploration seed 779425 ended here with the car pointing into the
+// uphill bank. The old chase yaw followed that heading and filled the final
+// frame with hillside. At low speed near the edge, frame the nearer direction
+// of road instead; ordinary driving and stops near the centre stay unchanged.
+const stuck = { x:31261.465071198, y:49650.447494184,
+  rotation:2.367398135, lateral:0, speed:0.30098599 };
+const stuckPose = nearestRoadPose(track, stuck.x, stuck.y);
+const stuckYaw = recoveryCameraYaw(track, stuck, -stuck.rotation);
+assert.ok(Math.abs(stuckYaw + stuckPose.rotation) < 1e-9,
+  'Bank recovery camera must face along the nearer road direction');
+const chase = new ChaseCamera(false, track);
+chase.update(stuck, 0, { heightAt: () => 0 });
+const cameraForward = new Vector3();
+chase.camera.getWorldDirection(cameraForward);
+assert.ok(Math.hypot(cameraForward.x - Math.sin(stuckPose.rotation),
+  cameraForward.z + Math.cos(stuckPose.rotation)) < 0.35,
+  'Recovery frame must open the road rather than stare into the bank');
+assert.equal(recoveryCameraYaw(track, {...stuck, x:stuckPose.x, y:stuckPose.y}, -stuck.rotation), -stuck.rotation,
+  'Camera must keep following Beryl away from the road edge');
+assert.equal(recoveryCameraYaw(track, {...stuck, speed:CAR.maxSpeed*0.1}, -stuck.rotation), -stuck.rotation,
+  'Camera must keep following Beryl while moving');
+
+console.log(`Remutaka PASS: ${profile.length} side profiles, ${rails.length} solid rails, ${banks.length} solid bank segments, full-width summit finish, traffic, descent and bank recovery camera`);
