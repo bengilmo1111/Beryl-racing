@@ -63,7 +63,7 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 |---|---|---|---|
 | Done | Coarse terrain can obscure climbing roads despite correct wheel support | PR #38 fixed Remutaka; the follow-up reproduces and clears Ōtaki's smaller overlaps across every alternate road | Player check on Remutaka's later bends and Ōtaki's gorge/town transitions |
 | Done | Test-driver stalls can masquerade as collision traps | Eastbourne steeringTaps stopped requesting throttle when misaligned; the bot-only restart fix now completes both fixed seeds | Investigate only a future trace that shows motive input without movement |
-| Done | Completed runs need visible presentation evidence | PR #51 captures and asserts the delayed DOM results panel while preserving finish metrics | Inspect future `--results.png` evidence alongside completion metrics |
+| Done | Completed runs need visible presentation evidence | PR #51 covered Eastbourne; the follow-up captures and asserts the results panel for every sprint while preserving finish metrics | Inspect future `--results.png` evidence alongside completion metrics |
 | Done | Remutaka should keep the cliff on the left, stop Beryl at rails and finish in the summit car park | PR #52 shares rendered/collision rails, fixes the terrain sides and moves arrival into a paved triangular summit area | Record one full player run; check left exposure, rebounds and car-park arrival |
 | 1 | Steering taps may feel more predictable with a different return rate | Subjective experiment pending, do not merge unjudged | A/B one steering parameter on the same Days Bay route |
 | 2 | More distinct landmarks improve recognition without visual clutter | Earlier Days Bay/Beryl art shipped; player judgement needed | Ask where the player thinks they are at wharf, park and RSA reference views |
@@ -365,3 +365,35 @@ new car park. Decision: accepted after all required checks passed. Next player
 test: record one full climb and check that the drop remains on the left, every
 rail rebounds Beryl, and crossing the white line inside the summit car park ends
 the run. Use that recording to judge the authored summit shape and remaining art.
+
+## 2026-09-17: all-sprint results evidence
+
+Baseline: main `e01c44fd9ede3a4bbe837a2e43c370cfc24878a5`. Draft PR #62 is
+the only open PR and remains an unjudged camera experiment; this objective
+evidence fix is independent and does not merge or alter it. There are no open
+issues. Scheduled Playtest 35132793703 and Exploration 35133114033 passed on
+this exact main commit on September 16 UTC. The previous successful scheduled
+runs, 35005891203 and 35006476117, passed on `873d5b7`, immediately before the
+HUD-only main merge. All 24 matching exploration scenario/seed outcomes,
+finish times, gates, contacts, recoveries, out-of-bounds events and off-road
+fractions are identical. Small p95 harness timing changes are not treated as a
+real-device performance result. Determinism still has no scheduled trigger, so
+there is no scheduled Determinism pass to claim.
+
+Problem and hypothesis: completed non-Eastbourne sprint artifacts do not contain
+`--results.png` evidence. Their final captures are often the solid yellow
+celebration flash; even when the flash has cleared, the frame precedes the
+delayed results panel. Advancing only presentation time and asserting the actual
+results container should make Remutaka and Ōtaki finishes inspectable without
+changing recorded driving state. Manfeild is intentionally excluded because it
+is a continuing circuit with no results overlay after each lap.
+
+Change: every completed sprint now freezes its metric state, advances the
+presentation clock, waits for either Eastbourne's accessible DOM dialog or the
+other courses' visible Phaser results container, and records a plausibly sized
+browser screenshot. A missing panel is a `results-presentation` failure.
+
+Decision: merge only after Playtest, Exploration and Determinism pass on the
+final commit and the new Remutaka and Ōtaki screenshots visibly contain their
+results panels. Next test: inspect all future sprint `--results.png` files next
+to completion metrics; do not treat a yellow final frame as presentation proof.

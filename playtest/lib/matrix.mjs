@@ -38,8 +38,21 @@ const MIN_PRESENTATION_SHOT_BYTES = 20_000;
 async function captureResultsShot(page, courseId, botId, frame) {
   const label = String(frame).padStart(6, '0');
   const fileName = `${courseId}--${botId}--f${label}--results.png`;
-  const results = page.getByRole('dialog', { name: 'Eastbourne results' });
-  await results.waitFor({ state: 'visible', timeout: 5000 });
+  if (courseId === 'eastbourne-dash') {
+    const results = page.getByRole('dialog', { name: 'Eastbourne results' });
+    await results.waitFor({ state: 'visible', timeout: 5000 });
+  } else {
+    // The other sprint results are Phaser canvas objects, not DOM dialogs.
+    // Wait for the distinctive top-level panel rather than merely waiting a
+    // fixed time and accepting another finish-flash frame as evidence.
+    await page.waitForFunction(() => {
+      const scene = window.__BERYL_GAME__?.scene?.getScene('Race');
+      return scene?.children?.list?.some((child) =>
+        child.type === 'Container' && child.depth === 1400 && child.visible &&
+        child.list?.some((item) => item.type === 'Text')
+      );
+    }, null, { timeout: 5000 });
+  }
   const png = await page.screenshot({ animations: 'disabled' });
   if (png.length < MIN_PRESENTATION_SHOT_BYTES) {
     throw new Error(`results screenshot is unexpectedly small (${png.length} bytes)`);
@@ -201,10 +214,10 @@ export async function runSimulation({
       }
     }
 
-    if (finalState?.finished && course.id === 'eastbourne-dash') {
+    if (finalState?.finished && course.mode === 'sprint') {
       try {
         // Freeze the completed driving state before advancing Phaser's clock to
-        // the delayed DOM results. Presentation frames must not change metrics.
+        // the delayed results. Presentation frames must not change metrics.
         completedMetricState = await page.evaluate((frames) => {
           const completed = window.__h.state();
           window.__h.setInput({ throttle: 0, brake: 1, steer: 0 });
