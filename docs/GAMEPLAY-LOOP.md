@@ -63,8 +63,9 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 |---|---|---|---|
 | Done | Coarse terrain can obscure climbing roads despite correct wheel support | PR #38 fixed Remutaka; the follow-up reproduces and clears Ōtaki's smaller overlaps across every alternate road | Player check on Remutaka's later bends and Ōtaki's gorge/town transitions |
 | Done | Test-driver stalls can masquerade as collision traps | Eastbourne steeringTaps stopped requesting throttle when misaligned; the bot-only restart fix now completes both fixed seeds | Investigate only a future trace that shows motive input without movement |
-| Done | Completed runs need visible presentation evidence | PR #51 covered Eastbourne; the follow-up captures and asserts the results panel for every sprint while preserving finish metrics | Inspect future `--results.png` evidence alongside completion metrics |
+| Done | Completed runs need visible presentation evidence | PR #51 covered Eastbourne; PR #63 covers every sprint, and the first scheduled production artifacts contain readable RSA, summit and beach panels with unchanged driving metrics | Inspect future `--results.png` evidence alongside completion metrics |
 | Done | Remutaka should keep the cliff on the left, stop Beryl at rails and finish in the summit car park | PR #52 shares rendered/collision rails, fixes the terrain sides and moves arrival into a paved triangular summit area | Record one full player run; check left exposure, rebounds and car-park arrival |
+| 1 | Recovery is easier when the camera keeps the road and escape direction visible | Draft PR #62 is a subjective Remutaka recovery-camera preview; all automated checks pass and handling/replay metrics are unchanged | Ben A/B production against PR #62 by reversing away from a right-hand bank; keep it unmerged until judged |
 | 1 | Steering taps may feel more predictable with a different return rate | Subjective experiment pending, do not merge unjudged | A/B one steering parameter on the same Days Bay route |
 | 2 | More distinct landmarks improve recognition without visual clutter | Earlier Days Bay/Beryl art shipped; player judgement needed | Ask where the player thinks they are at wharf, park and RSA reference views |
 | Done | Long test runs duplicated the growing timing history every frame | Fixed internal steps to return current state; final report retains all timings | Verify lightweight-step contract and deterministic baselines |
@@ -397,3 +398,40 @@ Decision: merge only after Playtest, Exploration and Determinism pass on the
 final commit and the new Remutaka and Ōtaki screenshots visibly contain their
 results panels. Next test: inspect all future sprint `--results.png` files next
 to completion metrics; do not treat a yellow final frame as presentation proof.
+
+## 2026-09-18: first scheduled all-sprint evidence audit — no gameplay change
+
+Baseline: main `62e3759a530ff7945f9a4dfe5d04ce19caef219e` (PR #63). Draft PR
+#62 remains the only open PR and is still an unjudged camera experiment; it was
+not merged or modified. There are no open issues.
+
+Workflow collections show scheduled Playtest
+[35257387002](https://github.com/bengilmo1111/Beryl-racing/actions/runs/35257387002)
+and Exploration
+[35258210275](https://github.com/bengilmo1111/Beryl-racing/actions/runs/35258210275)
+passed on this exact main commit on September 17 UTC. The matching previous
+successful scheduled runs, 35132793703 and 35133114033, passed on `e01c44f`.
+Determinism has no scheduled trigger. Its latest relevant result is the passing
+PR #63 run 35148034182 on code commit `41767d5`; this is PR evidence, not a
+scheduled exact-merge-commit result.
+
+All 24 matching exploration scenario/seed results retain exactly the same
+verdict, completion state, finish time, gate progress, contact and recovery
+counts, softlock state/frame, out-of-bounds count, off-road fraction, runtime
+failures and over-33-ms frame count. Remutaka's reported p95 harness step cost
+moves by 0.1 ms in several jobs; as documented above, this is not a real-device
+rendering benchmark and is not treated as a gameplay change.
+
+Inspected all twelve scheduled `--results.png` files produced by completed
+sprints. The six Eastbourne captures show the RSA dialog, the two Remutaka
+captures show `SUMMIT!`, and the four Ōtaki captures show `BEACH!`; none is a
+yellow celebration-only frame. Scheduled Playtest also completes the waypoint
+run on all four courses and captures the same three sprint result states.
+Manfeild is correctly excluded because it is a continuing circuit.
+
+Decision: no gameplay fix or new subjective experiment. The evidence gap is
+closed in the first exact-main scheduled run, while the existing camera preview
+still needs player preference. Next test: A/B PR #62 by stopping nose-first at
+a Remutaka right-hand bank and reversing to the road; merge or close it from the
+player verdict. Continue to compare later scheduled reports against matching
+scenario/seed evidence rather than treating a missing artifact as a pass.
