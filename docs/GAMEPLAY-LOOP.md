@@ -64,6 +64,7 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 | Done | Coarse terrain can obscure climbing roads despite correct wheel support | PR #38 fixed Remutaka; the follow-up reproduces and clears Ōtaki's smaller overlaps across every alternate road | Player check on Remutaka's later bends and Ōtaki's gorge/town transitions |
 | Done | Test-driver stalls can masquerade as collision traps | Eastbourne steeringTaps stopped requesting throttle when misaligned; the bot-only restart fix now completes both fixed seeds | Investigate only a future trace that shows motive input without movement |
 | Done | Completed runs need visible presentation evidence | PR #51 covered Eastbourne; PR #63 covers every sprint, and the first scheduled production artifacts contain readable RSA, summit and beach panels with unchanged driving metrics | Inspect future `--results.png` evidence alongside completion metrics |
+| Done | Finish celebration text should not ghost through results cards | PR #65 clears and stops the tween as the card opens; all 12 CI captures are clean and the browser regression checks empty text plus zero alpha | Check one player finish on any sprint; retain the card's translucent view of the destination |
 | Done | Remutaka should keep the cliff on the left, stop Beryl at rails and finish in the summit car park | PR #52 shares rendered/collision rails, fixes the terrain sides and moves arrival into a paved triangular summit area | Record one full player run; check left exposure, rebounds and car-park arrival |
 | 1 | Recovery is easier when the camera keeps the road and escape direction visible | Draft PR #62 is a subjective Remutaka recovery-camera preview; all automated checks pass and handling/replay metrics are unchanged | Ben A/B production against PR #62 by reversing away from a right-hand bank; keep it unmerged until judged |
 | 1 | Steering taps may feel more predictable with a different return rate | Subjective experiment pending, do not merge unjudged | A/B one steering parameter on the same Days Bay route |
@@ -435,3 +436,49 @@ still needs player preference. Next test: A/B PR #62 by stopping nose-first at
 a Remutaka right-hand bank and reversing to the road; merge or close it from the
 player verdict. Continue to compare later scheduled reports against matching
 scenario/seed evidence rather than treating a missing artifact as a pass.
+
+## 2026-09-19: clear the finish celebration behind result cards
+
+Baseline: main `c2790f4a3a719257846ff31c9a40844149e7cb03` (PR #64). Draft PR
+#62 remains the only other open PR and is still an unjudged camera experiment;
+this result-presentation fix does not alter or merge it. There are no open issues.
+
+Scheduled Playtest
+[35375718027](https://github.com/bengilmo1111/Beryl-racing/actions/runs/35375718027)
+and Exploration
+[35375993804](https://github.com/bengilmo1111/Beryl-racing/actions/runs/35375993804)
+passed on this exact main commit on September 18 UTC. Against the preceding
+successful scheduled runs 35257387002 and 35258210275, all 24 matching
+scenario/seed verdicts, completion state, finish time, gate progress, contacts,
+recoveries, softlocks, out-of-bounds events, off-road fraction, runtime failures
+and over-33-ms frames are identical. Harness p95 timing is excluded from that
+gameplay comparison. Determinism has no schedule; the latest relevant pass is
+PR #64 run 35272604141, not scheduled exact-main evidence.
+
+Problem: all twelve completed-sprint `--results.png` captures contain a faint,
+oversized `NEW BEST TIME!` behind the result card. `finishSprint()` starts a
+1.9-second HUD tween, while non-Eastbourne cards open after 0.7 seconds. Even on
+the longer Eastbourne delay, the tween can retain its text or be advanced by the
+presentation harness. The semi-transparent result surfaces make it visible.
+
+Hypothesis and change: when `showResults()` opens, stop every tween targeting the
+finish announcement, clear its text and force its alpha to zero. Keep the initial
+celebration and camera flash unchanged. Add a completed-sprint browser assertion
+that rejects a missing, non-empty or visible HUD announcement before accepting
+the screenshot. This changes presentation only: no handling, route, traffic,
+camera, art placement, score, timing state or deterministic baseline.
+
+Result ([PR #65](https://github.com/bengilmo1111/Beryl-racing/pull/65)):
+production build, arcade-driving, track-geometry and placement checks pass
+locally. The local Playwright Chromium download timed out, so browser rendering
+and deterministic replay were missing local evidence rather than passes. On code
+commit `c2cbaa6`, Playtest 35392036248, Exploration 35392036174 and Determinism
+35392036168 all pass. Every completed sprint asserts empty finish-announcement
+text at zero alpha. All twelve rendered result captures are clean, while retaining
+their translucent finish-location view. All 24 gameplay outcomes match the exact
+main scheduled run after excluding harness p95 timing.
+
+Decision: accept after this final documentation commit passes the same required
+checks. Player check: finish Eastbourne, Remutaka or Ōtaki and confirm the result
+card has no giant ghost text behind it while the scenery remains visible through
+the panel.
