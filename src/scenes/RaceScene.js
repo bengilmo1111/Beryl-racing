@@ -730,6 +730,10 @@ export class RaceScene extends Phaser.Scene {
   }
 
   showResults(timeMs) {
+    // The finish announcement has done its job by the time the result card
+    // appears. Leaving it alive makes NEW BEST TIME ghost through the card's
+    // translucent background, particularly on the shorter non-coastal delay.
+    this.hud.clearMessage();
     if (this.def.theme === 'eastbourne') {
       this.recoverButton?.setVisible(false);
       showCoastalResults(this, timeMs, this.previousBest);

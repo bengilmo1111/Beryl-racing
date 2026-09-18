@@ -230,4 +230,12 @@ export class Hud {
       duration: 500,
     });
   }
+
+  clearMessage() {
+    // Results panels intentionally retain a little transparency so the finish
+    // location remains visible. Stop the celebration tween before clearing it,
+    // otherwise its next tick can restore the giant message behind the panel.
+    this.scene.tweens.killTweensOf(this.flash);
+    this.flash.setText('').setAlpha(0);
+  }
 }

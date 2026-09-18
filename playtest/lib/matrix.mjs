@@ -53,6 +53,15 @@ async function captureResultsShot(page, courseId, botId, frame) {
       );
     }, null, { timeout: 5000 });
   }
+  const celebration = await page.evaluate(() => {
+    const flash = window.__BERYL_GAME__?.scene?.getScene('Race')?.hud?.flash;
+    return flash ? { text: flash.text, alpha: flash.alpha } : null;
+  });
+  if (!celebration || celebration.text || celebration.alpha > 0.001) {
+    throw new Error(
+      `finish celebration remains behind results (${JSON.stringify(celebration)})`
+    );
+  }
   const png = await page.screenshot({ animations: 'disabled' });
   if (png.length < MIN_PRESENTATION_SHOT_BYTES) {
     throw new Error(`results screenshot is unexpectedly small (${png.length} bytes)`);
