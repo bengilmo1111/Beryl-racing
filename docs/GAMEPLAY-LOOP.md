@@ -64,7 +64,7 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 | Done | Coarse terrain can obscure climbing roads despite correct wheel support | PR #38 fixed Remutaka; the follow-up reproduces and clears Ōtaki's smaller overlaps across every alternate road | Player check on Remutaka's later bends and Ōtaki's gorge/town transitions |
 | Done | Test-driver stalls can masquerade as collision traps | Eastbourne steeringTaps stopped requesting throttle when misaligned; the bot-only restart fix now completes both fixed seeds | Investigate only a future trace that shows motive input without movement |
 | Done | Completed runs need visible presentation evidence | PR #51 covered Eastbourne; PR #63 covers every sprint, and the first scheduled production artifacts contain readable RSA, summit and beach panels with unchanged driving metrics | Inspect future `--results.png` evidence alongside completion metrics |
-| In progress | Finish celebration text should not ghost through results cards | All 12 latest sprint result captures show the large celebration beneath the translucent card; the focused fix clears and stops that tween as the card opens | Require the HUD celebration to be empty and transparent in every completed-sprint browser run; inspect the rendered cards |
+| Done | Finish celebration text should not ghost through results cards | PR #65 clears and stops the tween as the card opens; all 12 CI captures are clean and the browser regression checks empty text plus zero alpha | Check one player finish on any sprint; retain the card's translucent view of the destination |
 | Done | Remutaka should keep the cliff on the left, stop Beryl at rails and finish in the summit car park | PR #52 shares rendered/collision rails, fixes the terrain sides and moves arrival into a paved triangular summit area | Record one full player run; check left exposure, rebounds and car-park arrival |
 | 1 | Recovery is easier when the camera keeps the road and escape direction visible | Draft PR #62 is a subjective Remutaka recovery-camera preview; all automated checks pass and handling/replay metrics are unchanged | Ben A/B production against PR #62 by reversing away from a right-hand bank; keep it unmerged until judged |
 | 1 | Steering taps may feel more predictable with a different return rate | Subjective experiment pending, do not merge unjudged | A/B one steering parameter on the same Days Bay route |
@@ -468,10 +468,17 @@ that rejects a missing, non-empty or visible HUD announcement before accepting
 the screenshot. This changes presentation only: no handling, route, traffic,
 camera, art placement, score, timing state or deterministic baseline.
 
-Verification so far: production build, arcade-driving, track-geometry and
-placement checks pass locally. The local Playwright Chromium download timed out,
-so browser rendering and deterministic replay are missing local evidence rather
-than passes. Decision: merge only after Playtest, Exploration and Determinism pass
-in CI and every sprint results capture is visually clean. Player check: finish
-Eastbourne, Remutaka or Ōtaki and confirm the result card has no giant ghost text
-behind it while the scenery remains visible through the panel.
+Result ([PR #65](https://github.com/bengilmo1111/Beryl-racing/pull/65)):
+production build, arcade-driving, track-geometry and placement checks pass
+locally. The local Playwright Chromium download timed out, so browser rendering
+and deterministic replay were missing local evidence rather than passes. On code
+commit `c2cbaa6`, Playtest 35392036248, Exploration 35392036174 and Determinism
+35392036168 all pass. Every completed sprint asserts empty finish-announcement
+text at zero alpha. All twelve rendered result captures are clean, while retaining
+their translucent finish-location view. All 24 gameplay outcomes match the exact
+main scheduled run after excluding harness p95 timing.
+
+Decision: accept after this final documentation commit passes the same required
+checks. Player check: finish Eastbourne, Remutaka or Ōtaki and confirm the result
+card has no giant ghost text behind it while the scenery remains visible through
+the panel.
