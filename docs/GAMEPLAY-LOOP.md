@@ -64,7 +64,7 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 | Done | Coarse terrain can obscure climbing roads despite correct wheel support | PR #38 fixed Remutaka; the follow-up reproduces and clears Ōtaki's smaller overlaps across every alternate road | Player check on Remutaka's later bends and Ōtaki's gorge/town transitions |
 | Done | Test-driver stalls can masquerade as collision traps | Eastbourne steeringTaps stopped requesting throttle when misaligned; the bot-only restart fix now completes both fixed seeds | Investigate only a future trace that shows motive input without movement |
 | Done | Completed runs need visible presentation evidence | PR #51 covered Eastbourne; PR #63 covers every sprint, and the first scheduled production artifacts contain readable RSA, summit and beach panels with unchanged driving metrics | Inspect future `--results.png` evidence alongside completion metrics |
-| Done | Finish celebration text should not ghost through results cards | PR #65 clears and stops the tween as the card opens; all 12 CI captures are clean and the browser regression checks empty text plus zero alpha | Check one player finish on any sprint; retain the card's translucent view of the destination |
+| Done | Finish celebration text should not ghost through results cards | PR #65 clears and stops the tween as the card opens; the first scheduled production audit has 12 clean captures, 24 unchanged gameplay outcomes and successful Vercel deployments | Check one player finish on any sprint; retain the card's translucent view of the destination |
 | Done | Remutaka should keep the cliff on the left, stop Beryl at rails and finish in the summit car park | PR #52 shares rendered/collision rails, fixes the terrain sides and moves arrival into a paved triangular summit area | Record one full player run; check left exposure, rebounds and car-park arrival |
 | 1 | Recovery is easier when the camera keeps the road and escape direction visible | Draft PR #62 is a subjective Remutaka recovery-camera preview; all automated checks pass and handling/replay metrics are unchanged | Ben A/B production against PR #62 by reversing away from a right-hand bank; keep it unmerged until judged |
 | 1 | Steering taps may feel more predictable with a different return rate | Subjective experiment pending, do not merge unjudged | A/B one steering parameter on the same Days Bay route |
@@ -482,3 +482,45 @@ Decision: accept after this final documentation commit passes the same required
 checks. Player check: finish Eastbourne, Remutaka or Ōtaki and confirm the result
 card has no giant ghost text behind it while the scenery remains visible through
 the panel.
+
+## 2026-09-20: first scheduled production audit after result-card fix — no gameplay change
+
+Baseline: main `fec3668414e4331a7c8f2ea404e94c262ccd9cb8` (PR #65).
+Hypothesis: clearing the finish announcement when the card opens removes the
+ghost text in production without changing driving outcomes. The previous
+successful scheduled baseline is `c2790f4a3a719257846ff31c9a40844149e7cb03`.
+Draft camera preview PR #62 remains the only open PR, with no player verdict;
+there are no open standalone issues.
+
+Scheduled [Playtest 35457566831](https://github.com/bengilmo1111/Beryl-racing/actions/runs/35457566831)
+and [Exploration 35457709447](https://github.com/bengilmo1111/Beryl-racing/actions/runs/35457709447)
+passed on the exact merge commit on September 19 UTC. All twelve exploration
+artifacts were available, with both fixed seeds per driver/course. Against
+the matching previous successful scheduled Exploration 35375993804, all 24
+scenario/seed verdicts, failures, completion states, finish times, gate
+progress, contacts, recoveries, softlocks, out-of-bounds events, off-road
+fractions, over-33-ms frames and runtime/network errors are identical. Harness
+step p95 is excluded because it is not a player-device rendering measure.
+
+The twelve completed-sprint result screenshots show six clean RSA cards, two
+clean `SUMMIT!` cards and four clean `BEACH!` cards. The destination remains
+visible behind each translucent panel, with no oversized announcement ghost.
+The Eastbourne scheduled Playtest artifact reports four passing scenarios and
+the mobile-shell job separately passed its gateway and mobile journey steps;
+the course artifact's `NOT RUN` mobile rows are not mistaken for passed checks.
+The other course jobs also passed. Determinism has no scheduled trigger, so no
+scheduled exact-merge-commit replay is claimed. The final PR #65
+[Determinism 35392965740](https://github.com/bengilmo1111/Beryl-racing/actions/runs/35392965740)
+passed on the exact final PR head before merge.
+
+The delayed Vercel statuses on the merge commit subsequently reported success
+for `beryl-racing-3d` at September 18 21:51 UTC and `beryl-racing` at 22:06 UTC.
+The public Gilmore.games 3D route now serves a changed asset bundle compared
+with the previous browser check; this confirms the earlier deployment delay
+resolved, without treating the bundle name alone as a gameplay test.
+
+Result and decision: no new reproducible gameplay bug in this evidence, so no
+game-code change or unjudged subjective experiment. Next test: have a player
+finish any sprint and check the clean card in the actual browser; separately
+compare production with PR #62 by stopping nose-first at a Remutaka right-hand
+bank and reversing to the road. Await Ben's camera preference before merging.
