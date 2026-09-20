@@ -145,6 +145,14 @@ export function startHarness({ Phaser, config, createGame }) {
   function advanceOneFrame() {
     absoluteTimeMs += FIXED_DELTA_MS;
     const started = performance.now();
+    // Phaser's TweenManager measures elapsed time with Date.now(), while the
+    // harness runs many simulated frames per real second. Move its origin by
+    // one fixed frame so countdown/announcement tweens match the driving clock
+    // in screenshots. This is harness-only; player timing is untouched.
+    const scene = game.scene.getScene('Race');
+    if (scene?.sys?.isActive() && scene.tweens.startTime) {
+      scene.tweens.startTime -= FIXED_DELTA_MS;
+    }
     // The deterministic contract is simulation stepping. Rendering every
     // internal frame makes long headless runs needlessly GPU-bound; Phaser's
     // headlessStep executes the same managers and scenes without a canvas draw.

@@ -23,6 +23,19 @@ function failure(code, scope, message) {
 async function captureShot(page, courseId, botId, frame, suffix = '') {
   const label = String(frame).padStart(6, '0');
   const fileName = `${courseId}--${botId}--f${label}${suffix}.png`;
+  if (frame >= 180) {
+    const lingeringIntro = await page.evaluate(() => {
+      const scene = window.__BERYL_GAME__?.scene?.getScene('Race');
+      return scene?.children?.list?.filter((child) =>
+        child.type === 'Text' && child.depth === 1200 && child.visible &&
+        child.alpha > 0.001 &&
+        (child.text === 'GO!' || child.text === scene.def.intro)
+      ).map((child) => child.text) || [];
+    });
+    if (lingeringIntro.length) {
+      throw new Error(`intro still covers the road at frame ${frame}: ${lingeringIntro.join(', ')}`);
+    }
+  }
   // _screenshot renders and composites the 3D world canvas with the transparent
   // Phaser HUD canvas. Reading the Phaser canvas directly would capture the HUD
   // over nothing.

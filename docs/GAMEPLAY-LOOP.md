@@ -65,6 +65,7 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 | Done | Test-driver stalls can masquerade as collision traps | Eastbourne steeringTaps stopped requesting throttle when misaligned; the bot-only restart fix now completes both fixed seeds | Investigate only a future trace that shows motive input without movement |
 | Done | Completed runs need visible presentation evidence | PR #51 covered Eastbourne; PR #63 covers every sprint, and the first scheduled production artifacts contain readable RSA, summit and beach panels with unchanged driving metrics | Inspect future `--results.png` evidence alongside completion metrics |
 | Done | Finish celebration text should not ghost through results cards | PR #65 clears and stops the tween as the card opens; the first scheduled production audit has 12 clean captures, 24 unchanged gameplay outcomes and successful Vercel deployments | Check one player finish on any sprint; retain the card's translucent view of the destination |
+| 1 | Accelerated playtest screenshots should show the actual mid-run view | Scheduled mid-run captures retain the giant `GO!` and Manfeild intro at 40–60 seconds of simulation because Phaser tweens measure wall-clock time | Advance only harness presentation tweens with fixed steps; assert no intro remains after three simulated seconds; compare matching metrics and screenshots |
 | Done | Remutaka should keep the cliff on the left, stop Beryl at rails and finish in the summit car park | PR #52 shares rendered/collision rails, fixes the terrain sides and moves arrival into a paved triangular summit area | Record one full player run; check left exposure, rebounds and car-park arrival |
 | 1 | Recovery is easier when the camera keeps the road and escape direction visible | Draft PR #62 is a subjective Remutaka recovery-camera preview; all automated checks pass and handling/replay metrics are unchanged | Ben A/B production against PR #62 by reversing away from a right-hand bank; keep it unmerged until judged |
 | 1 | Steering taps may feel more predictable with a different return rate | Subjective experiment pending, do not merge unjudged | A/B one steering parameter on the same Days Bay route |
@@ -524,3 +525,38 @@ game-code change or unjudged subjective experiment. Next test: have a player
 finish any sprint and check the clean card in the actual browser; separately
 compare production with PR #62 by stopping nose-first at a Remutaka right-hand
 bank and reversing to the road. Await Ben's camera preference before merging.
+
+## 2026-09-21: keep accelerated screenshots free of the race-start prompt
+
+Baseline: main `09f30f914cfe7566ee1dd3b01152f16591100fed` (PR #66).
+Draft camera PR #62 remains the only open PR; no standalone issues. Scheduled
+[Playtest 35525939144](https://github.com/bengilmo1111/Beryl-racing/actions/runs/35525939144)
+and [Exploration 35526096354](https://github.com/bengilmo1111/Beryl-racing/actions/runs/35526096354)
+passed on that exact merge commit on September 20 UTC. All 24 matching
+scenario/seed gameplay metrics and verdicts are identical to the previous
+successful scheduled Exploration 35457709447 after excluding harness p95.
+All 12 completed-sprint results captures still show clean cards. Determinism
+has no schedule; the latest relevant pass is PR #66 run 35467610351, not a
+scheduled exact-main result.
+
+Problem and hypothesis: mid-run evidence, especially Remutaka, Ōtaki and
+Manfeild, shows the oversized `GO!` overlay and Manfeild intro at 40–60
+seconds of simulated driving. The fixed-step harness advances driving far
+faster than wall time, but Phaser's TweenManager calculates its time with
+`Date.now()`. Those screenshots are contaminated test evidence, not proof that
+the prompt stays up during ordinary player driving. Advancing the harness-only
+tween clock by the same fixed step should restore faithful visual captures.
+
+Change: move the race scene's tween-manager origin one fixed frame for each
+headless simulation step. Add an assertion to screenshot capture that `GO!`
+and the course intro cannot remain visible after three simulated seconds.
+This does not touch the normal player loop, physics, input, course data, art,
+camera or score. Build, arcade-driving and geometry checks pass locally; local
+browser replay is unavailable without Playwright Chromium. Compare the exact
+scenario/seed gameplay outcomes and the matched mid-run frames in CI before
+accepting the change; a green build is not visual verification.
+
+Decision: pending PR browser evidence and all three required workflows.
+Next test: inspect matched frame 2400/3600 on Remutaka, Ōtaki and Manfeild
+for clean road views; ask a player to confirm the start prompt fades after
+GO during a normal drive. Keep PR #62 unmerged until Ben judges its camera.
