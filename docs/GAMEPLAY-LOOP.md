@@ -570,3 +570,48 @@ Next test: inspect future mid-run frames for actual visual defects now that
 the prompt no longer obscures them; ask a player to confirm the start prompt
 fades after GO during a normal drive. Keep PR #62 unmerged until Ben judges
 its camera.
+
+## 2026-09-22: first scheduled clean-mid-run audit — no gameplay change
+
+Baseline: main `7f3c8a8d5f9dbd0013d4d9a8161e1f5cf0a63080` (PR #67).
+Draft camera PR #62 remains the only open PR and still has no player verdict;
+there are no open standalone issues.
+
+Scheduled [Playtest 35644839906](https://github.com/bengilmo1111/Beryl-racing/actions/runs/35644839906)
+and [Exploration 35645586373](https://github.com/bengilmo1111/Beryl-racing/actions/runs/35645586373)
+passed on this exact merge commit on September 21 UTC. All twelve Exploration
+artifacts are present. Compared with the previous successful scheduled run
+35526096354, all 24 matching scenario/seed verdicts, failures, completion
+states, finish times, checkpoint progress, contacts, recoveries, softlocks,
+out-of-bounds events, off-road fractions, over-33-ms frames and runtime/network
+errors are identical. Harness p95 is excluded from gameplay comparison.
+
+Inspected the 48 seed-779425 frames at 10, 20, 40 and 60 seconds plus all twelve
+completed-sprint result captures. The stale start overlays fixed in PR #67 are
+absent from every mid-run frame; RSA, `SUMMIT!` and `BEACH!` cards remain clean.
+The four per-course Playtest reports each contain four passing simulations.
+Their embedded `NOT RUN` mobile rows are not treated as passes: the distinct
+mobile-shell job passed its gateway and mobile journey, as did the combined
+report and every course job. Twenty-seven course/vehicle reference images were
+also inspected.
+
+One possible Eastbourne warning mismatch was rejected after inspecting the
+original frame: `OFF ROAD` appears while Beryl is wholly on the grass verge,
+not centred on tarmac. The warning's distance check already follows the full
+road network, including alternate streets. The Remutaka held-steering frames
+still fill with the uphill bank, but that is the exact reproducible hypothesis
+already isolated in subjective PR #62; duplicating or automatically merging it
+would bypass the required player preference.
+
+Determinism has no scheduled trigger, so there is no scheduled exact-main pass
+to claim. The latest relevant evidence is final PR #67 Determinism run
+35537148101, which passed on the exact final PR head. Both Vercel statuses on
+the merge commit are successful and the 3D production route remains main.
+
+Result and decision: no new reproducible gameplay bug, no game-code change and
+no new subjective experiment. Record the negative audit without inferring fun
+from completion. Next player test: compare production against PR #62 on
+Remutaka by stopping nose-first at a right-hand bank and reversing to the road;
+merge or close that preview from Ben's preference. For future automated passes,
+investigate only a newly changed metric, runtime failure, or unobscured visual
+defect rather than repeatedly auditing the same stable evidence.
