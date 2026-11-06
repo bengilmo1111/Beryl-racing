@@ -81,8 +81,30 @@ for (const id of ['remutaka', 'otaki', 'eastbourne-dash']) {
   assert.deepEqual(CAR, roadConfig, `${id}: full driving configuration must match`);
 }
 applyTrack(TRACKS.find((track) => track.id === 'manfield'));
-assert.equal(CAR.arcade, false, 'Manfeild must retain its race handling');
-assert.equal(CAR.steerResponse, undefined, 'Course configuration must not leak');
+assert.equal(CAR.arcade, true, 'Manfeild must use progressive steering');
+assert.equal(CAR.highSpeedSteer, 0.4, 'Manfeild needs its dedicated race tune');
 assert.equal(CAR.topSpeedKmh, 220, 'Manfeild must retain its faster top speed');
 assert.ok(CAR.accel > roadConfig.accel, 'Manfeild must accelerate faster');
 console.log('arcade-driving PASS: identical road-course traces and configurations, tap steering, stationary steering, grass, 30/60/120Hz acceleration, recovery reset and course isolation');
+
+for (const hz of [30, 60, 120]) {
+  const parked = testCar();
+  for (let i = 0; i < hz; i++) parked.update(1 / hz, { throttle: 0, steer: 1 }, true);
+  assert.equal(parked.rotation, 0, `Manfeild: no stationary pivot at ${hz}Hz`);
+  const fast = testCar();
+  fast.vy = -CAR.maxSpeed;
+  fast.update(1 / hz, { throttle: 1, steer: 1 }, true);
+  assert.ok(fast.rotation > 0 && fast.rotation < 0.01, 'Race-speed tap must stay controllable');
+  const verge = testCar();
+  verge.vy = -CAR.maxSpeed;
+  verge.update(1 / hz, { throttle: 0, steer: 0 }, false);
+  assert.ok(verge.speed > CAR.maxSpeed * 0.95, 'Manfeild verge must not instantly halve speed');
+  for (let i = 0; i < hz * 2; i++) verge.update(1 / hz, { throttle: 0, steer: 0 }, false);
+  assert.ok(verge.speed < CAR.maxSpeed * 0.5, 'Grass must still slow the race car');
+  const brake = testCar();
+  brake.vy = -CAR.maxSpeed;
+  for (let i = 0; i < hz * 0.4; i++) brake.update(1 / hz, { throttle: -1, steer: 0 }, true);
+  assert.ok(brake.speed >= 0 && brake.speed < CAR.maxSpeed * 0.15, 'V8 brakes must stop the car promptly');
+}
+assert.deepEqual(handlingTrace(eastbourne), expected, 'Returning from Manfeild must restore road handling');
+console.log('Manfeild handling PASS: stationary steering, race-speed taps, grass recovery and braking at 30/60/120Hz');
