@@ -103,6 +103,7 @@ export class Car {
 
     // Split velocity into forward / sideways components.
     let vForward = this.vx * fwdX + this.vy * fwdY;
+    const speedBeforeInput = vForward;
     let vLateral = this.vx * rightX + this.vy * rightY;
 
     // Throttle / brake / reverse along the forward axis.
@@ -140,26 +141,30 @@ export class Car {
       const over = Math.min(1, -grade / 0.15);
       maxV *= 1 + CAR.downhillOverspeed * over;
     }
+    // Above the surface cap, throttle must not overpower grass drag.
+    if (CAR.softGrass) vForward = Math.min(vForward, Math.max(maxV, speedBeforeInput));
     if (vForward > maxV) {
       vForward = approach(vForward, maxV, (onTrack ? CAR.overspeedDrag : CAR.grassDrag) * dt);
     }
     // In the prototype, excess speed bleeds away through drag above. Clamping
     // to the grass cap here used to remove half the speed in a single frame.
-    vForward = clamp(vForward, -CAR.maxReverse, CAR.arcade ? Math.max(maxV, vForward) : maxV);
+    vForward = clamp(vForward, -CAR.maxReverse, (CAR.arcade || CAR.softGrass) ? Math.max(maxV, vForward) : maxV);
     this.speed = vForward;
 
     // Steering: scales with speed, flips when reversing, sharper mid-drift.
     const speedRatio = clamp(Math.abs(vForward) / CAR.maxSpeed, 0, 1);
     let effectiveness = CAR.lowSpeedTurn + (1 - CAR.lowSpeedTurn) * speedRatio;
     let steer = input.steer;
-    if (CAR.arcade) {
+    if (CAR.arcade || CAR.progressiveSteering) {
       const rate = input.steer === 0 ? CAR.steerReturn : CAR.steerResponse;
       this.steer = approach(this.steer, clamp(input.steer, -1, 1), rate * dt);
       steer = this.steer;
-      // No stationary pivot. Full authority at manoeuvring speed, gentler
-      // corrections at pace; a short tap no longer swings the whole camera.
+      // No stationary pivot. Road cars soften steering at pace; the race
+      // car keeps its cornering curve with a short ramp on steering input.
       effectiveness = Math.min(1, speedRatio / 0.18)
-        * (1 - (1 - CAR.highSpeedSteer) * speedRatio);
+        * (CAR.arcade
+          ? 1 - (1 - CAR.highSpeedSteer) * speedRatio
+          : effectiveness);
     }
     // Steering only inverts once she is genuinely reversing. Taking the raw sign
     // of vForward makes this chatter whenever speed hovers around zero: a car

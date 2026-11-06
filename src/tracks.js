@@ -187,6 +187,12 @@ export const TRACKS = [
     // that can play an engine that does not exist.
     engine: { cylinders: 8, redline: 6200, idle: 950, recorded: false },
     physics: {
+      // Progressive inputs keep the V8 controllable on a keyboard: no pivot
+      // at rest, gentler corrections at speed, and gradual grass slowdown.
+      progressiveSteering: true,
+      softGrass: true,
+      steerResponse: 30,
+      steerReturn: 30,
       topSpeedKmh: 220,
       accel: 1.2447,
       brakeDecel: 2.2128,
@@ -194,7 +200,7 @@ export const TRACKS = [
       maxReverse: 0.2553,
       coastDrag: 0.1596,
       overspeedDrag: 0.7447,
-      grassDrag: 0.9574,
+      grassDrag: 3,
       driftLateral: 0.0745,
       turnRate: 3.3,
       lowSpeedTurn: 0.5,
@@ -214,7 +220,7 @@ export const TRACKS = [
     // which is two and a half seconds of visibility. Fractions cannot go stale
     // that way, and they are directly comparable with the 0.3/0.9 default.
     fogSpans: { near: 0.55, far: 1.4 },
-    storageKey: 'beryl-racing-3d.manfield.bestLapMs.v1',
+    storageKey: 'beryl-racing-3d.manfield.bestLapMs.v2',
     hud: { current: 'LAP TIME', lapWord: 'LAP' },
     bestLabel: 'Best lap',
     landmarks: [
