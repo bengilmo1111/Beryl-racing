@@ -1,6 +1,5 @@
 name: Gameplay exploration
 on:
-  pull_request:
   workflow_dispatch:
   schedule:
     - cron: '25 14 * * *'

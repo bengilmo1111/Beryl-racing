@@ -21,7 +21,9 @@
     "test:gateway": "node playtest/gateway-smoke.mjs",
     "playtest:explore": "node playtest/explore.mjs",
     "test:driving-trace": "node playtest/driving-trace.mjs",
-    "test:remutaka": "node playtest/remutaka-cliff.mjs"
+    "test:remutaka": "node playtest/remutaka-cliff.mjs",
+    "test": "node playtest/quick.mjs",
+    "test:baselines": "node playtest/ac2-determinism.mjs --baselines"
   },
   "dependencies": {
     "phaser": "^3.80.1",

@@ -8,7 +8,7 @@
     "mobileControlsRequired": true,
     "softlockWindowFrames": 300,
     "softlockMinDisplacement": 3,
-    "screenshotEveryFrames": 120,
+    "screenshotEveryFrames": 600,
     "botFrameLimits": {
       "idle": 600,
       "pedalToTheMetal": 900,

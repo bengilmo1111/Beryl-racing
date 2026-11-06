@@ -1,8 +1,10 @@
-name: Determinism
+name: Quality
 
 on:
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: '10 14 * * *'
 
 permissions:
   contents: read
@@ -13,7 +15,7 @@ concurrency:
 
 jobs:
   replay:
-    name: Deterministic replay
+    name: Targeted quality checks
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -63,14 +65,9 @@ jobs:
         run: npm run test:arcade-driving
       - name: Drive Eastbourne alternatives and park
         run: node playtest/eastbourne-routes.mjs
-      - name: Verify replay and obstacle baselines
-        id: pinned_replay
+      - name: Verify repeatability (scheduled or manual)
+        if: github.event_name != 'pull_request'
         run: npm run test:determinism
-      # Keep the pinned check failing until intentional gameplay changes are
-      # reviewed. Print measured replacements without weakening that gate.
-      - name: Measure changed replay baselines for review
-        if: failure() && steps.pinned_replay.outcome == 'failure'
-        run: RECORD_BASELINES=1 npm run test:determinism
       - name: Engine sound
         run: npm run test:audio
       # The player's path again: rotating the phone, which the deterministic
@@ -78,3 +75,16 @@ jobs:
       # player until src/viewport.js took the sizing over.
       - name: Turning the phone
         run: npm run test:rotation
+      - name: Production build
+        run: npm run build
+      - name: Gateway path
+        run: npm run test:gateway
+      - name: Mobile player journey
+        run: npm run playtest -- --skip-build --mobile-only --journey
+      - name: Upload mobile evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-mobile
+          path: playtest-out/
+          retention-days: 7

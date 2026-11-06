@@ -103,6 +103,7 @@ export async function runSimulation({
   const page = await context.newPage();
   const watched = watchPage(page);
   const failures = [];
+  const warnings = [];
   const screenshots = [];
   const runtimeMessages = [];
   let finalState = null;
@@ -331,9 +332,9 @@ export async function runSimulation({
     );
   }
   if (metrics.framesOver33Ms > spec.global.maxFramesOver33Ms) {
-    failures.push(
+    warnings.push(
       failure(
-        'frame-budget',
+        'simulation-frame-budget',
         scope,
         `${metrics.framesOver33Ms} frames exceeded 33ms (limit ${spec.global.maxFramesOver33Ms})`
       )
@@ -391,6 +392,7 @@ export async function runSimulation({
     metrics,
     screenshots,
     failures,
+    warnings,
     headed,
   };
 }

@@ -69,6 +69,15 @@ export function renderMarkdown(report) {
     }
   }
 
+  const warnings = report.runs.flatMap((run) => run.warnings || []);
+  if (warnings.length) {
+    lines.push('', '## Diagnostics (non-blocking)', '');
+    for (const warning of warnings) {
+      lines.push(`- **${warning.code}** (${warning.scope}): ${warning.message}`);
+    }
+    lines.push('', 'Simulation timings exclude rendering; verify smoothness on a real device.');
+  }
+
   lines.push('', `Completed in ${(report.summary.durationMs / 1000).toFixed(1)}s.`);
   return `${lines.join('\n')}\n`;
 }
