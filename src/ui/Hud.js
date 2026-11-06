@@ -134,8 +134,10 @@ export class Hud {
 
     const headerW = this.currentLabel.width
       + (this.lapChip.visible ? Math.round(12 * s) + this.lapChip.width : 0);
-    const panelW = Math.max(headerW, this.current.width, this.last.width, this.best.width) + px * 2;
-    const panelH = rowsY + rowSize * 2 + Math.round(6 * s) + py - inY;
+    const panelW = Math.max(headerW, this.current.width, this.last.visible ? this.last.width : 0, this.best.visible ? this.best.width : 0) + px * 2;
+    const panelH = this.last.visible || this.best.visible
+      ? rowsY + rowSize * 2 + Math.round(6 * s) + py - inY
+      : labelSize + bigSize + py * 2 + Math.round(10 * s);
     this.panel = { x: inX, y: inY, w: panelW, h: panelH, px, py, s };
 
     this.drawPanel();

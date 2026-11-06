@@ -97,8 +97,10 @@ for (const { course, frames } of jobs) {
         const st = scene.structures.find(s => s.kind === 'garage');
         ({ x, z, yaw } = st);
       } else {
-        const { WORLD } = await import('/src/config.js');
-        x = WORLD.width * 11200 / 19000; z = WORLD.height * 5600 / 11000;
+        const field = world.scene3d.getObjectByName('otaki-roadside-market-gardens').children[0];
+        field.geometry.computeBoundingBox();
+        const centre = field.geometry.boundingBox.getCenter(new Vector3());
+        x = centre.x; z = centre.z;
       }
       const y = scene.terrain.heightAt(x, z);
       const camera = world.chase.camera.clone();
@@ -153,9 +155,12 @@ for (const { course, frames } of jobs) {
     const scene = window.__BERYL_GAME__.scene.getScene('Race');
     const kinds = {};
     for (const s of scene.structures || []) kinds[s.kind] = (kinds[s.kind] || 0) + 1;
-    return { buildings: (scene.structures || []).length, obstacles: scene.obstacles.length, kinds };
+    const { finished, finishTimeMs, checkpointsHit, checkpointsTotal } = window.__h.state();
+    return { buildings: (scene.structures || []).length, obstacles: scene.obstacles.length, kinds,
+      finished, finishTimeMs, checkpointsHit, checkpointsTotal };
   });
   console.log(`${course.padEnd(16)} ${counts.buildings} buildings, ${counts.obstacles} obstacles  ${JSON.stringify(counts.kinds)}`);
+  console.log(`  finished=${counts.finished}, time=${counts.finishTimeMs} ms, gates=${counts.checkpointsHit}/${counts.checkpointsTotal}`);
   const real = problems.filter((p) => !p.includes('GPU stall'));
   if (real.length) console.log(`  ${[...new Set(real)].slice(0, 5).join('\n  ')}`);
   await page.close();

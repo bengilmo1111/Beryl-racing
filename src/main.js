@@ -1,3 +1,4 @@
+import './journey/style.css';
 import Phaser from 'phaser';
 import { DESIGN } from './config.js';
 import { BootScene } from './scenes/BootScene.js';

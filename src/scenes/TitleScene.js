@@ -3,6 +3,8 @@
 // live viewport size (RESIZE scale mode) and reflows on resize / orientation
 // change, so it fills the screen on any device instead of being letterboxed.
 import Phaser from 'phaser';
+import { readBestTime } from '../storage.js';
+import { installJourneyEntry, showRouteBook } from '../journey/ui.js';
 import { COLORS, STORAGE_KEY } from '../config.js';
 import { TRACKS, getSelectedTrack, getSelectedTrackId, setSelectedTrack } from '../tracks.js';
 import { FONT, formatTime, uiScale } from '../ui/format.js';
@@ -17,7 +19,8 @@ export class TitleScene extends Phaser.Scene {
     super('Title');
   }
 
-  create() {
+  create(data = {}) {
+    this.journeyDialog = null;
     this.cameras.main.setBackgroundColor('#246b45');
 
     // Full-bleed grass backdrop.
@@ -79,13 +82,19 @@ export class TitleScene extends Phaser.Scene {
     this.play.on('pointerout', () => this.play.setScale(1));
     this.play.on('pointerdown', () => this.play.setScale(0.96));
     const start = () => {
+      if (this.journeyDialog) return;
+      this.game.registry.remove('__journeyChapter');
       unlockAudio(this);
       startMusic(this);
       this.scene.start('Race');
     };
     this.play.on('pointerup', start);
-    this.input.keyboard.once('keydown-ENTER', start);
-    this.input.keyboard.once('keydown-SPACE', start);
+    this.input.keyboard.on('keydown-ENTER', start);
+    this.input.keyboard.on('keydown-SPACE', start);
+    this.events.once('shutdown', () => {
+      this.input.keyboard.off('keydown-ENTER', start);
+      this.input.keyboard.off('keydown-SPACE', start);
+    });
 
     // Start music as soon as the player interacts (satisfies autoplay policy).
     const kick = () => {
@@ -111,6 +120,8 @@ export class TitleScene extends Phaser.Scene {
     // Reflect whatever course is currently selected (restored from last time).
     this.refreshSelection();
 
+    this.journeyEntry = installJourneyEntry(this);
+    if (data.openJourney) showRouteBook(this);
     this.layout();
     this.scale.on('resize', this.layout, this);
     this.events.once('shutdown', () => this.scale.off('resize', this.layout, this));
@@ -129,7 +140,7 @@ export class TitleScene extends Phaser.Scene {
     const selId = getSelectedTrackId();
     this.subtitleText.setText(def.name.toUpperCase());
 
-    const best = Number(localStorage.getItem(STORAGE_KEY));
+    const best = readBestTime(STORAGE_KEY);
     this.bestText.setText(best > 0 ? `${def.bestLabel}  ${formatTime(best)}` : '');
 
     for (const { def: d, btn } of this.trackButtons) {
@@ -147,7 +158,7 @@ export class TitleScene extends Phaser.Scene {
     this.grass.setSize(w, h);
 
     // Title text sizes scale with the viewport.
-    const titleSize = Math.round(92 * s);
+    const titleSize = Math.round((h < 480 ? 76 : 92) * s);
     const subSize = Math.round(42 * s);
     this.titleText.setFontSize(titleSize);
     this.subtitleText.setFontSize(subSize);
@@ -161,22 +172,22 @@ export class TitleScene extends Phaser.Scene {
       w - iconRowSpan(this, 2) * 2,
       Math.max(this.titleText.width, this.subtitleText.width, 520 * s) + 120 * s
     );
-    const bannerH = titleSize + subSize + 44 * s;
+    const bannerH = this.titleText.height + this.subtitleText.height + 24 * s;
     const bannerX = w / 2;
     const bannerY = h * 0.06;
     this.banner.clear();
     this.banner.fillStyle(COLORS.ink, 0.9);
     this.banner.fillRoundedRect(bannerX - bannerW / 2, bannerY, bannerW, bannerH, 28 * s);
-    this.titleText.setPosition(bannerX, bannerY + titleSize * 0.62);
-    this.subtitleText.setPosition(bannerX, bannerY + titleSize + subSize * 0.5);
+    this.titleText.setPosition(bannerX, bannerY + 8 * s + this.titleText.height / 2);
+    this.subtitleText.setPosition(bannerX, this.titleText.getBounds().bottom + 2 * s + this.subtitleText.height / 2);
 
     // Beryl photo — sits in the middle band, scaled to the available space.
-    const bannerBottom = bannerY + bannerH;
+    let bannerBottom = bannerY + bannerH;
     const photoMaxW = Math.min(w * 0.72, 560 * s);
-    const photoMaxH = h * 0.3;
+    const photoMaxH = h * (h < 480 ? 0.18 : 0.23);
     const bscale = Math.min(photoMaxW / this.beryl.width, photoMaxH / this.beryl.height);
     this.beryl.setScale(bscale);
-    this.berylBaseY = (bannerBottom + h * 0.56) / 2;
+    this.berylBaseY = (bannerBottom + h * (h < 480 ? 0.45 : 0.5)) / 2;
     this.beryl.setPosition(w / 2, this.berylBaseY);
 
     // Course selector.
@@ -234,6 +245,52 @@ export class TitleScene extends Phaser.Scene {
       .setPosition(w / 2, h * 0.9);
 
     this.footer.setFontSize(Math.round(15 * s)).setPosition(w / 2, h - 12 * s);
+    this.play.setY(Math.min(this.play.y, this.footer.getBounds().top - 6 - this.play.height / 2));
+
+    // Short screens need a single stack: independently positioned percentages
+    // collide as soon as the course selector wraps or a saved time appears.
+    this.journeyEntry.style.top = '';
+    this.beryl.setVisible(true);
+    if (h < 480) {
+      this.play.setPadding(Math.round(40 * s), 8);
+      const playY = this.footer.getBounds().top - 6 - this.play.height / 2;
+      this.play.setY(playY);
+      const bestY = this.play.getBounds().top - 7 - this.bestText.height / 2;
+      this.bestText.setY(bestY);
+      const bottom = this.bestText.getBounds().top - 10;
+      rows.forEach((row, ri) => {
+        const y = bottom - this.trackButtons[0].btn.height / 2 - (rows.length - 1 - ri) * rowH;
+        row.forEach(({ btn }) => btn.setY(y));
+      });
+      const firstTop = rows[0][0].btn.getBounds().top;
+      this.selectorLabel.setY(firstTop - 7 - this.selectorLabel.height / 2);
+      const entryTop = this.selectorLabel.getBounds().top - 8 - this.journeyEntry.offsetHeight;
+      this.journeyEntry.style.top = `${entryTop}px`;
+
+      // Font metrics vary by device. Fit the heading into the space left by
+      // the controls rather than assuming the fallback font has a fixed height.
+      const headingRoom = entryTop - 8 - bannerY;
+      if (bannerH > headingRoom) {
+        const fit = Math.max(0.35, (headingRoom - 24 * s) / (this.titleText.height + this.subtitleText.height));
+        this.titleText.setFontSize(Math.floor(titleSize * fit));
+        this.subtitleText.setFontSize(Math.floor(subSize * fit));
+        this.titleText.setY(bannerY + 8 * s + this.titleText.height / 2);
+        this.subtitleText.setY(this.titleText.getBounds().bottom + 2 * s + this.subtitleText.height / 2);
+        const fittedH = this.titleText.height + this.subtitleText.height + 24 * s;
+        this.banner.clear().fillStyle(COLORS.ink, 0.9)
+          .fillRoundedRect(bannerX - bannerW / 2, bannerY, bannerW, fittedH, 28 * s);
+        bannerBottom = bannerY + fittedH;
+      }
+
+      // Preserve the car where there is room; the narrow two-row layout uses
+      // that space for the controls instead.
+      const photoRoom = entryTop - bannerBottom - 16;
+      this.beryl.setVisible(photoRoom >= 32);
+      if (photoRoom >= 32) {
+        this.beryl.setScale(Math.min(bscale, photoRoom / this.beryl.height));
+        this.berylBaseY = (bannerBottom + entryTop) / 2;
+      }
+    }
   }
 
   update(time) {
