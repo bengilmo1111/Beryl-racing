@@ -46,6 +46,7 @@ export function installJourneyEntry(scene) {
     : 'The Sunday run · Open the route book', () => showRouteBook(scene));
   entry.className = 'journey-entry';
   scene.events.once('shutdown', () => entry.remove());
+  return entry;
 }
 export function showRouteBook(scene) {
   if (scene.journeyDialog) return;

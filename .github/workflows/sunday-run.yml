@@ -25,6 +25,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps --only-shell chromium
       - run: npm run test:story
+      - run: node playtest/title-layout.mjs
       - run: npm run test:journey
       - name: Upload story interface evidence
         if: always()

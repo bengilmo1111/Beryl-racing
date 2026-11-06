@@ -120,7 +120,7 @@ export class TitleScene extends Phaser.Scene {
     // Reflect whatever course is currently selected (restored from last time).
     this.refreshSelection();
 
-    installJourneyEntry(this);
+    this.journeyEntry = installJourneyEntry(this);
     if (data.openJourney) showRouteBook(this);
     this.layout();
     this.scale.on('resize', this.layout, this);
@@ -158,7 +158,7 @@ export class TitleScene extends Phaser.Scene {
     this.grass.setSize(w, h);
 
     // Title text sizes scale with the viewport.
-    const titleSize = Math.round(92 * s);
+    const titleSize = Math.round((h < 480 ? 76 : 92) * s);
     const subSize = Math.round(42 * s);
     this.titleText.setFontSize(titleSize);
     this.subtitleText.setFontSize(subSize);
@@ -172,14 +172,14 @@ export class TitleScene extends Phaser.Scene {
       w - iconRowSpan(this, 2) * 2,
       Math.max(this.titleText.width, this.subtitleText.width, 520 * s) + 120 * s
     );
-    const bannerH = titleSize + subSize + 44 * s;
+    const bannerH = this.titleText.height + this.subtitleText.height + 24 * s;
     const bannerX = w / 2;
     const bannerY = h * 0.06;
     this.banner.clear();
     this.banner.fillStyle(COLORS.ink, 0.9);
     this.banner.fillRoundedRect(bannerX - bannerW / 2, bannerY, bannerW, bannerH, 28 * s);
-    this.titleText.setPosition(bannerX, bannerY + titleSize * 0.62);
-    this.subtitleText.setPosition(bannerX, bannerY + titleSize + subSize * 0.5);
+    this.titleText.setPosition(bannerX, bannerY + 8 * s + this.titleText.height / 2);
+    this.subtitleText.setPosition(bannerX, this.titleText.getBounds().bottom + 2 * s + this.subtitleText.height / 2);
 
     // Beryl photo — sits in the middle band, scaled to the available space.
     const bannerBottom = bannerY + bannerH;
@@ -245,6 +245,36 @@ export class TitleScene extends Phaser.Scene {
       .setPosition(w / 2, h * 0.9);
 
     this.footer.setFontSize(Math.round(15 * s)).setPosition(w / 2, h - 12 * s);
+
+    // Short screens need a single stack: independently positioned percentages
+    // collide as soon as the course selector wraps or a saved time appears.
+    this.journeyEntry.style.top = '';
+    this.beryl.setVisible(true);
+    if (h < 480) {
+      this.play.setPadding(Math.round(40 * s), 8);
+      const playY = this.footer.getBounds().top - 6 - this.play.height / 2;
+      this.play.setY(playY);
+      const bestY = this.play.getBounds().top - 7 - this.bestText.height / 2;
+      this.bestText.setY(bestY);
+      const bottom = this.bestText.getBounds().top - 10;
+      rows.forEach((row, ri) => {
+        const y = bottom - this.trackButtons[0].btn.height / 2 - (rows.length - 1 - ri) * rowH;
+        row.forEach(({ btn }) => btn.setY(y));
+      });
+      const firstTop = rows[0][0].btn.getBounds().top;
+      this.selectorLabel.setY(firstTop - 7 - this.selectorLabel.height / 2);
+      const entryTop = this.selectorLabel.getBounds().top - 8 - this.journeyEntry.offsetHeight;
+      this.journeyEntry.style.top = `${entryTop}px`;
+
+      // Preserve the car where there is room; the narrow two-row layout uses
+      // that space for the controls instead.
+      const photoRoom = entryTop - bannerBottom - 16;
+      this.beryl.setVisible(photoRoom >= 32);
+      if (photoRoom >= 32) {
+        this.beryl.setScale(Math.min(bscale, photoRoom / this.beryl.height));
+        this.berylBaseY = (bannerBottom + entryTop) / 2;
+      }
+    }
   }
 
   update(time) {
