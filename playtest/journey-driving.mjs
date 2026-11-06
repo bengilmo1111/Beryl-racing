@@ -4,8 +4,9 @@ import { createServer } from 'vite';
 import { mkdir, writeFile } from 'node:fs/promises';
 const out = process.env.JOURNEY_OUT || 'playtest-out/journey';
 await mkdir(out, { recursive: true });
-const server = await createServer({ server: { host: '127.0.0.1', port: 4492, strictPort: true }, logLevel: 'error' });
+const server = await createServer({ server: { host: '127.0.0.1', port: 0, strictPort: false }, logLevel: 'error' });
 await server.listen();
+const baseUrl = `http://127.0.0.1:${server.httpServer.address().port}`;
 const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE });
 try {
   for (const id of (process.env.JOURNEY_CHAPTERS || 'first-box,tea-on-the-hill,a-place-at-the-table,room-for-the-view,the-road-we-choose,next-sunday').split(',')) {
@@ -13,7 +14,7 @@ try {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await page.route('https://fonts.googleapis.com/**', r => r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
-    await page.goto('http://127.0.0.1:4492/?harness=1&seed=780385');
+    await page.goto(`${baseUrl}/?harness=1&seed=780385`);
     await page.waitForFunction(() => !!window.__h);
     await page.evaluate(async id => {
       await window.__h.ready;
