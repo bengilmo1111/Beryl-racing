@@ -182,7 +182,7 @@ export class TitleScene extends Phaser.Scene {
     this.subtitleText.setPosition(bannerX, this.titleText.getBounds().bottom + 2 * s + this.subtitleText.height / 2);
 
     // Beryl photo — sits in the middle band, scaled to the available space.
-    const bannerBottom = bannerY + bannerH;
+    let bannerBottom = bannerY + bannerH;
     const photoMaxW = Math.min(w * 0.72, 560 * s);
     const photoMaxH = h * (h < 480 ? 0.18 : 0.23);
     const bscale = Math.min(photoMaxW / this.beryl.width, photoMaxH / this.beryl.height);
@@ -265,6 +265,21 @@ export class TitleScene extends Phaser.Scene {
       this.selectorLabel.setY(firstTop - 7 - this.selectorLabel.height / 2);
       const entryTop = this.selectorLabel.getBounds().top - 8 - this.journeyEntry.offsetHeight;
       this.journeyEntry.style.top = `${entryTop}px`;
+
+      // Font metrics vary by device. Fit the heading into the space left by
+      // the controls rather than assuming the fallback font has a fixed height.
+      const headingRoom = entryTop - 8 - bannerY;
+      if (bannerH > headingRoom) {
+        const fit = Math.max(0.35, (headingRoom - 24 * s) / (this.titleText.height + this.subtitleText.height));
+        this.titleText.setFontSize(Math.floor(titleSize * fit));
+        this.subtitleText.setFontSize(Math.floor(subSize * fit));
+        this.titleText.setY(bannerY + 8 * s + this.titleText.height / 2);
+        this.subtitleText.setY(this.titleText.getBounds().bottom + 2 * s + this.subtitleText.height / 2);
+        const fittedH = this.titleText.height + this.subtitleText.height + 24 * s;
+        this.banner.clear().fillStyle(COLORS.ink, 0.9)
+          .fillRoundedRect(bannerX - bannerW / 2, bannerY, bannerW, fittedH, 28 * s);
+        bannerBottom = bannerY + fittedH;
+      }
 
       // Preserve the car where there is room; the narrow two-row layout uses
       // that space for the controls instead.
