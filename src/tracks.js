@@ -192,7 +192,7 @@ export const TRACKS = [
       arcade: true,
       steerResponse: 6,
       steerReturn: 9,
-      highSpeedSteer: 0.4,
+      highSpeedSteer: 0.75,
       topSpeedKmh: 220,
       accel: 1.2447,
       brakeDecel: 2.2128,

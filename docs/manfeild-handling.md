@@ -1,6 +1,6 @@
 # Manfeild handling
 
-Manfeild uses progressive steering with its own race tune. Steering builds over a short key press and returns quickly on release; full-speed steering authority is 40% of the low-speed setting. The car cannot rotate while stationary. Grass slows the car through drag rather than instantly cutting speed in half.
+Manfeild uses progressive steering with its own race tune. Steering builds over a short key press and returns quickly on release; full-speed steering authority is 75% of the low-speed setting. The car cannot rotate while stationary. Grass slows the car through drag rather than instantly cutting speed in half.
 
 The V8's 220 km/h top speed, acceleration, braking, grip and handbrake settings remain intact. Road courses keep their shared tune. Manfeild uses best-lap storage key v2 because laps with the new handling should be compared separately; old records remain stored.
 

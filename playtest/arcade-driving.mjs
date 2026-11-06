@@ -82,7 +82,7 @@ for (const id of ['remutaka', 'otaki', 'eastbourne-dash']) {
 }
 applyTrack(TRACKS.find((track) => track.id === 'manfield'));
 assert.equal(CAR.arcade, true, 'Manfeild must use progressive steering');
-assert.equal(CAR.highSpeedSteer, 0.4, 'Manfeild needs its dedicated race tune');
+assert.equal(CAR.highSpeedSteer, 0.75, 'Manfeild needs its dedicated race tune');
 assert.equal(CAR.topSpeedKmh, 220, 'Manfeild must retain its faster top speed');
 assert.ok(CAR.accel > roadConfig.accel, 'Manfeild must accelerate faster');
 console.log('arcade-driving PASS: identical road-course traces and configurations, tap steering, stationary steering, grass, 30/60/120Hz acceleration, recovery reset and course isolation');
@@ -94,7 +94,7 @@ for (const hz of [30, 60, 120]) {
   const fast = testCar();
   fast.vy = -CAR.maxSpeed;
   fast.update(1 / hz, { throttle: 1, steer: 1 }, true);
-  assert.ok(fast.rotation > 0 && fast.rotation < 0.01, 'Race-speed tap must stay controllable');
+  assert.ok(fast.rotation > 0 && fast.rotation < 0.02, 'Race-speed tap must stay controllable');
   const verge = testCar();
   verge.vy = -CAR.maxSpeed;
   verge.update(1 / hz, { throttle: 0, steer: 0 }, false);
