@@ -189,10 +189,10 @@ export const TRACKS = [
     physics: {
       // Progressive inputs keep the V8 controllable on a keyboard: no pivot
       // at rest, gentler corrections at speed, and gradual grass slowdown.
-      arcade: true,
-      steerResponse: 6,
-      steerReturn: 9,
-      highSpeedSteer: 0.75,
+      progressiveSteering: true,
+      softGrass: true,
+      steerResponse: 30,
+      steerReturn: 30,
       topSpeedKmh: 220,
       accel: 1.2447,
       brakeDecel: 2.2128,
@@ -200,7 +200,7 @@ export const TRACKS = [
       maxReverse: 0.2553,
       coastDrag: 0.1596,
       overspeedDrag: 0.7447,
-      grassDrag: 0.9574,
+      grassDrag: 3,
       driftLateral: 0.0745,
       turnRate: 3.3,
       lowSpeedTurn: 0.5,

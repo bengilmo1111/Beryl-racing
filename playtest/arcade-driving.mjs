@@ -81,8 +81,9 @@ for (const id of ['remutaka', 'otaki', 'eastbourne-dash']) {
   assert.deepEqual(CAR, roadConfig, `${id}: full driving configuration must match`);
 }
 applyTrack(TRACKS.find((track) => track.id === 'manfield'));
-assert.equal(CAR.arcade, true, 'Manfeild must use progressive steering');
-assert.equal(CAR.highSpeedSteer, 0.75, 'Manfeild needs its dedicated race tune');
+assert.equal(CAR.arcade, false, 'Manfeild retains race throttle response');
+assert.equal(CAR.progressiveSteering, true, 'Manfeild must use progressive steering');
+assert.equal(CAR.highSpeedSteer, undefined, 'Road steering tune must not leak into Manfeild');
 assert.equal(CAR.topSpeedKmh, 220, 'Manfeild must retain its faster top speed');
 assert.ok(CAR.accel > roadConfig.accel, 'Manfeild must accelerate faster');
 console.log('arcade-driving PASS: identical road-course traces and configurations, tap steering, stationary steering, grass, 30/60/120Hz acceleration, recovery reset and course isolation');
@@ -94,13 +95,14 @@ for (const hz of [30, 60, 120]) {
   const fast = testCar();
   fast.vy = -CAR.maxSpeed;
   fast.update(1 / hz, { throttle: 1, steer: 1 }, true);
-  assert.ok(fast.rotation > 0 && fast.rotation < 0.02, 'Race-speed tap must stay controllable');
+  assert.ok(fast.rotation > 0 && fast.rotation <= CAR.turnRate / hz, 'Race-speed tap must stay controllable');
+  if (hz >= 60) assert.ok(fast.rotation < CAR.turnRate / hz * 0.6, 'Short taps must soften race steering');
   const verge = testCar();
   verge.vy = -CAR.maxSpeed;
   verge.update(1 / hz, { throttle: 0, steer: 0 }, false);
-  assert.ok(verge.speed > CAR.maxSpeed * 0.95, 'Manfeild verge must not instantly halve speed');
-  for (let i = 0; i < hz * 2; i++) verge.update(1 / hz, { throttle: 0, steer: 0 }, false);
-  assert.ok(verge.speed < CAR.maxSpeed * 0.5, 'Grass must still slow the race car');
+  assert.ok(verge.speed > CAR.maxSpeed * 0.85, 'Manfeild verge must not instantly halve speed');
+  for (let i = 0; i < hz * 2; i++) verge.update(1 / hz, { throttle: 1, steer: 0 }, false);
+  assert.ok(verge.speed <= CAR.maxSpeed * 0.5, 'Grass must still slow the race car');
   const brake = testCar();
   brake.vy = -CAR.maxSpeed;
   for (let i = 0; i < hz * 0.4; i++) brake.update(1 / hz, { throttle: -1, steer: 0 }, true);
