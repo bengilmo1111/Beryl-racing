@@ -245,6 +245,7 @@ export class TitleScene extends Phaser.Scene {
       .setPosition(w / 2, h * 0.9);
 
     this.footer.setFontSize(Math.round(15 * s)).setPosition(w / 2, h - 12 * s);
+    this.play.setY(Math.min(this.play.y, this.footer.getBounds().top - 6 - this.play.height / 2));
 
     // Short screens need a single stack: independently positioned percentages
     // collide as soon as the course selector wraps or a saved time appears.
