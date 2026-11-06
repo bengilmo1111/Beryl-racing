@@ -13,15 +13,29 @@ npm ci
 npx playwright install chromium
 ```
 
-Run the same complete suite used by CI:
+For the normal edit/check loop:
 
-```powershell
+```sh
+npm test
+npm run build
+```
+
+`npm test` runs browser-free geometry, placement, road-index, rendered-road
+contact and driving contracts. These check behaviour and spatial relationships,
+without requiring a historical lap time or obstacle hash to remain unchanged.
+
+Run the full driving matrix explicitly before a release or after broad handling
+or route changes:
+
+```sh
 npm run playtest
 ```
 
-The command builds the production bundle, runs every bot against every course
-in `game-manifest.json`, inspects touch controls, and runs the new-mobile-player
-journey. It exits non-zero on any threshold breach.
+This builds the production bundle, runs every bot against every manifest course,
+inspects touch controls, and runs the new-mobile-player journey. Completion,
+checkpoint, bounds, runtime and generous finish-time limits remain hard failures.
+Simulation-step timing is a non-blocking diagnostic: it excludes rendering and
+is sensitive to the host machine. Check rendered smoothness on a real device.
 
 For a focused visible run:
 
@@ -41,11 +55,16 @@ requested. Other useful switches:
 - `--journey` — explicitly include the mobile inspection and journey with a
   focused simulation.
 
-The determinism acceptance check remains separately available:
+Repeatability is separately available (same recorded inputs replayed three times):
 
 ```powershell
 npm run test:determinism
 ```
+
+This checks equality between runs of the current code and prints measured values.
+Historical finish times, final positions and obstacle hashes are enforced only
+with `npm run test:baselines`. Use that optional diagnostic when investigating
+unexpected drift; intentional gameplay or scenery changes need not preserve it.
 
 ## Just look at it
 
@@ -75,7 +94,7 @@ Every run recreates `playtest-out/`:
 
 - `playtest-report.json` — schema-versioned API consumed by later factory work.
 - `playtest-report.md` — phone-readable PR comment, with the verdict first.
-- `shots/` — each bot run approximately every two simulated seconds and at finish.
+- `shots/` — each bot run approximately every ten simulated seconds and at finish.
 - `mobile-controls.png` — the 844×390 landscape touch-control inspection.
 - `journeys/new-mobile-player/` — screenshots, WebM video, Playwright trace,
   console log, and harness state timeline.
@@ -147,16 +166,37 @@ The current `new-mobile-player` journey starts with empty storage at 412×915,
 rotates to 915×412, selects the default course, finishes using trusted touch
 events only, retries, and verifies the best time persisted.
 
+## Review a change
+
+- Art or placement: run the relevant Node checks, then `npm run shots --
+  eastbourne-dash:3000` (or the changed course/moments) and inspect the images.
+- Handling: run `npm test`, drive the changed section yourself, and run a focused
+  waypoint completion. Review finish-time changes for their cause, not as a score
+  of how good the game feels.
+- UI: exercise start, input, finish, retry and saved progress. For the legacy
+  mobile racing flow use `npm run playtest -- --mobile-only --journey`.
+- Release: full matrix, representative screenshots, and a real mobile drive,
+  including rendered smoothness and audio.
+
+Screenshots are evidence only when someone inspects them. Choose start, tight
+corner, settlement and finish views for the affected course. Add a targeted
+behaviour or placement assertion when a real regression reveals a gap.
+
 ## CI
 
-`.github/workflows/playtest.yml` runs on `pull_request`, manual dispatch, and a
-daily schedule. It never uses `pull_request_target`.
+`determinism.yml` is the **Quality** workflow: targeted geometry, placement,
+physics, art and browser checks, a production build, and the mobile player
+journey run on pull requests. Repeatability runs only on its daily schedule or
+manual dispatch. Failed mobile runs retain their screenshots and traces.
 
-Four course jobs run in parallel and a fifth job runs the mobile shell journey.
-An always-running report job downloads the partial artifacts, merges them into
-one schema-versioned report, uploads the complete `playtest-out/`, and creates or
-updates one sticky PR comment. The final verdict step fails the workflow on any
-threshold breach.
+`playtest.yml` runs the complete course/bot matrix and mobile journey daily and
+on manual dispatch, with merged reports and artifacts. `gameplay-exploration.yml`
+runs the twelve broader imperfect-driver combinations daily or manually. Neither
+exhaustive suite runs on every PR. There is no automatic second replay to print
+replacement historical baselines after a failure.
+
+If repository branch protection requires the old workflow job names, update
+those required checks to **Targeted quality checks** when adopting this change.
 
 AC4 fault-injection evidence is recorded in
 `docs/factory/ac4-fault-injection.md`.
