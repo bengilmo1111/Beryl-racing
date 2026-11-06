@@ -108,24 +108,53 @@ function addRiver(group, track, def, terrain) {
   // Wide pale gravel banks make the braided river read as a Kapiti riverbed,
   // rather than a canal cut exactly to the water surface.
   for (const side of [-1, 1]) {
-    const bank = new Mesh(new PlaneGeometry(length, 105), basic(COLOUR.bank, { fog: true }));
+    const bank = new Mesh(new PlaneGeometry(length, Math.max(105, halfAcross * 0.35)), basic(COLOUR.bank, { fog: true }));
     bank.geometry.rotateX(-Math.PI / 2);
     const placed = placeAcross(bank, cp, level + 3);
-    placed.translateZ(side * (halfAcross + 58));
+    placed.translateZ(side * (halfAcross + Math.max(105, halfAcross * 0.35) / 2));
     group.add(placed);
   }
 
-  // Low concrete bridge parapets follow the road. They are deliberately visual
-  // only; collision belongs to the deterministic scenery system.
-  for (const side of [-1, 1]) {
-    const parapet = new Mesh(new BoxGeometry(16, 42, 390), lambert(COLOUR.concrete));
-    const placed = placeAcross(parapet, cp, roadH + 21);
-    placed.translateX(side * (track.half + 13));
-    group.add(placed);
+  // Follow the elevated road samples across the entire carved river. A fixed
+  // 390-unit parapet covered only the middle of the rescaled river, and a flat
+  // deck would cut through the sloping road on either approach.
+  const bridge = new Group();
+  bridge.name = 'otaki-river-bridge';
+  const bankWidth = Math.max(105, halfAcross * 0.35);
+  const bridgeHalfLength = halfAcross + bankWidth;
+  const concrete = lambert(COLOUR.concrete);
+  const along = (p) => (p.x - cp.x) * Math.cos(cp.angle)
+    + (p.y - cp.y) * Math.sin(cp.angle);
+  for (let i = 1; i < track.centerline.length; i++) {
+    const a = track.centerline[i - 1], b = track.centerline[i];
+    const da = along(a), db = along(b);
+    if (Math.min(da, db) > bridgeHalfLength || Math.max(da, db) < -bridgeHalfLength) continue;
+    // A later town street can share this projection without being on the bridge.
+    if (Math.hypot(a.x - cp.x, a.y - cp.y) > bridgeHalfLength * 2) continue;
+    const dx = b.x - a.x, dz = b.y - a.y;
+    const distance = Math.hypot(dx, dz);
+    if (!distance) continue;
+    const ah = track.heights?.[i - 1] ?? roadH;
+    const bh = track.heights?.[i] ?? roadH;
+    const segment = new Group();
+    segment.position.set((a.x + b.x) / 2, (ah + bh) / 2, (a.y + b.y) / 2);
+    segment.rotation.order = 'YXZ';
+    segment.rotation.y = Math.PI / 2 - Math.atan2(dz, dx);
+    segment.rotation.x = -Math.atan2(bh - ah, distance);
+    const span = Math.hypot(distance, bh - ah) + 1;
+    // Keep the deck below the existing road surface; driving and grip still
+    // use the original geometry, while the crossing now has a visible underside.
+    segment.add(box(track.half * 2 + 40, 28, span, 0, -18, 0, concrete));
+    for (const side of [-1, 1]) {
+      segment.add(box(16, 58, span, side * (track.half + 13), 25, 0, concrete));
+    }
+    bridge.add(segment);
   }
+  group.add(bridge);
 
   // A few exposed gravel bars break up the broad water without textures.
-  for (const offset of [-980, -260, 610]) {
+  for (const fraction of [-0.56, -0.15, 0.35]) {
+    const offset = fraction * length / 2;
     const bar = new Mesh(new PlaneGeometry(310, 64), basic(0xd9c99d, { fog: true }));
     bar.geometry.rotateX(-Math.PI / 2);
     const placed = placeAcross(bar, cp, level + 4);
