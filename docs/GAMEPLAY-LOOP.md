@@ -670,3 +670,16 @@ The four ordinary courses also match an isolated starting-commit copy exactly
 in same-Chrome drives at seed 780385. This is a playable local iteration,
 not a retention result or a production deployment. Next decision comes from
 player interest in continuing the story, not bot times.
+
+## 2026-11-06: Ōtaki river crossing repair
+
+The river carve scales with the course, but its bridge parapets still used a
+fixed 390-unit length. Replace that short centre section with a concrete deck
+and parapets following the existing road samples to both banks. Segment slopes
+use local pitch before heading so the bridge follows the elevated road without
+cutting across it. Gravel-bank widths now follow the river width, and gravel
+bars are distributed along the actual water span.
+
+Course-art regression raycasts verify the deck below the road and parapets on
+both sides at 78 crossing segments. This change is visual: the authored route,
+heights, checkpoints, collision data and driving physics are unchanged.

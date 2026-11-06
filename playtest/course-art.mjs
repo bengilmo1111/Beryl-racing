@@ -4,7 +4,7 @@ import { buildTrees } from '../src/render3d/trees.js';
 import { metres } from '../src/scale.js';
 import { buildGarageBay } from '../src/render3d/themes/manfeild.js';
 import { guardrailPosts } from '../src/render3d/themes/remutaka.js';
-import { streetFace } from '../src/render3d/themes/otaki.js';
+import { buildOtaki, streetFace } from '../src/render3d/themes/otaki.js';
 import { terrainPatchGeometry } from '../src/render3d/terrainPatch.js';
 import { GROUND_Y } from '../src/render3d/road.js';
 import { TRACKS } from '../src/tracks.js';
@@ -56,3 +56,31 @@ for (const variant of ['tree-1', 'tree-2', 'tree-3']) {
   assert.ok(bounds.max.y < metres(15), 'Ōtaki canopy must not become a towering forest');
 }
 console.log('Ōtaki tree proportions and visible collision trunks PASS');
+
+// The river crossing must have a deck and parapets all the way to both banks,
+// including when the road slopes. Check the rendered geometry on the real route.
+const otakiDef = TRACKS.find(d => d.id === 'otaki');
+applyTrack(otakiDef);
+const otakiTrack = buildTrack();
+const otakiTerrain = new Terrain(otakiTrack, WORLD, otakiDef);
+const bridge = buildOtaki(otakiTrack, otakiDef, otakiTerrain).getObjectByName('otaki-river-bridge');
+bridge.updateMatrixWorld(true);
+const crossing = otakiTrack.checkpoints[otakiDef.scenery.riverCp];
+const river = otakiTrack.sea.find(s => s.angle != null);
+let checked = 0;
+for (let i = 1; i < otakiTrack.centerline.length; i++) {
+  const a = otakiTrack.centerline[i - 1], b = otakiTrack.centerline[i];
+  const p = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  const angle = Math.atan2(b.y - a.y, b.x - a.x);
+  if (Math.hypot(p.x - crossing.x, p.y - crossing.y) > river.halfW) continue;
+  const h = (otakiTrack.heights[i - 1] + otakiTrack.heights[i]) / 2;
+  const hit = new Raycaster(new Vector3(p.x, h - 100, p.y), new Vector3(0, 1, 0)).intersectObject(bridge)[0];
+  assert.ok(hit && hit.point.y < h, 'Bridge deck must support each river-crossing road sample');
+  for (const side of [-1, 1]) {
+    assert.ok(new Raycaster(new Vector3(p.x, h + 25, p.y), new Vector3(-Math.sin(angle) * side, 0, Math.cos(angle) * side), 0, otakiTrack.half + 80).intersectObject(bridge).length,
+      `Parapets must reach both banks: sample ${i}, side ${side}, height ${h}, width ${otakiTrack.half}`);
+  }
+  checked++;
+}
+assert.ok(checked > 2, 'Bridge regression must cover multiple road samples');
+console.log(`Ōtaki bridge PASS: deck and parapets at ${checked} river-crossing samples`);
