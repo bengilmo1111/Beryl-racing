@@ -1,4 +1,3 @@
-import './style.css';
 import { CHAPTERS, nextChapter, readJourney, writeJourney, briefFor, arrivalFor } from './story.js';
 import { setSelectedTrack } from '../tracks.js';
 import { unlockAudio, startMusic } from '../audio/sound.js';
