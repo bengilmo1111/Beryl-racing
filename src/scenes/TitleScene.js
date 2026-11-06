@@ -3,6 +3,8 @@
 // live viewport size (RESIZE scale mode) and reflows on resize / orientation
 // change, so it fills the screen on any device instead of being letterboxed.
 import Phaser from 'phaser';
+import { readBestTime } from '../storage.js';
+import { installJourneyEntry, showRouteBook } from '../journey/ui.js';
 import { COLORS, STORAGE_KEY } from '../config.js';
 import { TRACKS, getSelectedTrack, getSelectedTrackId, setSelectedTrack } from '../tracks.js';
 import { FONT, formatTime, uiScale } from '../ui/format.js';
@@ -17,7 +19,8 @@ export class TitleScene extends Phaser.Scene {
     super('Title');
   }
 
-  create() {
+  create(data = {}) {
+    this.journeyDialog = null;
     this.cameras.main.setBackgroundColor('#246b45');
 
     // Full-bleed grass backdrop.
@@ -79,13 +82,19 @@ export class TitleScene extends Phaser.Scene {
     this.play.on('pointerout', () => this.play.setScale(1));
     this.play.on('pointerdown', () => this.play.setScale(0.96));
     const start = () => {
+      if (this.journeyDialog) return;
+      this.game.registry.remove('__journeyChapter');
       unlockAudio(this);
       startMusic(this);
       this.scene.start('Race');
     };
     this.play.on('pointerup', start);
-    this.input.keyboard.once('keydown-ENTER', start);
-    this.input.keyboard.once('keydown-SPACE', start);
+    this.input.keyboard.on('keydown-ENTER', start);
+    this.input.keyboard.on('keydown-SPACE', start);
+    this.events.once('shutdown', () => {
+      this.input.keyboard.off('keydown-ENTER', start);
+      this.input.keyboard.off('keydown-SPACE', start);
+    });
 
     // Start music as soon as the player interacts (satisfies autoplay policy).
     const kick = () => {
@@ -111,6 +120,8 @@ export class TitleScene extends Phaser.Scene {
     // Reflect whatever course is currently selected (restored from last time).
     this.refreshSelection();
 
+    installJourneyEntry(this);
+    if (data.openJourney) showRouteBook(this);
     this.layout();
     this.scale.on('resize', this.layout, this);
     this.events.once('shutdown', () => this.scale.off('resize', this.layout, this));
@@ -129,7 +140,7 @@ export class TitleScene extends Phaser.Scene {
     const selId = getSelectedTrackId();
     this.subtitleText.setText(def.name.toUpperCase());
 
-    const best = Number(localStorage.getItem(STORAGE_KEY));
+    const best = readBestTime(STORAGE_KEY);
     this.bestText.setText(best > 0 ? `${def.bestLabel}  ${formatTime(best)}` : '');
 
     for (const { def: d, btn } of this.trackButtons) {
@@ -173,10 +184,10 @@ export class TitleScene extends Phaser.Scene {
     // Beryl photo — sits in the middle band, scaled to the available space.
     const bannerBottom = bannerY + bannerH;
     const photoMaxW = Math.min(w * 0.72, 560 * s);
-    const photoMaxH = h * 0.3;
+    const photoMaxH = h * (h < 480 ? 0.18 : 0.23);
     const bscale = Math.min(photoMaxW / this.beryl.width, photoMaxH / this.beryl.height);
     this.beryl.setScale(bscale);
-    this.berylBaseY = (bannerBottom + h * 0.56) / 2;
+    this.berylBaseY = (bannerBottom + h * (h < 480 ? 0.45 : 0.5)) / 2;
     this.beryl.setPosition(w / 2, this.berylBaseY);
 
     // Course selector.

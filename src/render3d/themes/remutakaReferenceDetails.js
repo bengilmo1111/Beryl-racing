@@ -117,7 +117,8 @@ function addBushyBank(group, track, terrain, profile) {
 }
 
 function addChevron(group, track, terrain, point) {
-  const arrow = point.curvature > 0 ? '‹' : '›';
+  // Positive X/Z curvature turns toward driver-right, matching (-tz, tx).
+  const arrow = point.curvature > 0 ? '›' : '‹';
   const { texture } = labelTexture(arrow, {
     color: '#172d3e',
     background: '#f7c948',
@@ -131,14 +132,17 @@ function addChevron(group, track, terrain, point) {
   board.position.y = 108;
   sign.add(board);
 
-  const post = new Mesh(new BoxGeometry(9, 78, 9), lambert(COLOUR.railShade));
-  post.position.y = 39;
-  sign.add(post);
-
   const offset = track.half + 98;
   const x = point.x + point.nx * point.outside * offset;
   const z = point.z + point.nz * point.outside * offset;
-  sign.position.set(x, terrain.heightAt(x, z), z);
+  // The exposed shoulder drops below the road: grounding the whole sign there
+  // buried its board behind the Armco. Keep the board at driver eye level and
+  // extend the support down to the ground instead.
+  const postHeight = Math.max(78, point.h + 78 - terrain.heightAt(x, z));
+  const post = new Mesh(new BoxGeometry(9, postHeight, 9), lambert(COLOUR.railShade));
+  post.position.y = 78 - postHeight / 2;
+  sign.add(post);
+  sign.position.set(x, point.h, z);
   const roadAngle = Math.atan2(point.tz, point.tx);
   sign.rotation.y = Math.PI / 2 - roadAngle + Math.PI;
   group.add(sign);
@@ -147,8 +151,9 @@ function addChevron(group, track, terrain, point) {
 function addSweeperChevrons(group, track, terrain, profile) {
   let last = -100;
   let added = 0;
-  const end = Math.floor(profile.length * 0.58);
-  for (let i = Math.floor(profile.length * 0.16); i < end && added < 10; i += 1) {
+  // Carry advance cues through the upper bends, stopping before the summit.
+  const end = track.summit ? track.summit.index - 20 : profile.length - 20;
+  for (let i = Math.floor(profile.length * 0.16); i < end && added < 24; i += 1) {
     const strength = Math.abs(profile[i].curvature);
     if (strength < 0.024 || i - last < 16) continue;
     let localMax = true;

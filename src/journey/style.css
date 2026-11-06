@@ -1,0 +1,20 @@
+.journey-entry { position:absolute; z-index:12; top:53%; left:50%; transform:translateX(-50%); width:min(92%,520px); min-height:48px; border:1px solid #fff8e799; border-radius:12px; color:#fff8e7; background:#15314bf2; font:600 16px system-ui,sans-serif; padding:9px 14px; cursor:pointer; }
+.journey-overlay { position:absolute; inset:0; z-index:30; background:#102a32b8; display:grid; place-items:center; padding:18px; color:#263f42; touch-action:pan-y; }
+.journey-card { box-sizing:border-box; width:min(100%,800px); max-height:100%; overflow:auto; background:#f7efdb; border-radius:16px; padding:clamp(18px,4vw,36px); box-shadow:0 16px 70px #0006; font:17px/1.55 system-ui,sans-serif; }
+.journey-card h1 { font:700 clamp(25px,4vw,38px)/1.15 Georgia,serif; margin:6px 0 16px; color:#163c40; }
+.journey-card h2 { font:700 21px Georgia,serif; margin:20px 0 8px; }
+.journey-card p { margin:10px 0; max-width:65ch; }
+.journey-eyebrow { text-transform:uppercase; letter-spacing:.1em; font-size:12px; font-weight:700; color:#45665f; }
+.journey-task { border-left:3px solid #7f9b73; padding:8px 14px; background:#e9e7d4; }
+.journey-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:20px; }
+.journey-card button { font:600 16px system-ui,sans-serif; min-height:46px; border:1px solid #b4b7a2; border-radius:7px; padding:10px 16px; cursor:pointer; background:#fffaf0; color:#163c40; }
+.journey-card button.primary { color:#fffaf0; background:#235c52; border-color:#235c52; }
+.journey-card button:focus-visible,.journey-entry:focus-visible { outline:3px solid #cf8427; outline-offset:3px; }
+.journey-card button:disabled { cursor:default; opacity:.65; }
+.journey-chapters { list-style:none; padding:0; display:grid; gap:7px; }
+.journey-chapters button { width:100%; text-align:left; }
+.journey-note { font-size:13px; color:#52695d; }
+.journey-driving { position:absolute; z-index:11; left:50%; bottom:14px; transform:translateX(-50%); max-width:65%; padding:8px 16px; border:1px solid #fff8e755; border-radius:9px; color:#fff8e7; background:#15314be8; font:15px/1.4 system-ui,sans-serif; text-align:center; pointer-events:none; }
+@media(max-height:480px) { .journey-card { padding:16px 24px; font-size:15px; } .journey-card h1 { margin:3px 0 10px; } .journey-card p { margin:7px 0; } .journey-actions { margin-top:12px; } .journey-entry { top:50%; font-size:14px; min-height:44px; padding:6px 12px; } .journey-driving { bottom:8px; max-width:44%; font-size:12px; padding:5px 9px; } }
+
+@media(max-height:480px) { .journey-footer { position:sticky; bottom:-16px; background:#f7efdb; padding:10px 0; margin-bottom:-8px; border-top:1px solid #c8cbb5; } }

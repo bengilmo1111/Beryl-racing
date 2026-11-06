@@ -4,7 +4,9 @@
 // harness. This module owns everything the player sees of the world: it reads
 // car and track state and draws it, and never writes back.
 import Phaser from 'phaser';
+import { buildJourneyMeeting } from './journeyMeeting.js';
 import { Scene, HemisphereLight, DirectionalLight } from 'three';
+import { metres } from '../scale.js';
 import { C, makeFog } from './palette.js';
 import { getRenderer, showCanvas, syncSize, getCanvas } from './renderer.js';
 import {
@@ -59,6 +61,7 @@ class RaceWorld {
     sun.position.set(-1, 2, -0.6);
     this.scene3d.add(sun);
 
+    if (scene.journeyRoute?.meeting) this.scene3d.add(buildJourneyMeeting(scene.journeyRoute));
     this.terrain = scene.terrain;
     this.otakiParallax = null;
     this.scene3d.add(hillLight ? buildRemutakaGround(this.terrain, scene.track) : buildGround(this.terrain, scene.def.theme));
@@ -106,7 +109,7 @@ class RaceWorld {
     // arrows, floating landmark labels or labelled finish.
     const geographyLed = scene.def.theme === 'eastbourne' || scene.def.theme === 'otaki';
     if (scene.def.theme === 'manfield') this.scene3d.add(buildStartLine(scene.track));
-    else if (!geographyLed) this.scene3d.add(buildStartGantry(scene.track, 'START'));
+    else if (!geographyLed) this.scene3d.add(buildStartGantry(scene.track, scene.journeyChapter ? 'SUNDAY RUN' : 'START'));
 
     if (scene.def.theme === 'eastbourne') {
       // Structures are resolved by RaceScene so their visual footprints and
@@ -148,6 +151,7 @@ class RaceWorld {
     if (this.trafficFleet) this.scene3d.add(this.trafficFleet.group);
 
     this.chase = new ChaseCamera(isCompact(scene), scene.track);
+    this.meetingCamera = scene.journeyRoute?.parking ? this.chase.camera.clone() : null;
     showCanvas(true);
 
     // Phaser emits POST_RENDER from both step() and headlessStep(). The latter
@@ -197,7 +201,20 @@ class RaceWorld {
     this.puffs.update(dt);
     this.chase.update(car, dt, this.terrain);
     if (this.otakiParallax) updateOtakiParallax(this.otakiParallax, car, dt);
-    this.renderer.render(this.scene3d, this.chase.camera);
+    let camera = this.chase.camera;
+    const route = this.scene.journeyRoute;
+    if (route?.meeting && Math.hypot(car.x - route.meeting.x, car.y - route.meeting.y) < metres(25)) {
+      // At manoeuvring speed the close bank can lift the chase rig above Beryl.
+      // Frame the actual parking area from its exposed side for a clear arrival.
+      const summit = this.scene.track.summit;
+      const eye = summit.point(metres(14), -metres(18));
+      this.meetingCamera.aspect = camera.aspect;
+      this.meetingCamera.position.set(eye.x, summit.h + metres(18), eye.y);
+      this.meetingCamera.lookAt(route.meeting.x, summit.h, route.meeting.y);
+      this.meetingCamera.updateProjectionMatrix();
+      camera = this.meetingCamera;
+    }
+    this.renderer.render(this.scene3d, camera);
   }
 
   destroy() {

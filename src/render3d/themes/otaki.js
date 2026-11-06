@@ -163,43 +163,46 @@ function addRailOverbridge(group, track, def) {
   }
 }
 
-function addMarketGardens(group, terrain, world) {
-  // Long rectangular growing blocks and dark windbreak rows are the strongest
-  // rural cue on the flats between the gorge and town.
-  //
-  // Positions are fractions of the world; sizes are not. Where a plot sits is a
-  // point on a map and has to move when the map is rescaled — how big a market
-  // garden is does not. These were absolute coordinates against a 19,000-unit
-  // Ōtaki, so after the rescale every one of them sat a tenth of the way along
-  // the route, out on the dunes.
-  const plots = [
-    [11200, 5600, 1150, 360, COLOUR.fieldA, 0.08],
-    [10300, 6150, 980, 330, COLOUR.fieldC, -0.05],
-    [10800, 6900, 1050, 390, COLOUR.fieldB, 0.02],
-    [7900, 6750, 1000, 340, COLOUR.fieldA, -0.04],
-    [7200, 7250, 930, 310, COLOUR.fieldC, 0.06],
-  ];
-  for (const [ax, az, width, depth, colour, yaw] of plots) {
-    const x = px(world, ax);
-    const z = pz(world, az);
-    const field = new Mesh(terrainPatchGeometry(terrain, { x, z, width, depth, yaw, lift: 2.4 }), basic(colour, { fog: true }));
-    group.add(field);
-  }
-
+// Road-relative plots stay visible after course rescaling. Dimensions are world
+// sizes, not map spans; terrainPatchGeometry follows the actual ground mesh.
+function addMarketGardens(group, terrain, track) {
+  const fields = new Group();
+  fields.name = 'otaki-roadside-market-gardens';
+  const colours = [COLOUR.fieldA, COLOUR.fieldC, COLOUR.fieldB];
   const hedgeMat = lambert(0x365f43);
-  for (const [ax, az, length, yaw] of [
-    [11200, 5380, 1080, 0.08],
-    [10300, 5950, 950, -0.05],
-    [10800, 6670, 1000, 0.02],
-    [7900, 6550, 950, -0.04],
-    [7200, 7060, 900, 0.06],
-  ]) {
-    const x = px(world, ax);
-    const z = pz(world, az);
-    const hedge = box(length, 52, 34, x, terrain.heightAt(x, z) + 26, z, hedgeMat);
-    hedge.rotation.y = yaw;
-    group.add(hedge);
+  const end = track.checkpoints[5]?.index ?? Math.floor(track.centerline.length * 0.5);
+  for (const [index, fraction] of [0.68, 0.76, 0.84, 0.92].entries()) {
+    const i = Math.floor(end * fraction);
+    const a = track.centerline[i - 1], b = track.centerline[i + 1];
+    const cp = track.centerline[i];
+    const angle = Math.atan2(b.y - a.y, b.x - a.x);
+    const tx = Math.cos(angle), tz = Math.sin(angle);
+    const yaw = -angle;
+    for (const side of [-1, 1]) {
+      const width = 1500, depth = 680;
+      const offset = track.half + 260 + depth / 2;
+      const x = cp.x - tz * side * offset;
+      const z = cp.y + tx * side * offset;
+      const patch = (cx, cz, w, d, lift, colour) => fields.add(new Mesh(
+        terrainPatchGeometry(terrain, { x: cx, z: cz, width: w, depth: d, yaw, lift }),
+        basic(colour, { fog: true })
+      ));
+      patch(x, z, width, depth, 2.4, colours[index % colours.length]);
+      // Broad rows, rather than individual vegetables, read at driving speed.
+      for (let row = -2; row <= 2; row++) {
+        patch(x - tz * row * 108, z + tx * row * 108, width - 65, 30, 3.2, 0x66854c);
+      }
+      // Short shelter belts mark the far boundary without closing the view.
+      for (let j = -3; j <= 3; j++) {
+        const hx = x + tx * j * 210 - tz * side * (depth / 2 + 40);
+        const hz = z + tz * j * 210 + tx * side * (depth / 2 + 40);
+        const hedge = box(225, 95, 62, hx, terrain.heightAt(hx, hz) + 47.5, hz, hedgeMat);
+        hedge.rotation.y = yaw;
+        fields.add(hedge);
+      }
+    }
   }
+  group.add(fields);
 }
 
 function addTown(group, terrain, layout, track, def, structures) {
@@ -372,7 +375,7 @@ export function buildOtaki(track, def, terrain, structures = []) {
   addBeach(group, terrain, layout);
   addRiver(group, track, def, terrain);
   addRailOverbridge(group, track, def);
-  addMarketGardens(group, terrain, layout.world);
+  addMarketGardens(group, terrain, track);
   addFarmhouses(group, terrain, structures);
   addTown(group, terrain, layout, track, def, structures);
 

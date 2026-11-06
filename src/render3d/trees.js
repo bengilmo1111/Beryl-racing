@@ -115,13 +115,13 @@ export function buildTrees(trees, terrain, theme = null) {
       // and the collision circle is the trunk rather than a fraction of the
       // canopy. So what you hit is the trunk you can see standing under it,
       // instead of a bumper the width of the branches.
-      const themeScale = theme === 'eastbourne'
+      const themeScale = (theme === 'eastbourne' || theme === 'otaki')
         ? 0.85
         : theme === 'remutaka'
           ? remutakaVisualScale(tree)
           : 1;
       const width = tree.canopyWidth * themeScale;
-      const heightFactor = theme === 'eastbourne'
+      const heightFactor = (theme === 'eastbourne' || theme === 'otaki')
         ? 1.05
         : theme === 'remutaka'
           ? spec.heightFactor * 0.9
@@ -136,10 +136,10 @@ export function buildTrees(trees, terrain, theme = null) {
       canopy.setMatrixAt(i, dummy.matrix);
 
       dummy.position.set(tree.x, ground, tree.y);
-      // On Eastbourne and Remutaka the trunk should represent the actual
+      // On the road courses the trunk should represent the actual
       // collision circle, not balloon and shrink with decorative canopy scale.
       // This is particularly important for Remutaka's render-only saplings.
-      const trunkWidth = (theme === 'eastbourne' || theme === 'remutaka')
+      const trunkWidth = (theme === 'eastbourne' || theme === 'remutaka' || theme === 'otaki')
         ? tree.trunkRadius / 0.09
         : width;
       dummy.scale.set(trunkWidth, height * 0.4, trunkWidth);
