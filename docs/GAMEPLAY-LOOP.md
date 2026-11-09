@@ -683,3 +683,23 @@ bars are distributed along the actual water span.
 Course-art regression raycasts verify the deck below the road and parapets on
 both sides at 78 crossing segments. This change is visual: the authored route,
 heights, checkpoints, collision data and driving physics are unchanged.
+
+## 2026-11-10: supplied Morris Minor driving audio
+
+Baseline: `37cdb49`. The existing stationary front/rear recordings give Beryl
+her own note; the supplied interior driving recording can add mechanical
+character under load. This is a sound change, with no simulation/input changes.
+
+Extracted a 3.038-second steady cruise from the W channel of the ambisonic
+recording, with rumble filtering, measured 118.51 Hz firing calibration and a
+wrapped seam. Blend it into the existing recorded voice above idle, pitch it
+with the gearbox and make room in the front/rear mix. Existing synth and
+optional-cabin failure fallbacks remain. Keep a compact editable mono master
+and reproducible cut script; details are in `reference/audio/README.md`.
+
+Verification: production build and browser audio checks, including real sample
+loading, four gear changes, pitch tracking, seam/peak bounds, cabin audible
+while driving and silent at idle, horn controls and the V8 exception. This is
+technical verification, not a listening preference verdict. User requested a PR
+and merge after completion. Next player test: accelerate from Days Bay, then
+hold a steady throttle on Remutaka and listen for convincing mechanical effort.

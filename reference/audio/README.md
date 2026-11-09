@@ -103,3 +103,35 @@ adds filtered noise for sealed-road sliding and softer loose-surface friction.
 This is procedural audio, not a sound extracted from the supplied engine clips.
 It follows speed, surface and slip, fades at rest, respects mute and is disposed
 on scene shutdown. All vehicle sounds share the existing compressor.
+
+## November 2026 driving-cabin layer
+
+The supplied `V0d03d64399913477c1bb.wav` is a 139.728-second, 96 kHz,
+24-bit, four-channel recording. Embedded metadata describes a 1950s Morris
+Minor recorded with a Rode NT-SF1 in the middle of its cabin on 2018-09-14.
+This is another Morris Minor, not a recording of Beryl herself.
+Original SHA-256: `b02e7153f466d6311787fe3dd7affbbfac6b70a6e4af91c63a2058e6bef74d30`.
+
+The channels are ambisonic B-format, not four surround speakers. Only channel
+0, W (omnidirectional pressure), is used. `morris-minor-cabin.flac` preserves
+that channel at 22.05 kHz/16 bit for reproducible edits, without shipping the
+162 MB original. Conversion:
+
+```sh
+ffmpeg -i V0d03d64399913477c1bb.wav -af 'pan=mono|c0=c0' -ar 22050 -sample_fmt s16 morris-minor-cabin.flac
+python scripts/cut-cabin-audio.py
+```
+
+The script takes a steady cruise at 27.000–30.038 seconds, removes low road
+rumble with a 70 Hz highpass, rolls off above 4.5 kHz and finds a phase-aligned
+loop end. A 140 ms wrap crossfade smooths the join. Output is mono PCM WAV,
+3.037642 seconds, about 134 kB, RMS 0.16, peak 0.494; measured firing frequency
+118.51 Hz (~3555 rpm). The 0.833 join correlation is lower than the stationary
+recordings because of natural cabin/road noise; the wrap handles the seam.
+
+`RecordedVoice` pitches this third layer to the existing gearbox, fades it in
+between 1200 and 2200 rpm and changes its brightness/level with load. It dips
+on shifts and is absent at idle, so slowed road rumble cannot accompany a parked
+car. The front/rear layers make room as it rises. Existing mute, pause and stop
+act on the shared voice. A failed cabin download retains Beryl's front/rear
+recordings; Manfeild keeps its synthesised V8.

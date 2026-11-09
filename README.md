@@ -64,7 +64,8 @@ top-right corner.
 of the car and from behind it, the two loops pitched to the crankshaft speed a
 four-speed gearbox model says she is doing and mixed by how hard she is working
 — so you hear her change gear, and you hear her labour up the Remutaka climb at
-a steady speed. The horn is hers too. Manfeild is the exception: that V8 is
+a steady speed. A supplied Morris Minor cabin recording adds mechanical chatter
+while driving, pitched to the same gearbox. The horn is hers too. Manfeild is the exception: that V8 is
 synthesised, because it does not exist. See
 [`reference/audio/README.md`](reference/audio/README.md).
 

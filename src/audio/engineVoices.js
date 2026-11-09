@@ -7,7 +7,8 @@
 //  • RecordedVoice plays the real car. Two loops cut from recordings made at
 //    the front and the back of Beryl, pitched by playback rate to the crank
 //    speed the gearbox model says she is doing, and mixed against each other by
-//    load. This is the one you normally hear.
+//    load. A third, optional cabin loop adds mechanical chatter when driving.
+//    This is the one you normally hear.
 //  • SynthVoice is three oscillators. It covers the case where the recordings
 //    cannot be loaded, and it is the only voice that can play an engine Beryl
 //    does not have — Manfeild's V8 is a joke that no recording of a 948cc
@@ -80,6 +81,8 @@ function wander(now, load, shape) {
 // at about 0.35× and the redline at about 2.1×, and both are wanted.
 const FRONT_FIRING_HZ = 74.51;
 const REAR_FIRING_HZ = 82.63;
+// The supplied cabin recording's steady cruise at 27–30.04 s (~3555 rpm).
+const CABIN_FIRING_HZ = 118.51;
 const MIN_RATE = 0.25;
 const MAX_RATE = 2.6;
 
@@ -87,6 +90,7 @@ const MAX_RATE = 2.6;
 // other. Nothing here divides into anything else here.
 const FRONT_WANDER = { a: 2.62, b: 5.71, pa: 0.0, pb: 2.1 };
 const REAR_WANDER = { a: 2.17, b: 4.83, pa: 1.3, pb: 3.7 };
+const CABIN_WANDER = { a: 1.73, b: 4.19, pa: 2.4, pb: 0.8 };
 const SYNTH_WANDER = { a: 2.41, b: 5.23, pa: 0.7, pb: 4.4 };
 
 export class RecordedVoice extends Voice {
@@ -102,6 +106,9 @@ export class RecordedVoice extends Voice {
     // the loops are different lengths (4.1 s and 2.9 s), so they only come back
     // into step every half a minute or so.
     this.front = this.#layer(buffers.front, FRONT_FIRING_HZ, 0.37, FRONT_WANDER);
+    // Optional: failed cabin downloads still leave Beryl's own two mics playing.
+    this.cabin = buffers.cabin
+      ? this.#layer(buffers.cabin, CABIN_FIRING_HZ, 0.61, CABIN_WANDER) : null;
   }
 
   #layer(buffer, referenceHz, offsetFraction, shape) {
@@ -141,11 +148,22 @@ export class RecordedVoice extends Voice {
     return Math.max(MIN_RATE, Math.min(MAX_RATE, rate));
   }
 
-  render({ firing, load, through, shifting }, now) {
+  render({ firing, rpm, load, through, shifting }, now) {
     const rearRate = this.#rate(this.rear, firing, load, now);
     const frontRate = this.#rate(this.front, firing, load, now);
     this.rear.source.playbackRate.setTargetAtTime(rearRate, now, GLIDE);
     this.front.source.playbackRate.setTargetAtTime(frontRate, now, GLIDE);
+
+    // Blend the moving cabin's mechanical chatter into driving. Keep it out of
+    // idle: pitching a road recording all the way down would add slow road thuds
+    // to a parked car. Its pitch still follows the crank and drops on shifts.
+    const moving = Math.max(0, Math.min(1, (rpm - 1200) / 1000));
+    const cabinMix = this.cabin ? moving * moving * (3 - 2 * moving) : 0;
+    if (this.cabin) {
+      this.cabin.source.playbackRate.setTargetAtTime(this.#rate(this.cabin, firing, load, now), now, GLIDE);
+      this.cabin.gain.gain.setTargetAtTime(cabinMix * (shifting ? 0.12 : 0.34 + load * 0.34), now, GLIDE);
+      this.cabin.tone.frequency.setTargetAtTime(1200 + firing * 7 + load * 2000, now, GLIDE);
+    }
 
     // The exhaust carries the body of it and barely changes. The front layer is
     // the effort: quiet and dull off throttle, loud and open with load and revs.
@@ -159,8 +177,9 @@ export class RecordedVoice extends Voice {
     const frontLevel = shifting
       ? 0.16
       : (0.19 + load * 0.78 * (0.35 + through * 0.65)) * breath;
-    this.rear.gain.gain.setTargetAtTime(rearLevel, now, GLIDE);
-    this.front.gain.gain.setTargetAtTime(frontLevel, now, GLIDE);
+    // Make room for the cabin instead of simply stacking a louder third mic.
+    this.rear.gain.gain.setTargetAtTime(rearLevel * (1 - cabinMix * 0.18), now, GLIDE);
+    this.front.gain.gain.setTargetAtTime(frontLevel * (1 - cabinMix * 0.24), now, GLIDE);
 
     // Both filters track the note as well as the load, so pitching the clip up
     // does not simply make it brighter for free.
@@ -169,7 +188,7 @@ export class RecordedVoice extends Voice {
   }
 
   stop() {
-    for (const layer of [this.rear, this.front]) {
+    for (const layer of [this.rear, this.front, this.cabin].filter(Boolean)) {
       try {
         layer.source.stop();
       } catch (error) {

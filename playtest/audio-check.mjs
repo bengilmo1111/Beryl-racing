@@ -168,28 +168,32 @@ const v8 = await page.evaluate(async () => {
 // a steady noise.
 const recorded = await page.evaluate(async () => {
   const { RecordedVoice } = await import('/src/audio/engineVoices.js');
-  const { loadSample, ENGINE_FRONT, ENGINE_REAR } = await import('/src/audio/samples.js');
+  const { loadSample, ENGINE_FRONT, ENGINE_REAR, ENGINE_CABIN } = await import('/src/audio/samples.js');
   const probe = new AudioContext();
-  const [front, rear] = await Promise.all([
+  const [front, rear, cabin] = await Promise.all([
     loadSample(probe, ENGINE_FRONT),
     loadSample(probe, ENGINE_REAR),
+    loadSample(probe, ENGINE_CABIN),
   ]);
   probe.close();
-  if (!front || !rear) return { loaded: false };
+  if (!front || !rear || !cabin) return { loaded: false };
 
   const SR = 22050;
   // Everything is measured below 500 Hz. Over the full band the wind and road
   // noise in the recordings swamps the firing pulses and every measure of pitch
   // swings about by half without the pitch having moved at all.
-  const render = async (rpm, seconds) => {
+  const render = async (rpm, seconds, cabinOnly = false) => {
     const ctx = new OfflineAudioContext(1, SR * seconds, SR);
     const master = ctx.createGain();
     master.gain.value = 0.36;
     const band = ctx.createBiquadFilter();
     band.type = 'lowpass';
-    band.frequency.value = 500;
+    band.frequency.value = cabinOnly ? 9000 : 500;
     master.connect(band).connect(ctx.destination);
-    const voice = new RecordedVoice(ctx, master, { front, rear });
+    const silent = ctx.createBuffer(1, SR, SR);
+    const voice = new RecordedVoice(ctx, master, {
+      front: cabinOnly ? silent : front, rear: cabinOnly ? silent : rear, cabin,
+    });
     const firing = (rpm / 60) * 2;
     // Driven once per 200 ms. The game drives it every frame, but each step
     // here is a suspend/resume round trip through the renderer, and fourteen
@@ -280,6 +284,8 @@ const recorded = await page.evaluate(async () => {
     low: await render(1200, 4),
     high: await render(4200, 4),
     hold: await render(2600, 14),
+    cabinIdle: await render(800, 4, true),
+    cabinDrive: await render(3555, 4, true),
   };
 });
 
@@ -368,7 +374,12 @@ for (let i = 1; i < drive.length; i++) {
   );
 }
 
+assert.equal(state.audio.cabinRecording, true, 'the race did not connect the cabin recording');
 assert.ok(recorded.loaded, 'the engine recordings did not load');
+assert.ok(recorded.cabinIdle.peak < 0.001, 'moving cabin noise leaks into idle');
+assert.ok(recorded.cabinDrive.peak > 0.02, 'the cabin recording is inaudible while driving');
+assert.ok(recorded.cabinDrive.peak < 0.99, 'the cabin layer clips');
+assert.ok(recorded.cabinDrive.jump < 0.1, 'the cabin loop has a sharp seam');
 // Both are two firings per revolution of a four, so 4200 rpm must cross zero a
 // great deal more often than 1200 does. Anything less means the playback rate is
 // not following the gearbox and the recordings are just a loop.

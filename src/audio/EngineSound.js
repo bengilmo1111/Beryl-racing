@@ -20,7 +20,7 @@
 // Determinism: constructed only when not harnessed (see RaceScene), because
 // AudioContext runs on wall-clock time. Nothing here is read by the simulation.
 import { acquireContext, resumeOnGesture, outputBus } from './context.js';
-import { loadSample, ENGINE_FRONT, ENGINE_REAR } from './samples.js';
+import { loadSample, ENGINE_FRONT, ENGINE_REAR, ENGINE_CABIN } from './samples.js';
 import { RecordedVoice, SynthVoice } from './engineVoices.js';
 
 // Gear ratios as fractions of top speed. Four speeds, first is short and third
@@ -87,7 +87,7 @@ export class EngineSound {
     if (this.engine.recorded) this.#useRecordingsWhenReady();
   }
 
-  // Swap the synth for the real car once both clips have decoded. Normally they
+  // Swap the synth for the real car once the clips have decoded. Normally they
   // were primed during the loading splash and this resolves on the next tick,
   // before the first update; on a slow connection it can land mid-race, which
   // is why it is a crossfade rather than a cut.
@@ -95,9 +95,10 @@ export class EngineSound {
     Promise.all([
       loadSample(this.ctx, ENGINE_FRONT),
       loadSample(this.ctx, ENGINE_REAR),
-    ]).then(([front, rear]) => {
+      loadSample(this.ctx, ENGINE_CABIN),
+    ]).then(([front, rear, cabin]) => {
       if (this.stopped || !front || !rear) return;
-      const recorded = new RecordedVoice(this.ctx, this.out, { front, rear });
+      const recorded = new RecordedVoice(this.ctx, this.out, { front, rear, cabin });
       recorded.gain.gain.value = 0.0001;
       recorded.fade(1, VOICE_CROSSFADE);
       const outgoing = this.voice;
@@ -179,6 +180,7 @@ export class EngineSound {
       ok: this.ok,
       status: this.status,
       voice: this.voice ? this.voice.kind : 'none',
+      cabinRecording: !!this.voice?.cabin,
       cylinders: this.engine ? this.engine.cylinders : 0,
       contextState: this.ctx ? this.ctx.state : 'none',
       ownsContext: !!this.ownsContext,

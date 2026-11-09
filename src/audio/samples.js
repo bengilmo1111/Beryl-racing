@@ -1,6 +1,6 @@
 // Beryl's own voice: recordings of the real car, decoded once and shared.
 //
-// Three clips, cut from ~30 s phone recordings made at the car (the masters are
+// Beryl clips, cut from ~30 s phone recordings made at the car (the masters are
 // in `reference/audio/`, and `reference/audio/README.md` records exactly which
 // seconds each loop came from):
 //
@@ -11,6 +11,10 @@
 //    layer that carries the note from a chase camera.
 //  • horn         — one press of the real horn. A single tone, ~315 Hz, with
 //    the harmonic stack that makes it sound like a car and not a beep.
+//
+// A fourth clip adds a supplied Morris Minor cabin recording while driving.
+// Its W (omnidirectional) channel is used alone, not downmixed as 4-channel
+// surround: the original is ambisonic B-format. See the reference README.
 //
 // They are 16-bit mono WAV, 22.05 kHz, and WAV on purpose. mp3 and AAC both
 // carry encoder delay and padding that `decodeAudioData` turns into silence at
@@ -29,6 +33,7 @@ const failures = [];
 
 export const ENGINE_FRONT = 'beryl-engine-front.wav';
 export const ENGINE_REAR = 'beryl-engine-rear.wav';
+export const ENGINE_CABIN = 'morris-minor-cabin.wav';
 export const HORN = 'beryl-horn.wav';
 
 // Always beneath the configured base path: production is served under
@@ -69,11 +74,11 @@ export function loadSample(ctx, name) {
   return pending;
 }
 
-// Kick all three off during the loading splash so the race does not start on a
+// Kick all four off during the loading splash so the race does not start on a
 // fetch. Decoding works happily on a suspended context, so this does not need a
 // gesture first — only playing does.
 export function primeSamples(ctx) {
-  return Promise.all([ENGINE_FRONT, ENGINE_REAR, HORN].map((name) => loadSample(ctx, name)));
+  return Promise.all([ENGINE_FRONT, ENGINE_REAR, ENGINE_CABIN, HORN].map((name) => loadSample(ctx, name)));
 }
 
 // For the audio readout: what, if anything, refused to load.
