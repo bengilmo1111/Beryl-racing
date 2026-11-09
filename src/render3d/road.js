@@ -493,7 +493,8 @@ export function buildStartApproach(track) {
   const length = Math.hypot(q.x - p.x, q.y - p.y);
   const dx = (q.x - p.x) / length * 700, dy = (q.y - p.y) / length * 700;
   const back = point => ({ x: point.x - dx, y: point.y - dy });
+  const height = track.heights?.[0] ?? 0;
   return buildRoad({ ...track, left: [back(track.left[0]), track.left[0]],
-    right: [back(track.right[0]), track.right[0]], heights: [track.heights[0], track.heights[0]],
-    surfaces: [track.surfaces[0]], closed: false });
+    right: [back(track.right[0]), track.right[0]], heights: [height, height],
+    surfaces: [track.surfaces?.[0] ?? 'sealed'], closed: false });
 }

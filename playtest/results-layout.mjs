@@ -30,7 +30,8 @@ try {
       await page.evaluate(() => window.__h._render());
       const items = await page.evaluate(() => window.__BERYL_GAME__.scene.getScene('Race').resultsPanel.list
         .filter(n => n.type === 'Text').map(n => ({ text: n.text, ...n.getBounds() })));
-      assert.equal(items.length, 5);
+      assert.equal(items.length, 6);
+      assert.ok(items.some(item => item.text === 'FIRST RUN · SET YOUR BENCHMARK'));
       assert.ok(items.some(item => item.text === '01:23.123'), 'results must show the recorded finish time');
       for (const item of items) {
         assert.ok(item.x >= 0 && item.y >= 0 && item.x + item.width <= width && item.y + item.height <= height,

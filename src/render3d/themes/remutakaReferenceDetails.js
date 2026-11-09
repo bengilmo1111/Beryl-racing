@@ -10,6 +10,7 @@ import {
   Vector3,
 } from 'three';
 import { basic, lambert } from '../palette.js';
+import { cameraClearFoliage } from '../foliageVisibility.js';
 import { labelTexture } from '../textures.js';
 import { remutakaVisualHeight, remutakaRoadProfile } from '../../remutakaTerrain.js';
 
@@ -103,7 +104,7 @@ function addBushyBank(group, track, terrain, profile) {
   const dummy = new Object3D();
   const colours = [COLOUR.bushDeep, COLOUR.bushMid, COLOUR.bushLight];
   bushes.forEach((batch, colourIndex) => {
-    const mesh = new InstancedMesh(geometry, lambert(colours[colourIndex], { flatShading: false }), batch.length);
+    const mesh = new InstancedMesh(geometry, cameraClearFoliage(lambert(colours[colourIndex], { flatShading: false })), batch.length);
     batch.forEach((bush, i) => {
       dummy.position.set(bush.x, bush.y, bush.z);
       dummy.rotation.set(0, bush.yaw, Math.sin(bush.yaw) * 0.08);

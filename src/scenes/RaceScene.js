@@ -35,6 +35,8 @@ import { CAR } from '../config.js';
 import { FONT, uiScale, isCompact, formatTime } from '../ui/format.js';
 import { nearestRoadPose, roadAhead, buildRouteProgress } from '../driveRoute.js';
 import { showCoastalResults } from '../ui/CoastalResults.js';
+import { chooseRecoveryPose, rememberSafeRecovery, recoverySection } from '../recovery.js';
+import { readBestSplits, writeBestSplits, bestComparison } from '../personalBest.js';
 
 export class RaceScene extends Phaser.Scene {
   constructor() {
@@ -43,6 +45,7 @@ export class RaceScene extends Phaser.Scene {
 
   create() {
     this.resultsPanel = null;
+    this.recoverButton = null;
     // Which course are we driving? Everything themed keys off this.
     this.def = getSelectedTrack();
     this.mode = this.def.mode; // 'circuit' (laps) | 'sprint' (one run)
@@ -199,12 +202,10 @@ export class RaceScene extends Phaser.Scene {
     const render3d = this.game.registry.get('__render3d');
     this.world3d = render3d.createRaceWorld(this);
 
-    if (this.def.theme === 'eastbourne') this.createRecovery();
-    if (this.def.theme === 'otaki') {
-      this.routeProgress = buildRouteProgress(this.track);
-      this.routeUpdateAt = 0;
-      this.hud.setProgress(0);
-    }
+    this.createRecovery();
+    this.runSplits = [];
+    this.bestSplits = readBestSplits(STORAGE_KEY, this.best, this.track.checkpoints.length - (this.track.closed ? 0 : 1));
+    this.hud.setSplit(null, 0, !!this.bestSplits);
 
     this.input.keyboard.once('keydown-ESC', () => this.goHome());
     this.watchForPauses();
@@ -256,6 +257,10 @@ export class RaceScene extends Phaser.Scene {
     }
     if (this.recoverButton) {
       const s = Math.max(0.8, Math.min(1, this.scale.height / 600));
+      this.recoverButton.setText(this.touch ? 'RESET · +3s' : '↻  BACK ON ROAD')
+        .setFontSize(this.touch ? 16 : 18)
+        .setPadding(this.touch ? 8 : 18, this.touch ? 16 : 12);
+      if (this.touch) this.recoverButton.setFixedSize(128, 56).setAlign('center');
       // Bottom centre — the one strip of a landscape phone that is not under a
       // thumb, with the steering bottom-left and the pedals and horn
       // bottom-right. It used to sit in the top-right corner, which is now a
@@ -269,7 +274,10 @@ export class RaceScene extends Phaser.Scene {
   createRecovery() {
     this.lastSafe = { ...this.track.start };
     this.routeProgress = buildRouteProgress(this.track);
-    this.coastProfile = coastalProfile(this.track);
+    this.coastProfile = this.def.theme === 'eastbourne' ? coastalProfile(this.track) : null;
+    this.lastSafeExpected = 1;
+    this.stuckSince = null;
+    this.lastContactAt = -Infinity;
     this.offRoadSince = null;
     this.recoveryCount = 0;
     this.nextRecoveryAt = 0;
@@ -277,7 +285,7 @@ export class RaceScene extends Phaser.Scene {
     this.previousBest = this.best;
     // Empty, but present from the countdown: the panel is a different height
     // with the progress rail in it, and growing as the flag drops is a flinch.
-    this.hud.setProgress(0);
+    if (!this.track.closed) this.hud.setProgress(0);
     this.recoverButton = this.add.text(0, 0, '↻  BACK ON ROAD', {
       fontFamily: FONT, fontSize: '18px', fontStyle: '700', color: '#c1e6d8',
       backgroundColor: '#153e40', padding: { x: 18, y: 12 },
@@ -289,12 +297,18 @@ export class RaceScene extends Phaser.Scene {
     const recoverKey = (event) => { if (!event.repeat) this.recover(); };
     this.input.keyboard.on('keydown-R', recoverKey);
     this.events.once('shutdown', () => this.input.keyboard.off('keydown-R', recoverKey));
+    this.recoverButton.setVisible(!this.touch);
     this.onResize();
   }
 
   recover() {
     if (!this.timing || this.finished || this.time.now < this.nextRecoveryAt) return;
-    this.car.reset(this.lastSafe.x, this.lastSafe.y, this.lastSafe.rotation);
+    const safe = chooseRecoveryPose(this);
+    if (!safe) { this.hud.showMessage('ROAD BLOCKED · TRY AGAIN'); return; }
+    this.car.reset(safe.x, safe.y, safe.rotation);
+    this.touch?.releaseAll();
+    this.stuckSince = null;
+    if (this.touch) this.recoverButton.setVisible(false);
     this.offRoadSince = null;
     this.lastSkid = null;
     this.lapStartTime -= 3000;
@@ -305,37 +319,33 @@ export class RaceScene extends Phaser.Scene {
   }
 
   updateRouteHelp(time) {
-    if (this.def.theme === 'otaki' && this.timing && time >= this.routeUpdateAt) {
-      this.routeUpdateAt = time + 200;
-      const pose = nearestRoadPose(this.track, this.car.x, this.car.y);
-      const progress = this.routeProgress.at(pose);
-      this.hud.setProgress(Math.min(.99, Math.max(0, progress)));
-      const error = Math.abs(Math.atan2(Math.sin(pose.rotation - this.car.rotation), Math.cos(pose.rotation - this.car.rotation)));
-      this.hud.setStatus(pose.distance > pose.road.half + this.car.collideRadius
-        ? 'OFF ROAD · REJOIN THE ROAD TO THE BEACH'
-        : error > 2.1 && progress < .98 && pose.road.id === 'primary' ? 'BEACH · TURN BACK TOWARD THE FINISH'
-        : '');
-      return;
-    }
-    if (this.def.theme !== 'eastbourne' || !this.timing || time < this.routeUpdateAt) return;
+    if (!this.timing || this.finished || time < this.routeUpdateAt) return;
     this.routeUpdateAt = time + 200;
     const pose = nearestRoadPose(this.track, this.car.x, this.car.y);
     if (!pose) return;
     const progress = this.routeProgress.at(pose);
+    rememberSafeRecovery(this, pose, progress);
     const next = this.track.checkpoints[this.expected];
-    const previous = this.track.checkpoints[Math.max(0, this.expected - 1)];
-    const connector = pose.road.id.endsWith('-link');
+    const connector = pose.road.id !== 'primary';
     const headingError = Math.atan2(Math.sin(pose.rotation - this.car.rotation), Math.cos(pose.rotation - this.car.rotation));
-    const safelyBeforeGate = progress <= this.routeProgress.checkpoint(next.index) + 0.002
-      && progress >= this.routeProgress.checkpoint(previous.index) - 0.002;
-    if (safelyBeforeGate && pose.distance < pose.road.half - this.car.collideRadius
-      && (Math.abs(headingError) < 0.65 || (connector && Math.abs(headingError) > Math.PI - 0.65)) && this.car.speed > 0) {
-      // Only remember an unobstructed centre-road pose in the validated section.
-      const clear = this.obstacles.every((o) => [-1, 1].every((sign) =>
-        Math.hypot(pose.x + Math.sin(pose.rotation) * this.car.axleOffset * sign - o.x,
-          pose.y - Math.cos(pose.rotation) * this.car.axleOffset * sign - o.y)
-          > o.r + this.car.collideRadius + 10));
-      if (clear) this.lastSafe = { x: pose.x, y: pose.y, rotation: pose.rotation + (Math.abs(headingError) > Math.PI / 2 ? Math.PI : 0) };
+    const safelyBeforeGate = recoverySection(this, progress);
+    const offRoad = pose.distance > pose.road.half + this.car.collideRadius;
+    this.offRoadSince = offRoad ? (this.offRoadSince ?? time) : null;
+    if (this.hadContact) this.lastContactAt = time;
+    const stuck = time - this.lastContactAt < 1500 && Math.abs(this.car.speed) < CAR.maxSpeed * 0.12;
+    this.stuckSince = stuck ? (this.stuckSince ?? time) : null;
+    const needsRecovery = (this.offRoadSince !== null && time - this.offRoadSince > 1200)
+      || (this.stuckSince !== null && time - this.stuckSince > 1000)
+      || (!connector && Math.abs(headingError) > 1.8)
+      || (!safelyBeforeGate && progress > this.routeProgress.checkpoint(next.index) + 0.015 && this.expected !== 0);
+    if (this.touch) this.recoverButton.setVisible(needsRecovery && time >= this.nextRecoveryAt);
+    const action = this.touch ? 'TAP RESET' : 'PRESS R TO RECOVER';
+    if (this.def.theme !== 'eastbourne') {
+      if (!this.track.closed) this.hud.setProgress(Math.min(.99, Math.max(0, progress)));
+      this.hud.setStatus(this.offRoadSince !== null && time - this.offRoadSince > 1200 ? `OFF ROAD · ${action}`
+        : this.stuckSince !== null && time - this.stuckSince > 1000 ? `STUCK? · ${action}`
+        : !connector && Math.abs(headingError) > 1.8 ? `WRONG WAY · ${action}` : '');
+      return;
     }
     // How far along goes on the panel's progress rail. The top of the screen
     // stays empty unless there is something to say: a standing "DAYS BAY · 41%"
@@ -343,18 +353,17 @@ export class RaceScene extends Phaser.Scene {
     // appear in the same place easy to ignore too.
     this.hud.setProgress(Math.min(0.99, Math.max(0, progress)));
     let hint = '';
-    const offRoad = distanceToCenterline(this.car.x, this.car.y, this.track.centerline) > this.track.half;
-    this.offRoadSince = offRoad ? (this.offRoadSince ?? time) : null;
     if (this.car.x < this.coastProfile(this.car.y).shoreX - metres(1)) {
       this.recover();
       return;
     }
     if (this.offRoadSince !== null && time - this.offRoadSince > 1200) {
-      hint = this.touch ? 'OFF ROAD · TAP BACK ON ROAD' : 'OFF ROAD · PRESS R TO RECOVER';
+      hint = `OFF ROAD · ${action}`;
     } else if (!safelyBeforeGate && progress > this.routeProgress.checkpoint(next.index) + 0.015) {
-      hint = this.touch ? 'MISSED CHECKPOINT · TAP BACK ON ROAD' : 'MISSED CHECKPOINT · PRESS R';
+      hint = this.touch ? 'MISSED GATE · TAP RESET' : 'MISSED CHECKPOINT · PRESS R';
     }
-    else if (!connector && Math.abs(headingError) > 1.8) hint = 'TURN AROUND · OR BACK ON ROAD';
+    else if (this.stuckSince !== null && time - this.stuckSince > 1000) hint = `STUCK? · ${action}`;
+    else if (!connector && Math.abs(headingError) > 1.8) hint = this.touch ? 'WRONG WAY · TAP RESET' : 'TURN AROUND · OR BACK ON ROAD';
     else {
       const ahead = roadAhead(pose, Math.max(500, Math.abs(this.car.speed) * 1.4), connector && Math.abs(headingError) > Math.PI / 2 ? -1 : 1);
       const turn = Math.atan2(ahead.x - pose.x, -(ahead.y - pose.y)) - this.car.rotation;
@@ -576,6 +585,7 @@ export class RaceScene extends Phaser.Scene {
 
     if (this.timing) {
       this.hud.setCurrent(time - this.lapStartTime);
+      this.hud.updateSplit(time);
       this.checkLap(beforeMovement);
       this.updateRouteHelp(time);
     }
@@ -708,6 +718,7 @@ export class RaceScene extends Phaser.Scene {
     const d = Phaser.Math.Distance.Between(this.car.x, this.car.y, target.x, target.y);
     if (d > this.captureRadius) return;
 
+    if (this.mode === 'circuit' || this.expected < cps.length - 1) this.recordSplit();
     if (this.mode === 'circuit') {
       // Closed loop: gate 0 is the start/finish line. Crossing it after all the
       // ordered gates records a lap and starts the next one.
@@ -724,6 +735,19 @@ export class RaceScene extends Phaser.Scene {
     }
   }
 
+  recordSplit() {
+    const elapsed = this.time.now - this.lapStartTime;
+    const index = this.runSplits.length;
+    this.runSplits.push(elapsed);
+    const best = this.bestSplits?.[index];
+    this.hud.setSplit(best == null ? elapsed : elapsed - best, index + 1, best != null);
+  }
+
+  saveSplits(time) {
+    this.bestSplits = [...this.runSplits];
+    writeBestSplits(STORAGE_KEY, time, this.bestSplits);
+  }
+
   // Circuit: record a completed lap and keep racing (no results overlay).
   recordLap() {
     const now = this.time.now;
@@ -735,13 +759,17 @@ export class RaceScene extends Phaser.Scene {
     if (!this.best || lapMs < this.best) {
       this.best = lapMs;
       writeBestTime(STORAGE_KEY, lapMs);
+      this.saveSplits(lapMs);
       this.hud.setBest(lapMs);
       this.hud.showMessage('NEW BEST LAP!', '#ffd166');
       this.cameras.main.flash(240, 255, 209, 102);
     } else {
-      this.hud.showMessage('LAP COMPLETE', '#fff8e7');
+      this.hud.showMessage(bestComparison(lapMs, this.previousBest), '#fff8e7');
     }
 
+    this.previousBest = this.best;
+    this.runSplits = [];
+    this.recoveryCount = 0;
     this.lapNumber += 1;
     this.hud.setLap(this.lapNumber);
   }
@@ -749,12 +777,12 @@ export class RaceScene extends Phaser.Scene {
   // Sprint: crossing the finish ends the run and shows the results overlay.
   finishSprint() {
     if (this.finished) return;
+    this.recordSplit();
     this.finished = true;
+    this.recoverButton?.setVisible(false);
     this.timing = false;
-    if (this.def.theme === 'eastbourne' || this.def.theme === 'otaki') {
-      this.hud.setStatus('');
-      this.hud.setProgress(1);
-    }
+    this.hud.setStatus('');
+    this.hud.setProgress(1);
     const now = this.time.now;
     const lapMs = now - this.lapStartTime;
     this.lastCompletionTimeMs = lapMs;
@@ -764,6 +792,7 @@ export class RaceScene extends Phaser.Scene {
     if (!this.best || lapMs < this.best) {
       this.best = lapMs;
       writeBestTime(STORAGE_KEY, lapMs);
+      this.saveSplits(lapMs);
       this.hud.setBest(lapMs);
       this.hud.showMessage('NEW BEST TIME!', '#ffd166');
       this.cameras.main.flash(240, 255, 209, 102);
@@ -806,7 +835,10 @@ export class RaceScene extends Phaser.Scene {
     const time = this.add.text(0, -8, formatTime(timeMs), {
       fontFamily: FONT, fontSize: '42px', fontStyle: '700', color: '#2ec4d6',
     }).setOrigin(0.5);
-    const retry = this.add.text(0, 80, copy.retryLabel, {
+    const comparison = this.add.text(0, 36, bestComparison(timeMs, this.previousBest), {
+      fontFamily: FONT, fontSize: '20px', fontStyle: '700', color: '#c1e6d8',
+    }).setOrigin(0.5);
+    const retry = this.add.text(0, 90, copy.retryLabel, {
       fontFamily: FONT, fontSize: '30px', fontStyle: '700', color: '#15314b',
       backgroundColor: '#ffd166', padding: { x: 28, y: 14 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -816,7 +848,7 @@ export class RaceScene extends Phaser.Scene {
       backgroundColor: '#15314bcc', padding: { x: 20, y: 10 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     change.on('pointerup', () => this.scene.start('Title'));
-    panel.add([bg, title, message, time, retry, change]);
+    panel.add([bg, title, message, time, comparison, retry, change]);
     this.resultsPanel = panel;
     this.onResize();
   }

@@ -63,6 +63,10 @@ jobs:
         run: node playtest/eastbourne-drive-fixes.mjs
       - name: Arcade driving contract
         run: npm run test:arcade-driving
+      - name: Safe recovery, personal-best splits and camera contracts
+        run: node playtest/polish-contracts.mjs
+      - name: Contextual mobile recovery on every course
+        run: node playtest/polish-browser.mjs --ui-only
       - name: Drive Eastbourne alternatives and park
         run: node playtest/eastbourne-routes.mjs
       - name: Verify repeatability (scheduled or manual)

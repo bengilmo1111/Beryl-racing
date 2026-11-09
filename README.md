@@ -55,10 +55,20 @@ ordered route checkpoints, an off-road penalty, a locally saved best time, and
 a retryable finish.
 
 **Controls:** arrow keys or WASD to drive, Space for the handbrake, **H for the
-horn**, ESC to go back to the course chooser — or the on-screen controls on a
+horn**, **R to return to earned road (+3 seconds)**, ESC to go back to the course chooser — or the on-screen controls on a
 phone: steering bottom-left, throttle and brake bottom-right with the horn
 directly above them, and fullscreen, sound and home buttons in a row across the
 top-right corner.
+
+On a phone, **RESET · +3s** appears between the driving controls only when you
+are off-road, facing the wrong way or stuck. It disappears after recovery or
+normal driving resumes. Recovery preserves checkpoint progress on every course.
+
+Checkpoints briefly show a split in place of the HUD's LAST line: elapsed time
+on a first run, then seconds ahead of or behind your saved personal best. Splits
+come from that complete best run. Existing best times remain valid; older
+records gain a split baseline when you set a new best. Sprint results also show
+how your time compares with your previous best.
 
 **She sounds like herself.** The engine is Beryl's own, recorded from the front
 of the car, from behind it and on the road, with loops pitched to the crankshaft speed a

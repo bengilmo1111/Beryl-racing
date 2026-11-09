@@ -53,6 +53,7 @@ export class Hud {
       color: '#ffd166',
     });
     this.position = scene.add.text(0, 0, '', { ...panelStyle, fontStyle: '700', color: '#2ec4d6' }).setVisible(false);
+    this.split = scene.add.text(0, 0, '', { ...panelStyle, fontStyle: '700', color: '#c1e6d8' }).setVisible(false);
     // Transient guidance, centred at the top. No panel behind it: a fixed-width
     // rounded rect cannot hold copy that runs from "EASE OFF · LEFT BEND" to
     // nothing at all. A chunky ink outline keeps it readable over sky, tarmac or
@@ -86,6 +87,7 @@ export class Hud {
       this.last,
       this.best,
       this.position,
+      this.split,
       this.status,
       this.flash,
     ]);
@@ -118,6 +120,7 @@ export class Hud {
     this.last.setFontSize(rowSize);
     this.best.setFontSize(rowSize);
     this.position.setFontSize(rowSize);
+    this.split.setFontSize(Math.round(18 * s));
     this.status.setFontSize(statusSize).setStroke('#15314b', Math.max(4, Math.round(8 * s)));
     this.flash.setFontSize(Math.round(64 * s)).setStroke('#15314b', Math.round(9 * s));
 
@@ -135,10 +138,11 @@ export class Hud {
     this.last.setPosition(inX + px, rowsY);
     this.best.setPosition(inX + px, rowsY + rowSize + Math.round(6 * s));
     this.position.setPosition(inX + px, rowsY + (rowSize + Math.round(6 * s)) * 2);
+    this.split.setPosition(inX + px, rowsY);
 
     const headerW = this.currentLabel.width
       + (this.lapChip.visible ? Math.round(12 * s) + this.lapChip.width : 0);
-    const panelW = Math.max(headerW, this.current.width, this.last.visible ? this.last.width : 0, this.best.visible ? this.best.width : 0, this.position.visible ? this.position.width : 0) + px * 2;
+    const panelW = Math.max(headerW, this.current.width, this.last.visible ? this.last.width : 0, this.best.visible ? this.best.width : 0, this.position.visible ? this.position.width : 0, this.split.visible ? this.split.width : 0) + px * 2;
     let panelH = this.last.visible || this.best.visible
       ? rowsY + rowSize * 2 + Math.round(6 * s) + py - inY
       : labelSize + bigSize + py * 2 + Math.round(10 * s);
@@ -148,7 +152,11 @@ export class Hud {
     this.drawPanel();
 
     // Centred at the top, on the optical line the old destination banner had.
-    this.status.setPosition(w / 2, inY + py + statusSize / 2);
+    // Keep contextual help between the timing panel and utility buttons.
+    const left = inX + panelW + 12;
+    const right = w - 174;
+    this.status.setWordWrapWidth(Math.max(120, right - left)).setFontSize(isCompact(scene) ? 15 : statusSize)
+      .setAlign('center').setPosition((left + right) / 2, inY + py + statusSize / 2);
     this.flash.setPosition(w / 2, h * 0.4);
     this.pin();
   }
@@ -196,6 +204,28 @@ export class Hud {
 
   setLast(ms) {
     this.last.setText(`LAST  ${formatTime(ms)}`);
+    this.split.setVisible(false);
+    this.last.setVisible(true);
+    this.reposition();
+  }
+
+  setSplit(value, gate, comparison) {
+    if (value == null) return;
+    const text = comparison ? `SPLIT ${gate} · ${value > 0 ? '+' : value < 0 ? '−' : ''}${(Math.abs(value) / 1000).toFixed(1)}s`
+        : `SPLIT ${gate} · ${(value / 1000).toFixed(1)}s`;
+    this.split.setText(text).setVisible(true)
+      .setColor(comparison && value != null ? (value <= 0 ? '#c1e6d8' : '#ffd166') : '#c1e6d8');
+    this.last.setVisible(false);
+    this.splitUntil = this.scene.time.now + 6000;
+    this.reposition();
+  }
+
+  updateSplit(time) {
+    if (this.split.visible && time >= this.splitUntil) {
+      this.split.setVisible(false);
+      this.last.setVisible(true);
+      this.reposition();
+    }
   }
 
   setBest(ms) {
