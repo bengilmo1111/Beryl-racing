@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readBestSplits, writeBestSplits, bestComparison } from '../src/personalBest.js';
-import { recoveryPoseClear, chooseRecoveryPose, recoverySection, rememberSafeRecovery } from '../src/recovery.js';
+import { recoveryPoseClear, chooseRecoveryPose, recoverySection, rememberSafeRecovery, missedCheckpoint } from '../src/recovery.js';
 import { buildRouteProgress, nearestRoadPose } from '../src/driveRoute.js';
 import { ChaseCamera } from '../src/render3d/chaseCamera.js';
 import { applyTrack, CAR } from '../src/config.js';
@@ -38,6 +38,8 @@ assert.equal(scene.lastSafe.x, 1200, 'passing an unearned gate must not advance 
 scene.traffic = { collisionCircles: () => [{ x: 1200, y: 0, r: 100 }] };
 assert.notEqual(chooseRecoveryPose(scene).x, 1200, 'recheck moving cars at the moment of reset');
 assert.equal(scene.expected, 2);
+assert.equal(missedCheckpoint({...scene,expected:1},.9),true);
+assert.equal(missedCheckpoint({...scene,expected:1},.6),false,'stay quiet while still near the gate capture zone');
 assert.equal(recoveryPoseClear(scene.lastSafe, car, [], [{ a: { x: 1200, y: -100 }, b: { x: 1200, y: 100 } }]), false);
 
 // The closing segment of a circuit must advance toward 1, rather than stick
@@ -48,6 +50,10 @@ const progress = buildRouteProgress(circuit);
 assert.equal(progress.at({road:loop,index:3,t:.5}), .875);
 assert.ok(recoverySection({track:circuit,routeProgress:progress,expected:0}, .875));
 assert.equal(recoverySection({track:circuit,routeProgress:progress,expected:1}, .875), false);
+const earlyLap={track:circuit,routeProgress:progress,expected:1,car:{...car,x:0,y:40},captureRadius:200};
+assert.equal(recoverySection(earlyLap,.99),true,'a gate captured before the progress wrap belongs to the new lap');
+assert.equal(missedCheckpoint(earlyLap,.99),false);
+assert.equal(missedCheckpoint({...earlyLap,expected:0},.1),true,'a missed finish still needs a recovery prompt');
 const lapRecovery = chooseRecoveryPose({ track:circuit, routeProgress:progress, expected:0, car,
   captureRadius:200, lastSafe:{x:0,y:0,rotation:0},lastSafeExpected:1 });
 assert.ok(Math.hypot(lapRecovery.x,lapRecovery.y) > 200, 'recovery on the closing leg cannot award a lap');

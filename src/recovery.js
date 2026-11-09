@@ -1,4 +1,5 @@
 // Recovery may return to earned road, but must never award a checkpoint.
+import { metres } from './scale.js';
 function pointSegmentDistance(x, y, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
   const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / (dx * dx + dy * dy || 1)));
@@ -21,7 +22,24 @@ export function recoverySection(scene, progress) {
   const previous = (next - 1 + cps.length) % cps.length;
   const low = scene.routeProgress.checkpoint(cps[previous].index);
   const high = next === 0 && scene.track.closed ? 1 : scene.routeProgress.checkpoint(cps[next].index);
+  // Gate zero is captured within a radius, sometimes just before the road's
+  // progress wraps from 1 to 0. That short approach already belongs to the new
+  // lap and must not produce a spurious reset prompt.
+  if (scene.track.closed && next === 1 && progress > .5 && scene.car
+    && Math.hypot(scene.car.x - cps[0].x, scene.car.y - cps[0].y) <= scene.captureRadius) return true;
   return progress >= low - 0.002 && progress <= high + 0.002;
+}
+
+export function missedCheckpoint(scene, progress) {
+  if (recoverySection(scene, progress)) return false;
+  // Wait until the whole car has clearly passed the capture zone. A fixed
+  // percentage used to mean much longer silent gaps on the longer courses.
+  const margin = scene.routeProgress.length
+    ? (scene.captureRadius + scene.car.axleOffset + metres(2)) / scene.routeProgress.length : .015;
+  const cps = scene.track.checkpoints;
+  return scene.expected === 0 && scene.track.closed
+    ? progress < scene.routeProgress.checkpoint(cps.at(-1).index) - margin
+    : progress > scene.routeProgress.checkpoint(cps[scene.expected].index) + margin;
 }
 
 export function rememberSafeRecovery(scene, pose, progress) {

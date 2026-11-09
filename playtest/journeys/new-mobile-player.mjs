@@ -191,8 +191,8 @@ export async function runNewMobilePlayerJourney({ browser, baseUrl, outDir }) {
       await page.getByRole('dialog', { name: 'Eastbourne results' }).waitFor();
       screenshots.push(await screenshot(page, journeyDir, '05-results'));
       const name = page.getByRole('textbox', { name: 'Name for local top three' });
-      await name.fill('COAST TEST');
-      await name.dispatchEvent('input');
+      await name.fill('');
+      await name.pressSequentially('coast test');
       const localScore = await page.evaluate(() => {
         const scene = window.__BERYL_GAME__.scene.getScene('Race');
         return JSON.parse(localStorage.getItem(`${scene.def.storageKey}.podium`));

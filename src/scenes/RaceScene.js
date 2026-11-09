@@ -35,7 +35,7 @@ import { CAR } from '../config.js';
 import { FONT, uiScale, isCompact, formatTime } from '../ui/format.js';
 import { nearestRoadPose, roadAhead, buildRouteProgress } from '../driveRoute.js';
 import { showCoastalResults } from '../ui/CoastalResults.js';
-import { chooseRecoveryPose, rememberSafeRecovery, recoverySection } from '../recovery.js';
+import { chooseRecoveryPose, rememberSafeRecovery, missedCheckpoint } from '../recovery.js';
 import { readBestSplits, writeBestSplits, bestComparison } from '../personalBest.js';
 
 export class RaceScene extends Phaser.Scene {
@@ -325,10 +325,10 @@ export class RaceScene extends Phaser.Scene {
     if (!pose) return;
     const progress = this.routeProgress.at(pose);
     rememberSafeRecovery(this, pose, progress);
-    const next = this.track.checkpoints[this.expected];
     const connector = pose.road.id !== 'primary';
     const headingError = Math.atan2(Math.sin(pose.rotation - this.car.rotation), Math.cos(pose.rotation - this.car.rotation));
-    const safelyBeforeGate = recoverySection(this, progress);
+    const missed = missedCheckpoint(this, progress);
+    const missedHint = this.expected === 0 ? 'MISSED FINISH' : 'MISSED CHECKPOINT';
     const offRoad = pose.distance > pose.road.half + this.car.collideRadius;
     this.offRoadSince = offRoad ? (this.offRoadSince ?? time) : null;
     if (this.hadContact) this.lastContactAt = time;
@@ -337,13 +337,16 @@ export class RaceScene extends Phaser.Scene {
     const needsRecovery = (this.offRoadSince !== null && time - this.offRoadSince > 1200)
       || (this.stuckSince !== null && time - this.stuckSince > 1000)
       || (!connector && Math.abs(headingError) > 1.8)
-      || (!safelyBeforeGate && progress > this.routeProgress.checkpoint(next.index) + 0.015 && this.expected !== 0);
+      || missed;
     if (this.touch) this.recoverButton.setVisible(needsRecovery && time >= this.nextRecoveryAt);
     const action = this.touch ? 'TAP RESET' : 'PRESS R TO RECOVER';
+    const missedMessage = this.touch ? `${missedHint}\nTAP RESET` : `${missedHint} · ${action}`;
+    const reverseHint = this.touch ? 'HOLD BRAKE TO REVERSE' : 'HOLD ↓ / S TO REVERSE';
     if (this.def.theme !== 'eastbourne') {
       if (!this.track.closed) this.hud.setProgress(Math.min(.99, Math.max(0, progress)));
       this.hud.setStatus(this.offRoadSince !== null && time - this.offRoadSince > 1200 ? `OFF ROAD · ${action}`
-        : this.stuckSince !== null && time - this.stuckSince > 1000 ? `STUCK? · ${action}`
+        : missed ? missedMessage
+        : this.stuckSince !== null && time - this.stuckSince > 1000 ? reverseHint
         : !connector && Math.abs(headingError) > 1.8 ? `WRONG WAY · ${action}` : '');
       return;
     }
@@ -359,10 +362,10 @@ export class RaceScene extends Phaser.Scene {
     }
     if (this.offRoadSince !== null && time - this.offRoadSince > 1200) {
       hint = `OFF ROAD · ${action}`;
-    } else if (!safelyBeforeGate && progress > this.routeProgress.checkpoint(next.index) + 0.015) {
-      hint = this.touch ? 'MISSED GATE · TAP RESET' : 'MISSED CHECKPOINT · PRESS R';
+    } else if (missed) {
+      hint = missedMessage;
     }
-    else if (this.stuckSince !== null && time - this.stuckSince > 1000) hint = `STUCK? · ${action}`;
+    else if (this.stuckSince !== null && time - this.stuckSince > 1000) hint = reverseHint;
     else if (!connector && Math.abs(headingError) > 1.8) hint = this.touch ? 'WRONG WAY · TAP RESET' : 'TURN AROUND · OR BACK ON ROAD';
     else {
       const ahead = roadAhead(pose, Math.max(500, Math.abs(this.car.speed) * 1.4), connector && Math.abs(headingError) > Math.PI / 2 ? -1 : 1);
@@ -511,8 +514,7 @@ export class RaceScene extends Phaser.Scene {
     if (this.pausedAtTime !== null) {
       const paused = time - this.pausedAtTime;
       this.pausedAtTime = null;
-      // Only the deadlines this course actually keeps: the recovery and route
-      // fields belong to Eastbourne and are undefined everywhere else.
+      // Move gameplay deadlines on by the pause, skipping any unset values.
       for (const key of ['lapStartTime', 'nextRecoveryAt', 'routeUpdateAt', 'offRoadSince']) {
         if (typeof this[key] === 'number') this[key] += paused;
       }
@@ -546,6 +548,7 @@ export class RaceScene extends Phaser.Scene {
     // where the other car is now rather than where it was last frame.
     if (this.traffic) this.traffic.update(dt);
     this.car.update(dt, input, onTrack, surface, grade);
+    this.touch?.setReversing(this.car.speed < -CAR.maxSpeed * .01);
     if (this.rivals && this.timing) {
       this.rivals.update(dt, this.car);
       this.hud.setPosition(this.rivals.position(), this.rivals.cars.length + 1);
@@ -561,7 +564,7 @@ export class RaceScene extends Phaser.Scene {
     // The horn, on H. Read as a fresh press rather than as "is down", because
     // the operating system repeats a held key thirty times a second and each
     // one of those would be a honk.
-    if (this.horn && Phaser.Input.Keyboard.JustDown(this.keys.h) && !isMuted(this)) {
+    if (!this.finished && this.horn && Phaser.Input.Keyboard.JustDown(this.keys.h) && !isMuted(this)) {
       this.horn.play();
     }
 
@@ -780,6 +783,7 @@ export class RaceScene extends Phaser.Scene {
     this.recordSplit();
     this.finished = true;
     this.recoverButton?.setVisible(false);
+    this.touch?.setEnabled(false);
     this.timing = false;
     this.hud.setStatus('');
     this.hud.setProgress(1);
@@ -832,18 +836,20 @@ export class RaceScene extends Phaser.Scene {
     const message = this.add.text(0, -68, copy.message, {
       fontFamily: FONT, fontSize: '25px', color: '#fff8e7', align: 'center',
     }).setOrigin(0.5);
-    const time = this.add.text(0, -8, formatTime(timeMs), {
+    const time = this.add.text(0, -12, formatTime(timeMs), {
       fontFamily: FONT, fontSize: '42px', fontStyle: '700', color: '#2ec4d6',
     }).setOrigin(0.5);
-    const comparison = this.add.text(0, 36, bestComparison(timeMs, this.previousBest), {
-      fontFamily: FONT, fontSize: '20px', fontStyle: '700', color: '#c1e6d8',
+    const summary = [bestComparison(timeMs, this.previousBest)];
+    if (this.recoveryCount) summary.push(`Includes ${this.recoveryCount * 3}s for road recovery.`);
+    const comparison = this.add.text(0, 38, summary.join('\n'), {
+      fontFamily: FONT, fontSize: '18px', fontStyle: '700', color: '#c1e6d8', align: 'center',
     }).setOrigin(0.5);
-    const retry = this.add.text(0, 90, copy.retryLabel, {
+    const retry = this.add.text(0, 99, copy.retryLabel, {
       fontFamily: FONT, fontSize: '30px', fontStyle: '700', color: '#15314b',
       backgroundColor: '#ffd166', padding: { x: 28, y: 14 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     retry.on('pointerup', () => this.scene.restart());
-    const change = this.add.text(0, 152, 'CHANGE COURSE', {
+    const change = this.add.text(0, 160, 'CHANGE COURSE', {
       fontFamily: FONT, fontSize: '22px', fontStyle: '700', color: '#fff8e7',
       backgroundColor: '#15314bcc', padding: { x: 20, y: 10 },
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });

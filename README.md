@@ -63,6 +63,8 @@ top-right corner.
 On a phone, **RESET · +3s** appears between the driving controls only when you
 are off-road, facing the wrong way or stuck. It disappears after recovery or
 normal driving resumes. Recovery preserves checkpoint progress on every course.
+If you are stopped against something, the game also explains how to reverse with
+the existing brake. Driving buttons disappear on sprint results and return on retry.
 
 Checkpoints briefly show a split in place of the HUD's LAST line: elapsed time
 on a first run, then seconds ahead of or behind your saved personal best. Splits

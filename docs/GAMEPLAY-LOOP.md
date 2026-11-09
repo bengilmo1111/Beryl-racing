@@ -1,5 +1,25 @@
 # Gameplay improvement loop
 
+## 2026-11-10: clearer navigation and quieter results
+
+Baseline `be0863d`. Ben requested another polish cycle. See the
+[review and evidence](reviews/polish-2026-11-10.md).
+
+Missed-checkpoint feedback now works consistently across the courses, including
+Manfeild's lap boundary, using the capture zone rather than a course-length
+percentage. Low-speed collision help explains the existing brake-to-reverse
+action. Sprint finishes release and hide touch controls, ignore horn input,
+disclose recovery seconds and restore neutral controls on retry. Eastbourne's
+result-name field now accepts driving letters and spaces normally: actual typing
+reproduced `sarah watts` becoming `rtt` before the fix.
+
+All four reference finish times are unchanged. Browser regression coverage checks
+missed gates, lap boundaries, touch reverse, held input at finish, inactive horns,
+penalty text, real name typing/storage and restored keyboard driving on retry.
+The full mobile journey also uses actual typing. No handling, route, traffic or
+rival speed changed. Next human check: unaided town-to-beach navigation and
+sustained engagement on Manfeild before choosing further scenery or balance work.
+
 ## 2026-11-09: recovery and personal-best feedback
 
 Baseline: `c3d0711` and the [independent local review](reviews/self-review-2026-11-09.md).
