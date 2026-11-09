@@ -1,3 +1,4 @@
+import { buildCattle } from './cattle.js';
 // The 3D view of a race.
 //
 // Phaser still owns the simulation, the HUD, input, audio and the playtest
@@ -122,6 +123,7 @@ class RaceWorld {
       );
     }
     if (scene.def.theme === 'otaki') {
+      this.scene3d.add(buildCattle(scene.cattle.cows, this.terrain));
       this.scene3d.add(buildStartApproach(scene.track));
       this.scene3d.add(buildOtakiFinish(scene.track, this.terrain, otakiFinish(scene.track)));
       this.scene3d.add(buildOtakiRouteSigns(scene.track, this.terrain));

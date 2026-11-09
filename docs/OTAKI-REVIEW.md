@@ -39,3 +39,11 @@ Replaced isolated dune boxes with a continuous low vegetated dune strip, correct
 Reviewed the 157-second recording, including its final six seconds. The visible finish and controlled stop now work; the main remaining navigation issue is the town-side excursion around rally time 1:28–1:40. Added advance main-route signs at more junctions, a time-trial progress rail, and contextual off-road/wrong-way/finish guidance. Reverse-direction approaches from the town branch remain valid near the finish. Story itineraries retain their own guidance.
 
 Added a short rendered road approach behind the first sample so the starting car is fully on visible road, with a ray regression under the rear of the car. Roadside boards now have plain coloured backs instead of mirrored lettering. The road extension is visual-only; start poses and driving physics are unchanged.
+
+## Cattle and other Morrises
+
+Added 24 grazing Friesian cows in three roadside pasture groups and three single solid cows on the road, leaving the driver's left lane open. Render and collision poses come from `src/otakiCattle.js`; no seeded random draws are consumed. Cow geometry is baked into one static mesh.
+
+Added four coloured Morris Minors (two in each direction) using the existing traffic and collision system. Their route band is 60–91% of the course, past the road cows and river and before the finish. Other courses retain their existing traffic bands. This deliberately separates ambient traffic from stationary road cows.
+
+Checks: `npm test`, production build, `node playtest/otaki-life.mjs` (repeatable poses, solid footprints, 80 seconds of road-clear traffic and finish/cow separation), both time-trial routes and all three Ōtaki story chapters completing. Cow and traffic previews are captured by `playtest/otaki-reference.mjs`.

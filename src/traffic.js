@@ -85,8 +85,8 @@ export function buildTraffic(def, track) {
   const routeLength = cumulative[cumulative.length - 1];
 
   // The band a car wraps within, in distance rather than fractions.
-  const low = routeLength * START_CLEAR;
-  const high = routeLength * FINISH_CLEAR;
+  const low = routeLength * (spec.startFraction ?? START_CLEAR);
+  const high = routeLength * (spec.endFraction ?? FINISH_CLEAR);
   const band = high - low;
 
   // Half a lane off the centre, on the left of the direction of travel. This is

@@ -120,6 +120,8 @@ export const COURSE_SCHEMA = {
   // the traffic somewhere else the next time a course was resized, which is the
   // exact failure this file exists to stop.
   'traffic.laneFraction': KIND.FRACTION,
+  'traffic.startFraction': KIND.FRACTION,
+  'traffic.endFraction': KIND.FRACTION,
   'traffic.botLaneFraction': KIND.FRACTION,
   'traffic.cars[].at': KIND.FRACTION,
   'traffic.cars[].direction': KIND.COUNT,

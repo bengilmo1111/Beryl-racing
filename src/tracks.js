@@ -339,6 +339,15 @@ export const TRACKS = [
     physics: { ...ROAD_CAR_PHYSICS },
     storageKey: 'beryl-racing-3d.otaki.bestTimeMs.v3',
     hud: { current: 'RALLY TIME' },
+    traffic: {
+      laneFraction: .5, startFraction: .60, endFraction: .91,
+      cars: [
+        { at: .12, direction: 1, speedKmh: 42 },
+        { at: .65, direction: 1, speedKmh: 48 },
+        { at: .35, direction: -1, speedKmh: 45 },
+        { at: .88, direction: -1, speedKmh: 40 },
+      ],
+    },
     bestLabel: 'Best rally',
     results: {
       title: 'BEACH!',
