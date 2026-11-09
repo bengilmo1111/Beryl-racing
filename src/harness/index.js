@@ -1,3 +1,4 @@
+import { journeyTarget } from '../journey/drive.js';
 import { TRACKS, setSelectedTrack } from '../tracks.js';
 import { CAR, WORLD } from '../config.js';
 import { distanceToCenterline, surfaceAt } from '../track.js';
@@ -58,6 +59,7 @@ function roundTime(value) {
 // only read by playtest bots.
 function primaryDriveTarget(scene) {
   if (scene.finished) return null;
+  if (scene.journeyRoute) return journeyTarget(scene.journeyRoute, scene.car);
   const line = scene.track.centerline;
   if (!line || !line.length) return null;
 
@@ -247,7 +249,8 @@ export function startHarness({ Phaser, config, createGame }) {
     const scene = game.scene.getScene('Race');
     if (!scene?.sys?.isActive() || !scene.car) return null;
 
-    const checkpointsTotal = scene.track.checkpoints.length;
+    const gates = scene.journeyRoute?.gates || scene.track.checkpoints;
+    const checkpointsTotal = gates.length;
     const circuitComplete = scene.mode === 'circuit' && scene.lastCompletionTimeMs != null;
     const finished = !!scene.finished || circuitComplete;
     const checkpointsHit = finished
@@ -255,7 +258,7 @@ export function startHarness({ Phaser, config, createGame }) {
       : scene.mode === 'circuit' && scene.expected === 0
         ? checkpointsTotal - 1
         : scene.expected;
-    const next = finished ? null : scene.track.checkpoints[scene.expected];
+    const next = finished ? null : gates[scene.expected];
     const onTrack =
       distanceToCenterline(scene.car.x, scene.car.y, scene.track.centerline) <= scene.track.half;
     const surface = surfaceAt(scene.car.x, scene.car.y, scene.track);

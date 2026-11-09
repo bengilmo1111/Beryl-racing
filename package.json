@@ -22,6 +22,9 @@
     "playtest:explore": "node playtest/explore.mjs",
     "test:driving-trace": "node playtest/driving-trace.mjs",
     "test:remutaka": "node playtest/remutaka-cliff.mjs",
+    "test:story": "node playtest/story.mjs",
+    "test:journey": "node playtest/journey.mjs",
+    "test:journey-driving": "node playtest/journey-driving.mjs",
     "test": "node playtest/quick.mjs",
     "test:baselines": "node playtest/ac2-determinism.mjs --baselines"
   },

@@ -1,6 +1,14 @@
+import { otakiBridgeBarriers } from '../otakiBridge.js';
+import { fenceBarriers } from '../fenceBarriers.js';
+import { crossesOtakiFinish } from '../otakiFinish.js';
 import { remutakaBarriers, remutakaBankBarriers, bounceOffBarriers } from '../remutakaBarriers.js';
 import { crossesSummitFinish } from '../remutakaSummit.js';
 import Phaser from 'phaser';
+import { readBestTime, writeBestTime } from '../storage.js';
+import { chapterById, readJourney, writeJourney, finishChapter } from '../journey/story.js';
+import { showChapterResults } from '../journey/ui.js';
+import { installJourneyDrive, updateJourneyDrive, checkJourneyGate, saveJourneyCheckpoint } from '../journey/race.js';
+import { cargoState } from '../journey/drive.js';
 import { installDrivingReport } from '../diagnostics.js';
 import { WORLD, TRACK, COLORS, STORAGE_KEY } from '../config.js';
 import { getSelectedTrack } from '../tracks.js';
@@ -10,7 +18,7 @@ import { buildStructures, structureObstacles } from '../structures.js';
 import { buildTraffic } from '../traffic.js';
 import { eastbourneCoast } from '../coast.js';
 import { coastalProfile } from '../coastalProfile.js';
-import { crossesRsaFinish } from '../arrival.js';
+import { crossesRsaFinish, inTriangle } from '../arrival.js';
 import { metres } from '../scale.js';
 import { summerTrees } from '../eastbourneSummer.js';
 import { Terrain } from '../terrain.js';
@@ -38,6 +46,12 @@ export class RaceScene extends Phaser.Scene {
   create() {
     // Which course are we driving? Everything themed keys off this.
     this.def = getSelectedTrack();
+    this.journeyChapter = chapterById(this.game.registry.get('__journeyChapter'));
+    if (this.journeyChapter?.course !== this.def.id) this.journeyChapter = null;
+    this.journeyDialog = null;
+    this.journeyRoute = null;
+    this.journeyDrive = null;
+    if (this.journeyChapter) this.def = { ...this.def, finishLabel: 'SUMMIT · STOP FOR TEA' };
     this.mode = this.def.mode; // 'circuit' (laps) | 'sprint' (one run)
 
     this.track = buildTrack();
@@ -68,6 +82,7 @@ export class RaceScene extends Phaser.Scene {
     this.structures = buildStructures(this.def, this.track);
     for (const o of structureObstacles(this.structures)) this.obstacles.push(o);
     this.scenery = scatterScenery(this.track, this.def);
+    if (this.def.theme === 'otaki') this.barriers.push(...fenceBarriers(this.scenery.props), ...otakiBridgeBarriers(this.track, this.def));
     for (const o of this.scenery.obstacles) this.obstacles.push(o);
     if (this.def.theme === 'eastbourne') {
       this.summerTrees = summerTrees(this.track, this.structures, this.scenery.trees);
@@ -108,7 +123,7 @@ export class RaceScene extends Phaser.Scene {
     createFullscreenButton(this);
     createSoundButton(this);
     createHomeButton(this, () => this.goHome());
-    this.best = Number(localStorage.getItem(STORAGE_KEY)) || null;
+    this.best = readBestTime(STORAGE_KEY);
     if (this.best) this.hud.setBest(this.best);
 
     // There used to be a second, unzoomed UI camera here. It existed only
@@ -185,6 +200,7 @@ export class RaceScene extends Phaser.Scene {
     // the module so three.js lands in its own chunk, and a static import here
     // would drag it straight back into the default one.
     const render3d = this.game.registry.get('__render3d');
+    installJourneyDrive(this);
     this.world3d = render3d.createRaceWorld(this);
 
     if (this.def.theme === 'eastbourne') this.createRecovery();
@@ -200,6 +216,7 @@ export class RaceScene extends Phaser.Scene {
   // tearing the scene down is worth refusing.
   goHome() {
     if (this.leaving) return;
+    saveJourneyCheckpoint(this);
     this.leaving = true;
     this.scene.start('Title');
   }
@@ -216,6 +233,7 @@ export class RaceScene extends Phaser.Scene {
     // player is charged for it — see the top of update().
     this.pausedAtTime = null;
     const onPause = () => {
+      saveJourneyCheckpoint(this);
       if (this.pausedAtTime === null) this.pausedAtTime = this.time.now;
       // Web Audio does not pause with the game; left alone the engine holds
       // one note for as long as the phone is sideways.
@@ -425,7 +443,7 @@ export class RaceScene extends Phaser.Scene {
       if (steps[i] === 'GO!') {
         label.setColor('#2ec4d6');
         this.timing = true;
-        this.lapStartTime = this.time.now;
+        this.lapStartTime = this.time.now - (this.journeyDrive?.elapsed || 0) * 1000;
         this.tweens.add({ targets: label, alpha: 0, delay: 450, duration: 300, onComplete: () => label.destroy() });
         return;
       }
@@ -474,7 +492,8 @@ export class RaceScene extends Phaser.Scene {
       }
     }
     const dt = Math.min(delta / 1000, 0.05);
-    const input = this.readInput();
+    const input = this.finished && this.def.theme === 'otaki'
+      ? { throttle: 0, brake: 1, steer: 0 } : this.readInput();
     // Stashed for the 3D layer, which steers Beryl's front wheels with it. Read
     // only for rendering — this has no effect on the simulation.
     this.lastInput = input;
@@ -486,11 +505,13 @@ export class RaceScene extends Phaser.Scene {
     // Slope along Beryl's heading. Flat courses return a hard 0, which the guard
     // in Car.update uses to skip the gravity term entirely.
     const f = this.car.forward;
-    const grade = CAR.arcade
+    const onMeetingPavement = this.journeyRoute?.parking
+      && inTriangle(this.car.x, this.car.y, this.track.summit.triangle);
+    const grade = onMeetingPavement ? 0 : CAR.arcade
       ? this.terrain.roadGradeAlong(this.car.x, this.car.y, f.x, f.y)
       : this.terrain.gradeAlong(this.car.x, this.car.y, f.x, f.y);
 
-    if (this.finished && (this.def.theme === 'eastbourne' || this.track.summit)) {
+    if (this.finished && (this.journeyChapter || this.def.theme === 'eastbourne' || this.def.theme === 'otaki' || this.track.summit)) {
       // Short controlled roll into the parking area; never coast into the grass.
       const decay = Math.exp(-10 * dt);
       this.car.vx *= decay;
@@ -535,8 +556,10 @@ export class RaceScene extends Phaser.Scene {
     }
 
     if (this.timing) {
-      this.hud.setCurrent(time - this.lapStartTime);
-      this.checkLap(beforeMovement);
+      if (!this.journeyChapter) this.hud.setCurrent(time - this.lapStartTime);
+      updateJourneyDrive(this, dt, onTrack);
+      if (this.journeyChapter) checkJourneyGate(this, dt);
+      else this.checkLap(beforeMovement);
       this.updateRouteHelp(time);
     }
     if (this.drivingReport && !this.finished) {
@@ -655,6 +678,10 @@ export class RaceScene extends Phaser.Scene {
       if (crossesRsaFinish(this.track, beforeMovement, this.car)) this.finishSprint();
       return;
     }
+    if (this.def.theme === 'otaki' && this.expected === cps.length - 1) {
+      if (crossesOtakiFinish(this.track, beforeMovement, this.car)) this.finishSprint();
+      return;
+    }
     if (this.track.summit && this.expected === cps.length - 1) {
       if (crossesSummitFinish(this.track, beforeMovement, this.car)) this.finishSprint();
       return;
@@ -687,9 +714,9 @@ export class RaceScene extends Phaser.Scene {
     this.lapStartTime = now;
     this.hud.setLast(lapMs);
 
-    if (!this.best || lapMs < this.best) {
+    if (!this.journeyChapter && (!this.best || lapMs < this.best)) {
       this.best = lapMs;
-      localStorage.setItem(STORAGE_KEY, String(Math.floor(lapMs)));
+      writeBestTime(STORAGE_KEY, lapMs);
       this.hud.setBest(lapMs);
       this.hud.showMessage('NEW BEST LAP!', '#ffd166');
       this.cameras.main.flash(240, 255, 209, 102);
@@ -716,9 +743,9 @@ export class RaceScene extends Phaser.Scene {
     this.lapStartTime = now;
     this.hud.setLast(lapMs);
 
-    if (!this.best || lapMs < this.best) {
+    if (!this.journeyChapter && (!this.best || lapMs < this.best)) {
       this.best = lapMs;
-      localStorage.setItem(STORAGE_KEY, String(Math.floor(lapMs)));
+      writeBestTime(STORAGE_KEY, lapMs);
       this.hud.setBest(lapMs);
       this.hud.showMessage('NEW BEST TIME!', '#ffd166');
       this.cameras.main.flash(240, 255, 209, 102);
@@ -726,6 +753,9 @@ export class RaceScene extends Phaser.Scene {
       this.hud.showMessage('RUN COMPLETE', '#fff8e7');
     }
 
+    if (this.journeyChapter) {
+      this.journeySaved = writeJourney(finishChapter(readJourney(), this.journeyChapter, cargoState(this.journeyDrive)));
+    }
     this.time.delayedCall(this.def.theme === 'eastbourne' ? 2200 : 700, () => this.showResults(lapMs));
   }
 
@@ -734,6 +764,8 @@ export class RaceScene extends Phaser.Scene {
     // appears. Leaving it alive makes NEW BEST TIME ghost through the card's
     // translucent background, particularly on the shorter non-coastal delay.
     this.hud.clearMessage();
+    this.journeyNote?.remove();
+    if (this.journeyChapter) { showChapterResults(this); return; }
     if (this.def.theme === 'eastbourne') {
       this.recoverButton?.setVisible(false);
       showCoastalResults(this, timeMs, this.previousBest);

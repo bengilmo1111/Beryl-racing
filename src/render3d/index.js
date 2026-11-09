@@ -4,7 +4,10 @@
 // harness. This module owns everything the player sees of the world: it reads
 // car and track state and draws it, and never writes back.
 import Phaser from 'phaser';
+import { otakiFinish } from '../otakiFinish.js';
+import { buildJourneyMeeting } from './journeyMeeting.js';
 import { Scene, HemisphereLight, DirectionalLight } from 'three';
+import { metres } from '../scale.js';
 import { C, makeFog } from './palette.js';
 import { getRenderer, showCanvas, syncSize, getCanvas } from './renderer.js';
 import {
@@ -12,13 +15,13 @@ import {
   findJunctions, junctionMask, buildJunctions,
 } from './road.js';
 import { buildRemutakaCentreLine } from './remutakaCentreLine.js';
-import { buildStartLine, buildStartGantry } from './markers.js';
+import { buildStartLine, buildStartGantry, buildOtakiFinish } from './markers.js';
 import { buildBeryl, updateBeryl, resetBerylGeometry } from './beryl.js';
 import { applyBerylPhotoPass } from './berylPhotoPass.js';
 import { buildTrafficFleet, updateTrafficFleet } from './traffic.js';
 import { buildTrees } from './trees.js';
 import { buildProps } from './props.js';
-import { buildSigns } from './signs.js';
+import { buildSigns, buildOtakiRouteSigns } from './signs.js';
 import { buildEastbourne } from './themes/eastbourne.js';
 import { buildOtaki } from './themes/otaki.js';
 import { buildOtakiParallax, updateOtakiParallax } from './themes/otakiParallax.js';
@@ -30,6 +33,8 @@ import { SkidRibbon } from './fx/skid.js';
 import { PuffPool } from './fx/puffs.js';
 import { ChaseCamera } from './chaseCamera.js';
 import { isCompact } from '../ui/format.js';
+
+const geographyRoads = theme => theme === 'eastbourne' || theme === 'otaki';
 
 class RaceWorld {
   constructor(scene) {
@@ -59,6 +64,7 @@ class RaceWorld {
     sun.position.set(-1, 2, -0.6);
     this.scene3d.add(sun);
 
+    if (scene.journeyRoute?.meeting) this.scene3d.add(buildJourneyMeeting(scene.journeyRoute));
     this.terrain = scene.terrain;
     this.otakiParallax = null;
     this.scene3d.add(hillLight ? buildRemutakaGround(this.terrain, scene.track) : buildGround(this.terrain, scene.def.theme));
@@ -82,7 +88,7 @@ class RaceWorld {
       const through = road === roads[0];
       const skip = junctionMask(junctions, road.centerline);
       if (through) {
-        for (const strip of buildApron(road, scene.def.theme, skip)) this.scene3d.add(strip);
+        for (const strip of buildApron(road, scene.def.theme, skip, geographyRoads(scene.def.theme) ? roads : null)) this.scene3d.add(strip);
       }
       this.scene3d.add(buildRoad(road));
       // A race circuit has no centre line either — Manfeild gets rumble kerbs
@@ -97,16 +103,16 @@ class RaceWorld {
         );
       }
       if (through || scene.def.theme === 'eastbourne') {
-        for (const strip of buildKerbs(road, scene.def.theme, scene.track.summit ? i => skip?.(i) || Math.abs(i - scene.track.summit.index) < 28 : skip, scene.def.theme === 'eastbourne' ? roads : null)) this.scene3d.add(strip);
+        for (const strip of buildKerbs(road, scene.def.theme, scene.track.summit ? i => skip?.(i) || Math.abs(i - scene.track.summit.index) < 28 : skip, geographyRoads(scene.def.theme) ? roads : null)) this.scene3d.add(strip);
       }
     }
     this.scene3d.add(buildJunctions(junctions));
 
-    // Eastbourne and Ōtaki are geography-led courses: no race gantry, route
-    // arrows, floating landmark labels or labelled finish.
+    // Geography-led courses omit the circuit start furniture. Ōtaki adds
+    // physical beach wayfinding and a marked finish below.
     const geographyLed = scene.def.theme === 'eastbourne' || scene.def.theme === 'otaki';
     if (scene.def.theme === 'manfield') this.scene3d.add(buildStartLine(scene.track));
-    else if (!geographyLed) this.scene3d.add(buildStartGantry(scene.track, 'START'));
+    else if (!geographyLed) this.scene3d.add(buildStartGantry(scene.track, scene.journeyChapter ? 'SUNDAY RUN' : 'START'));
 
     if (scene.def.theme === 'eastbourne') {
       // Structures are resolved by RaceScene so their visual footprints and
@@ -116,6 +122,8 @@ class RaceWorld {
       );
     }
     if (scene.def.theme === 'otaki') {
+      this.scene3d.add(buildOtakiFinish(scene.track, this.terrain, otakiFinish(scene.track)));
+      this.scene3d.add(buildOtakiRouteSigns(scene.track, this.terrain));
       this.scene3d.add(buildOtaki(scene.track, scene.def, this.terrain, scene.structures));
       this.otakiParallax = buildOtakiParallax(this.terrain.seaLevel || 0);
       this.scene3d.add(this.otakiParallax);
@@ -132,7 +140,7 @@ class RaceWorld {
     }
 
     this.scene3d.add(buildTrees(scene.scenery.trees, this.terrain, scene.def.theme));
-    this.scene3d.add(buildProps(scene.scenery.props, this.terrain));
+    this.scene3d.add(buildProps(scene.scenery.props, this.terrain, scene.track, scene.def.theme));
     if (!geographyLed) this.scene3d.add(buildSigns(scene.track, scene.def, this.terrain));
 
     this.skid = new SkidRibbon(this.terrain);
@@ -148,6 +156,7 @@ class RaceWorld {
     if (this.trafficFleet) this.scene3d.add(this.trafficFleet.group);
 
     this.chase = new ChaseCamera(isCompact(scene), scene.track);
+    this.meetingCamera = scene.journeyRoute?.parking ? this.chase.camera.clone() : null;
     showCanvas(true);
 
     // Phaser emits POST_RENDER from both step() and headlessStep(). The latter
@@ -197,7 +206,20 @@ class RaceWorld {
     this.puffs.update(dt);
     this.chase.update(car, dt, this.terrain);
     if (this.otakiParallax) updateOtakiParallax(this.otakiParallax, car, dt);
-    this.renderer.render(this.scene3d, this.chase.camera);
+    let camera = this.chase.camera;
+    const route = this.scene.journeyRoute;
+    if (route?.meeting && Math.hypot(car.x - route.meeting.x, car.y - route.meeting.y) < metres(25)) {
+      // At manoeuvring speed the close bank can lift the chase rig above Beryl.
+      // Frame the actual parking area from its exposed side for a clear arrival.
+      const summit = this.scene.track.summit;
+      const eye = summit.point(metres(14), -metres(18));
+      this.meetingCamera.aspect = camera.aspect;
+      this.meetingCamera.position.set(eye.x, summit.h + metres(18), eye.y);
+      this.meetingCamera.lookAt(route.meeting.x, summit.h, route.meeting.y);
+      this.meetingCamera.updateProjectionMatrix();
+      camera = this.meetingCamera;
+    }
+    this.renderer.render(this.scene3d, camera);
   }
 
   destroy() {

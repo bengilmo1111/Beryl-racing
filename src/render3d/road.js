@@ -231,7 +231,8 @@ export function buildKerbs(track, theme, skipAt = null, roads = null) {
   const { left, right, centerline, closed, surfaces } = track;
   const rumble = theme === 'manfield';
   // Alternating every 3 samples, matching the old drawRumbleKerb cadence.
-  const colorAt = rumble ? (i) => (Math.floor(i / 3) % 2 === 0 ? C.red : C.white) : () => C.cream;
+  const edgeColour = theme === 'otaki' ? C.white : C.cream;
+  const colorAt = rumble ? (i) => (Math.floor(i / 3) % 2 === 0 ? C.red : C.white) : () => edgeColour;
 
   // Nothing painted on gravel. `buildCentreLine` has always skipped the dashes
   // there, but the cream edging ran the full length of the road regardless, so
@@ -244,7 +245,7 @@ export function buildKerbs(track, theme, skipAt = null, roads = null) {
   return [left, right].map((edge) => {
     const mesh = buildRibbon(
       edge,
-      offsetOutward(edge, centerline, KERB_WIDTH),
+      offsetOutward(edge, centerline, theme === 'otaki' ? 5 : KERB_WIDTH),
       heightsFor(track, KERB_Y),
       colorAt,
       closed,
@@ -255,7 +256,7 @@ export function buildKerbs(track, theme, skipAt = null, roads = null) {
       mesh.geometry.dispose(); mesh.geometry = clipped;
       // Eastbourne edging is a single colour, so clipping needs no colour UVs.
       mesh.material.dispose();
-      mesh.material = basic(C.cream, { side: DoubleSide, fog: true });
+      mesh.material = basic(edgeColour, { side: DoubleSide, fog: true });
     }
     return mesh;
   });
@@ -359,21 +360,26 @@ export function buildCentreLine(track, skipAt = null) {
 }
 
 // Darker run-off band outside each kerb, for depth against the grass.
-export function buildApron(track, theme = null, skipAt = null) {
+export function buildApron(track, theme = null, skipAt = null, roads = null) {
   const { left, right, centerline, closed, surfaces } = track;
   const verge = vergeColour(theme);
   const dust = dustColour(theme);
   const colorAt = (i) => (surfaces && surfaces[i] === 'gravel' ? dust : verge);
-  return [left, right].map((edge) =>
-    buildRibbon(
+  return [left, right].map((edge) => {
+    const mesh = buildRibbon(
       offsetOutward(edge, centerline, KERB_WIDTH),
       offsetOutward(edge, centerline, KERB_WIDTH + APRON_WIDTH),
       heightsFor(track, APRON_Y),
       colorAt,
       closed,
       i => (skipAt && skipAt(i)) || inParking(track, i)
-    )
-  );
+    );
+    if (roads) {
+      const clipped = clearRoads(mesh.geometry, roads.filter(r => r !== track));
+      mesh.geometry.dispose(); mesh.geometry = clipped;
+    }
+    return mesh;
+  });
 }
 
 // One big untessellated quad. There is no per-vertex terrain detail to carry, so

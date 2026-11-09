@@ -76,6 +76,7 @@ export class ChaseCamera {
 
   snap() {
     this.primed = false;
+    this.lookPitch = undefined;
   }
 
   // `terrain` lifts the whole rig onto the hillside. Without it the camera stays
@@ -151,8 +152,16 @@ export class ChaseCamera {
     // lower third while still opening up the climb.
     const lookX = this.anchor.x + this._fwd.x * rig.lookAhead;
     const lookZ = this.anchor.z + this._fwd.z * rig.lookAhead;
-    const lookGround = terrain ? terrain.heightAt(lookX, lookZ) : 0;
-    const followed = this.anchor.y + (lookGround - this.anchor.y) * LOOK_SLOPE_FOLLOW;
+    // Avoid aiming into a bank on the outside of a bend. Only the road
+    // surface contributes pitch while driving on a road.
+    const pose = this.track && nearestRoadPose(this.track, car.x, car.y);
+    const ahead = pose && pose.distance < pose.road.half * 2
+      ? roadAhead(pose, rig.lookAhead, Math.cos(car.rotation - pose.rotation) >= 0 ? 1 : -1) : null;
+    const lookGround = terrain ? terrain.heightAt(ahead?.x ?? lookX, ahead?.y ?? lookZ) : 0;
+    const pitch = Math.max(-80, Math.min(80, (lookGround - this.anchor.y) * LOOK_SLOPE_FOLLOW));
+    this.lookPitch ??= pitch;
+    this.lookPitch += (pitch - this.lookPitch) * (dt > 0 ? alphaFor(0.06, dt) : 1);
+    const followed = this.anchor.y + this.lookPitch;
     this._look.set(lookX, followed + rig.lookHeight, lookZ);
 
     // Shake displaces eye and look together, so it reads as a jolt of the whole

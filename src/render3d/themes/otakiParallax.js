@@ -22,13 +22,13 @@ import { WORLD } from '../../config.js';
 import { addCloud, markDecorative, ridge } from './parallax.js';
 
 const COLOUR = {
-  ocean: 0x69aec4,
+  ocean: 0x339ebc,
   oceanNear: 0x78b9ca,
   horizon: 0xa9cbd4,
   horizonHaze: 0xc4d9dc,
-  farRange: 0x6d8f7e,
-  middleRange: 0x4f775d,
-  nearRange: 0x315c43,
+  farRange: 0x91aeb9,
+  middleRange: 0x6e939d,
+  nearRange: 0x4c7474,
   cloudWarm: 0xfff2d8,
   cloudShade: 0xe2e7de,
   sun: 0xffd487,
@@ -139,10 +139,10 @@ function addInlandRanges(group, sea) {
         start,
         end,
         segments: 42,
-        bottom: sea - 100,
+        bottom: sea - 6000,
         driftAt: (t) => Math.sin(t * Math.PI * 4.2 + 0.7) * 260,
         heightAt: (t) =>
-          sea + 1050 + Math.sin(t * Math.PI * 4.6) * 270 + Math.sin(t * Math.PI * 11.5) * 95,
+          sea + 18000 + Math.sin(t * Math.PI * 4.6) * 2200 + Math.sin(t * Math.PI * 11.5) * 650,
       },
       COLOUR.farRange
     )
@@ -154,11 +154,11 @@ function addInlandRanges(group, sea) {
         start,
         end,
         segments: 48,
-        bottom: sea - 120,
+        bottom: sea - 6000,
         driftAt: (t) =>
           Math.sin(t * Math.PI * 5.8 + 1.2) * 210 + Math.sin(t * Math.PI * 14) * 55,
         heightAt: (t) =>
-          sea + 1320 + Math.sin(t * Math.PI * 6.1 + 0.2) * 330 + Math.sin(t * Math.PI * 17) * 120,
+          sea + 12000 + Math.sin(t * Math.PI * 6.1 + 0.2) * 1800 + Math.sin(t * Math.PI * 17) * 550,
       },
       COLOUR.middleRange
     )
@@ -170,11 +170,11 @@ function addInlandRanges(group, sea) {
         start,
         end,
         segments: 54,
-        bottom: sea - 140,
+        bottom: sea - 6000,
         driftAt: (t) =>
           Math.sin(t * Math.PI * 7.4) * 155 + Math.sin(t * Math.PI * 19.5 + 0.5) * 42,
         heightAt: (t) =>
-          sea + 1580 + Math.sin(t * Math.PI * 7.7 + 0.8) * 390 + Math.sin(t * Math.PI * 22) * 145,
+          sea + 6500 + Math.sin(t * Math.PI * 7.7 + 0.8) * 900 + Math.sin(t * Math.PI * 22) * 250,
       },
       COLOUR.nearRange
     )
@@ -235,6 +235,24 @@ function facing(car, targetX, targetZ) {
 export function buildOtakiParallax(sea = 0) {
   const root = new Group();
   root.name = 'otaki-directional-parallax-backgrounds';
+
+  // A continuous, low foothill skyline gives southward gorge bends a
+  // background too. Put its base below the terrain horizon to avoid floating
+  // peak fragments; the eastern high ranges still supply the inland silhouette.
+  for (const side of [-1, 1]) {
+    root.add(ridge({ along: 'x', at: side < 0 ? -WORLD.height * 0.35 : WORLD.height * 1.3,
+      start: WORLD.width * 0.28, end: WORLD.width * 1.2, segments: 64,
+      bottom: sea - 6000, driftAt: t => Math.sin(t * 12) * 500,
+      heightAt: t => sea - 500 + smoothstep(0, 0.12, t) * (1 - smoothstep(0.88, 1, t))
+        * (9000 + 5000 * t + Math.sin(t * 22) * 2200 + Math.sin(t * 53) * 800),
+    }, side < 0 ? COLOUR.farRange : COLOUR.middleRange));
+  }
+  // Sky detail remains visible as the heading changes through the gorge.
+  for (let i = 0; i < 9; i++) addCloud(root, {
+    x: WORLD.width * (0.1 + i * 0.12), z: WORLD.height * (i % 2 ? 1.25 : -0.3),
+    y: sea + 16000 + (i % 3) * 1800, scale: 1500 + (i % 3) * 400,
+    colour: i % 2 ? COLOUR.cloudWarm : COLOUR.cloudShade,
+  });
 
   const coast = new Group();
   coast.name = 'otaki-open-coast-background';

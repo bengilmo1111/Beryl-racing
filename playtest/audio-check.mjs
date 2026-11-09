@@ -41,9 +41,14 @@ await page.goto('http://127.0.0.1:4455/', { waitUntil: 'networkidle' });
 await page.waitForFunction(() => !!window.__BERYL_GAME__, null, { timeout: 20000 });
 
 // Title -> race, the way a player gets there.
-await page.mouse.click(640, 400);
-await page.waitForTimeout(1200);
-await page.keyboard.press('Enter');
+await page.waitForFunction(() => window.__BERYL_GAME__.scene.isActive('Title'));
+await page.locator('#loading').waitFor({ state: 'detached' });
+const playAt = await page.evaluate(() => {
+  const play = window.__BERYL_GAME__.scene.getScene('Title').play;
+  return { x: play.x, y: play.y };
+});
+await page.mouse.click(playAt.x, playAt.y);
+await page.waitForFunction(() => window.__BERYL_GAME__.scene.isActive('Race'));
 await page.waitForTimeout(6000);
 
 // Measure actual tyre output: ordinary sealed driving is quiet, a slide or
@@ -309,15 +314,16 @@ assert.equal(
 );
 assert.ok(hornBefore.at, 'no horn button on screen to press');
 
-await page.keyboard.press('h');
-await page.waitForTimeout(200);
+await page.keyboard.down('h');
+await page.waitForFunction(before => window.__BERYL_GAME__.scene.getScene('Race').horn.lastPlayed > before, hornBefore.lastPlayed);
+await page.keyboard.up('h');
 const afterKey = await page.evaluate(() => window.__BERYL_GAME__.scene.getScene('Race').horn.lastPlayed);
 assert.ok(afterKey > hornBefore.lastPlayed, 'H did not sound the horn');
 
 // Long enough after the last honk to be a second honk rather than a retrigger.
 await page.waitForTimeout(300);
 await page.mouse.click(hornBefore.at.x, hornBefore.at.y);
-await page.waitForTimeout(200);
+await page.waitForFunction(before => window.__BERYL_GAME__.scene.getScene('Race').horn.lastPlayed > before, afterKey);
 const afterTap = await page.evaluate(() => window.__BERYL_GAME__.scene.getScene('Race').horn.lastPlayed);
 assert.ok(afterTap > afterKey, 'tapping the horn button did not sound the horn');
 

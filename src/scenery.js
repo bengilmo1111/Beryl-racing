@@ -1,3 +1,4 @@
+import { inWaterRegion } from './waterRegions.js';
 // Deterministic roadside scenery placement.
 //
 // This is simulation, not decoration: trees placed here also become collision
@@ -228,8 +229,14 @@ export function scatterScenery(track, def) {
   // contradiction of "recognisable place". Null on every other course, and the
   // `!offBeach` short-circuit keeps it free there.
   const offBeach = beachMask(track, def);
-  const dry = (x, y) => !offBeach || !offBeach(x, y);
-  const plots = def.theme === 'eastbourne' ? buildStructures(def, track) : [];
+  const dry = (x, y) => {
+    if (offBeach?.(x, y)) return false;
+    if (def.theme !== 'otaki') return true;
+    // No planted trees, bales or power poles in the braided river or dunes.
+    if (x < (def.layout?.coastX || 0) + metres(3)) return false;
+    return !inWaterRegion(track.sea, x, y, metres(3));
+  };
+  const plots = (def.theme === 'eastbourne' || def.theme === 'otaki') ? buildStructures(def, track) : [];
   const park = def.theme === 'eastbourne'
     ? plots.find(s => s.kind === 'shelter') : null;
   const clearsBuildings = (x, y, padding) => {
@@ -362,12 +369,10 @@ export function scatterScenery(track, def) {
   // and power poles are regular by nature, so they need no draws — and keeping
   // them off the stream means tuning them cannot move a recorded finish.
   //
-  // Neither is solid. A continuous fence either side of a road is realistic and
-  // turns every course into a corridor with no way back once you leave it; the
-  // shelter belts are discrete and far enough out that they can be, and are not
-  // yet either — leaving the road has to stay survivable.
+  // Ōtaki fences are solid. Short, connected chords follow bends instead of
+  // long tangent spans that protrude into the road and leave gaps outside.
   if (plan.fences) {
-    const fenceStep = metres(24);
+    const fenceStep = metres(6);
     const offset = TRACK.roadWidth / 2 + metres(4.5);
     for (let s = 0; s < routeLength; s += fenceStep) {
       const at = alongRoute(line, cumulative, s);
@@ -377,7 +382,12 @@ export function scatterScenery(track, def) {
         if (!insideWorld(x, y)) continue;
         if (blocksAJunction(x, y, roads, fenceStep * 0.6)) continue;
         if (!dry(x, y)) continue;
-        props.push({ kind: 'fence', x, y, yaw: Math.atan2(-at.nx, at.ny), length: fenceStep });
+        const start = alongRoute(line, cumulative, Math.max(0, s - fenceStep / 2));
+        const end = alongRoute(line, cumulative, Math.min(routeLength, s + fenceStep / 2));
+        const ax = start.x + start.nx * side * offset, ay = start.y + start.ny * side * offset;
+        const bx = end.x + end.nx * side * offset, by = end.y + end.ny * side * offset;
+        props.push({ kind: 'fence', x: (ax + bx) / 2, y: (ay + by) / 2,
+          yaw: Math.atan2(by - ay, bx - ax), length: Math.hypot(bx - ax, by - ay) });
       }
     }
   }

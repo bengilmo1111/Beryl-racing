@@ -46,9 +46,9 @@ const GROUNDS = {
   // under high summer sun", which is what actually distinguishes the Ōtaki
   // flats from a hill road in the bush.
   otaki: {
-    base: 0xb6b063,
-    alt: 0x9fa855,
-    high: 0x7f9a55,
+    base: 0x91ad61,
+    alt: 0x70954f,
+    high: 0x638b4c,
     shore: 0xe8d9ab,
   },
   // The forest park floor: deep, cool and shaded, with the cut banks and slip
@@ -162,6 +162,18 @@ export function groundColours(info, theme, seaLevel = null) {
         }
       }
 
+      if (theme === 'otaki') {
+        // A restrained sun-facing value change reveals the rolling pasture
+        // contours without requiring expensive terrain shadow maps.
+        const left = grid[r * cols + Math.max(0, c - 1)];
+        const right = grid[r * cols + Math.min(cols - 1, c + 1)];
+        const near = grid[Math.max(0, r - 1) * cols + c];
+        const far = grid[Math.min(rows - 1, r + 1) * cols + c];
+        const dx = (right - left) / (2 * cell), dz = (far - near) / (2 * cell);
+        const sun = Math.max(0, (.45 * dx + .82 + .35 * dz) / Math.sqrt(1 + dx * dx + dz * dz));
+        scratchA.multiplyScalar(.82 + .25 * sun);
+      }
+
       colours[idx * 3] = scratchA.r;
       colours[idx * 3 + 1] = scratchA.g;
       colours[idx * 3 + 2] = scratchA.b;
@@ -216,7 +228,7 @@ export function vergeColour(theme) {
 // and the relative tone survive, and only the overall cast moves.
 const FOLIAGE = {
   eastbourne: { tint: 0x4f9a57, mix: 0.3 },
-  otaki: { tint: 0x8b9450, mix: 0.5 },
+  otaki: { tint: 0x6b965b, mix: 0.32 },
   remutaka: { tint: 0x2b6236, mix: 0.45 },
   manfield: { tint: 0x5d9349, mix: 0.3 },
 };

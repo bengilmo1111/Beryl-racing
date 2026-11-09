@@ -90,3 +90,27 @@ export function buildStartGantry(track, label = 'START') {
   group.rotation.y = yawAlongRoad(cp.angle);
   return group;
 }
+
+// Finish furniture and timing share the same finite strip.
+export function buildOtakiFinish(track, terrain, cp) {
+  const finishTrack = { ...track, checkpoints: [{ ...cp, index: cp.index }] };
+  const group = new Group();
+  group.name = 'otaki-beach-finish';
+  const gantry = buildStartGantry(finishTrack, 'BEACH · FINISH');
+  const front = gantry.children.at(-1);
+  const { width, height } = front.geometry.parameters;
+  // A solid board has separately outward-facing UVs on both approaches.
+  // Two nearly coplanar transparent planes can disappear during back-face
+  // culling/sorting, and a DoubleSide plane mirrors the reverse lettering.
+  const edge = lambert(C.cream);
+  const board = new Mesh(new BoxGeometry(width, height, 6),
+    [edge, edge, edge, edge, front.material, front.material]);
+  board.position.copy(front.position);
+  gantry.remove(front);
+  front.geometry.dispose();
+  gantry.add(board);
+  group.add(gantry);
+  group.add(buildStartLine(finishTrack));
+  group.position.y = terrain.heightAt(cp.x, cp.y) - roadHeight(track, cp);
+  return group;
+}

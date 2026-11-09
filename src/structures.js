@@ -397,7 +397,15 @@ function otakiStructures(def, track) {
     }
     return out;
   });
-  return [...farms, ...otakiTown(track)];
+  const rail = track.checkpoints[def.scenery.railwayCp];
+  const offset = track.half + 450;
+  const station = { kind: 'station', x: rail.x - Math.sin(rail.angle) * offset,
+    z: rail.y + Math.cos(rail.angle) * offset, yaw: -rail.angle, w: 360, d: 130 };
+  const beachHomes = housesAlong(track, {
+    from: .935, to: .998, settledAt: () => .82,
+    sides: [0, 2], depth0: 260, rowDepth: 430,
+  });
+  return [...farms, station, ...otakiTown(track), ...beachHomes];
 }
 
 // How far along the main straight the grandstand sits, as a fraction of the lap.

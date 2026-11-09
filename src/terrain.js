@@ -117,6 +117,8 @@ function fbm(x, y) {
 
 export class Terrain {
   constructor(track, world, def = null) {
+    this.triangleVisualHeight = def?.theme === 'otaki';
+    this.visualWorld = world;
     const roads = track.roads || [track];
     this.roadSurface = new RoadSurface(roads);
     this.flat = !roads.some((road) => road.heights);
@@ -250,7 +252,7 @@ export class Terrain {
     // Exaggerated cliffs must not act as a gravity ramp when a wheel leaves
     // the seal. Keep the real road triangles, with the smooth field off-road.
     this.unclearedGrid = this.grid;
-    this.drivingGrid = remutaka ? this.physicsGrid : this.grid;
+    this.drivingGrid = (remutaka || this.triangleVisualHeight) ? this.physicsGrid : this.grid;
     // Coarse ground triangles can cross a curved road between pinned vertices.
     // Remutaka exposed this dramatically on its cliff face; Ōtaki has the same
     // geometry failure at a smaller scale across its primary and town roads.
@@ -326,6 +328,15 @@ export class Terrain {
         if (shore <= 0) continue;
 
         out[k] = grid[k] + fbm(wx, wy) * RELIEF_HEIGHT * ramp * shore;
+        if (this.triangleVisualHeight) {
+          // Broad grazed hills in the inland half; retain the low coastal plain.
+          // Visual only: roads, physics and the playable verge remain pinned.
+          const inland = smoothstep(this.visualWorld.width * .38, this.visualWorld.width * .72, wx);
+          const rolling = .52 + .25 * Math.sin(wx / 5600 + wy / 7600)
+            + .23 * Math.sin(wx / 9800 - wy / 4300);
+          const hillRamp = smoothstep(metres(30), metres(160), roadDistance[k]);
+          out[k] += inland * rolling * metres(22) * hillRamp * shore;
+        }
       }
     }
     // One pass to take the corners off the cell-sized steps the noise leaves.
@@ -391,7 +402,14 @@ export class Terrain {
     const road = this.roadSurface.heightAt(x, y);
     if (road !== null) return road;
     if (this.flat) return 0;
-    return this.#sample(this.grid, x, y);
+    if (!this.triangleVisualHeight) return this.#sample(this.grid, x, y);
+    // Match the two rendered triangles rather than a bilinear saddle. The
+    // difference at a steep riverbank can otherwise bury half the car.
+    const fx = (x - this.minX) / this.cell, fy = (y - this.minY) / this.cell;
+    const c = Math.floor(fx), r = Math.floor(fy), u = fx - c, v = fy - r;
+    const a = this.#at(this.grid, c, r), b = this.#at(this.grid, c + 1, r);
+    const d = this.#at(this.grid, c, r + 1), e = this.#at(this.grid, c + 1, r + 1);
+    return v >= u ? a + (e - d) * u + (d - a) * v : a + (b - a) * u + (e - b) * v;
   }
 
   roadGradeAlong(x, y, fwdX, fwdY, step = GRADE_STEP) {

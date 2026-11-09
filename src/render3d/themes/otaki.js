@@ -1,3 +1,5 @@
+import { buildOtakiReferenceDetails, buildOtakiSurf } from './otakiReferenceDetails.js';
+import { otakiBridgeSpans } from '../../otakiBridge.js';
 // Ōtaki Forks, the gorge road, market gardens, river crossing, old-town road
 // network and Tasman coast.
 //
@@ -10,13 +12,12 @@ import {
   Mesh,
   PlaneGeometry,
   BoxGeometry,
-  CylinderGeometry,
-  ConeGeometry,
+  SphereGeometry,
 } from 'three';
-import { WORLD } from '../../config.js';
 import { C, basic, lambert } from './../palette.js';
 import { buildOtakiFarmhouse, buildEastbourneVilla, villaPalette } from '../houses.js';
 import { bakeStatic } from '../bake.js';
+import { clearRoads } from '../roadDecoration.js';
 import { terrainPatchGeometry } from '../terrainPatch.js';
 
 const COLOUR = {
@@ -108,24 +109,44 @@ function addRiver(group, track, def, terrain) {
   // Wide pale gravel banks make the braided river read as a Kapiti riverbed,
   // rather than a canal cut exactly to the water surface.
   for (const side of [-1, 1]) {
-    const bank = new Mesh(new PlaneGeometry(length, 105), basic(COLOUR.bank, { fog: true }));
+    const bank = new Mesh(new PlaneGeometry(length, Math.max(105, halfAcross * 0.35)), basic(COLOUR.bank, { fog: true }));
     bank.geometry.rotateX(-Math.PI / 2);
     const placed = placeAcross(bank, cp, level + 3);
-    placed.translateZ(side * (halfAcross + 58));
+    placed.translateZ(side * (halfAcross + Math.max(105, halfAcross * 0.35) / 2));
+    placed.updateMatrix();
+    placed.geometry.applyMatrix4(placed.matrix);
+    placed.position.set(0, 0, 0);
+    placed.rotation.set(0, 0, 0);
+    placed.geometry = clearRoads(placed.geometry, track.roads || [track]);
     group.add(placed);
   }
 
-  // Low concrete bridge parapets follow the road. They are deliberately visual
-  // only; collision belongs to the deterministic scenery system.
-  for (const side of [-1, 1]) {
-    const parapet = new Mesh(new BoxGeometry(16, 42, 390), lambert(COLOUR.concrete));
-    const placed = placeAcross(parapet, cp, roadH + 21);
-    placed.translateX(side * (track.half + 13));
-    group.add(placed);
+  // Follow the elevated road samples across the entire carved river. A fixed
+  // 390-unit parapet covered only the middle of the rescaled river, and a flat
+  // deck would cut through the sloping road on either approach.
+  const bridge = new Group();
+  bridge.name = 'otaki-river-bridge';
+  const concrete = lambert(COLOUR.concrete);
+  for (const { a, b, dx, dz, distance, ah, bh } of otakiBridgeSpans(track, def)) {
+    const segment = new Group();
+    segment.position.set((a.x + b.x) / 2, (ah + bh) / 2, (a.y + b.y) / 2);
+    segment.rotation.order = 'YXZ';
+    segment.rotation.y = Math.PI / 2 - Math.atan2(dz, dx);
+    segment.rotation.x = -Math.atan2(bh - ah, distance);
+    const span = Math.hypot(distance, bh - ah) + 1;
+    // Keep the deck below the existing road surface; driving and grip still
+    // use the original geometry, while the crossing now has a visible underside.
+    segment.add(box(track.half * 2 + 40, 28, span, 0, -18, 0, concrete));
+    for (const side of [-1, 1]) {
+      segment.add(box(16, 58, span, side * (track.half + 13), 25, 0, concrete));
+    }
+    bridge.add(segment);
   }
+  group.add(bridge);
 
   // A few exposed gravel bars break up the broad water without textures.
-  for (const offset of [-980, -260, 610]) {
+  for (const fraction of [-0.56, -0.15, 0.35]) {
+    const offset = fraction * length / 2;
     const bar = new Mesh(new PlaneGeometry(310, 64), basic(0xd9c99d, { fog: true }));
     bar.geometry.rotateX(-Math.PI / 2);
     const placed = placeAcross(bar, cp, level + 4);
@@ -163,43 +184,46 @@ function addRailOverbridge(group, track, def) {
   }
 }
 
-function addMarketGardens(group, terrain, world) {
-  // Long rectangular growing blocks and dark windbreak rows are the strongest
-  // rural cue on the flats between the gorge and town.
-  //
-  // Positions are fractions of the world; sizes are not. Where a plot sits is a
-  // point on a map and has to move when the map is rescaled — how big a market
-  // garden is does not. These were absolute coordinates against a 19,000-unit
-  // Ōtaki, so after the rescale every one of them sat a tenth of the way along
-  // the route, out on the dunes.
-  const plots = [
-    [11200, 5600, 1150, 360, COLOUR.fieldA, 0.08],
-    [10300, 6150, 980, 330, COLOUR.fieldC, -0.05],
-    [10800, 6900, 1050, 390, COLOUR.fieldB, 0.02],
-    [7900, 6750, 1000, 340, COLOUR.fieldA, -0.04],
-    [7200, 7250, 930, 310, COLOUR.fieldC, 0.06],
-  ];
-  for (const [ax, az, width, depth, colour, yaw] of plots) {
-    const x = px(world, ax);
-    const z = pz(world, az);
-    const field = new Mesh(terrainPatchGeometry(terrain, { x, z, width, depth, yaw, lift: 2.4 }), basic(colour, { fog: true }));
-    group.add(field);
-  }
-
+// Road-relative plots stay visible after course rescaling. Dimensions are world
+// sizes, not map spans; terrainPatchGeometry follows the actual ground mesh.
+function addMarketGardens(group, terrain, track) {
+  const fields = new Group();
+  fields.name = 'otaki-roadside-market-gardens';
+  const colours = [COLOUR.fieldA, COLOUR.fieldC, COLOUR.fieldB];
   const hedgeMat = lambert(0x365f43);
-  for (const [ax, az, length, yaw] of [
-    [11200, 5380, 1080, 0.08],
-    [10300, 5950, 950, -0.05],
-    [10800, 6670, 1000, 0.02],
-    [7900, 6550, 950, -0.04],
-    [7200, 7060, 900, 0.06],
-  ]) {
-    const x = px(world, ax);
-    const z = pz(world, az);
-    const hedge = box(length, 52, 34, x, terrain.heightAt(x, z) + 26, z, hedgeMat);
-    hedge.rotation.y = yaw;
-    group.add(hedge);
+  const end = track.checkpoints[5]?.index ?? Math.floor(track.centerline.length * 0.5);
+  for (const [index, fraction] of [0.68, 0.76, 0.84, 0.92].entries()) {
+    const i = Math.floor(end * fraction);
+    const a = track.centerline[i - 1], b = track.centerline[i + 1];
+    const cp = track.centerline[i];
+    const angle = Math.atan2(b.y - a.y, b.x - a.x);
+    const tx = Math.cos(angle), tz = Math.sin(angle);
+    const yaw = -angle;
+    for (const side of [-1, 1]) {
+      const width = 1500, depth = 680;
+      const offset = track.half + 260 + depth / 2;
+      const x = cp.x - tz * side * offset;
+      const z = cp.y + tx * side * offset;
+      const patch = (cx, cz, w, d, lift, colour) => fields.add(new Mesh(
+        clearRoads(terrainPatchGeometry(terrain, { x: cx, z: cz, width: w, depth: d, yaw, lift }), track.roads || [track]),
+        basic(colour, { fog: true })
+      ));
+      patch(x, z, width, depth, 2.4, colours[index % colours.length]);
+      // Broad rows, rather than individual vegetables, read at driving speed.
+      for (let row = -2; row <= 2; row++) {
+        patch(x - tz * row * 108, z + tx * row * 108, width - 65, 30, 3.2, 0x66854c);
+      }
+      // Short shelter belts mark the far boundary without closing the view.
+      for (let j = -3; j <= 3; j++) {
+        const hx = x + tx * j * 210 - tz * side * (depth / 2 + 40);
+        const hz = z + tz * j * 210 + tx * side * (depth / 2 + 40);
+        const hedge = box(225, 95, 62, hx, terrain.heightAt(hx, hz) + 47.5, hz, hedgeMat);
+        hedge.rotation.y = yaw;
+        fields.add(hedge);
+      }
+    }
   }
+  group.add(fields);
 }
 
 function addTown(group, terrain, layout, track, def, structures) {
@@ -264,12 +288,10 @@ function addTown(group, terrain, layout, track, def, structures) {
   station.add(box(360, 10, 72, 0, 5, 0, lambert(COLOUR.concrete)));
   station.add(box(190, 90, 70, 35, 55, 15, lambert(COLOUR.shelter)));
   station.add(box(220, 12, 96, 35, 106, 15, lambert(COLOUR.roofRed)));
-  const rail = track.checkpoints[def.scenery?.railwayCp ?? 0];
-  if (rail) {
-    const sx = rail.x + Math.cos(rail.angle) * 620;
-    const sz = rail.y + Math.sin(rail.angle) * 620;
-    station.position.set(sx, terrain.heightAt(sx, sz) - 12, sz);
-    station.rotation.y = 0.1;
+  const site = structures.find(s => s.kind === 'station');
+  if (site) {
+    station.position.set(site.x, terrain.heightAt(site.x, site.z) + 1, site.z);
+    station.rotation.y = site.yaw;
     group.add(station);
   }
 
@@ -282,9 +304,11 @@ function addBeach(group, terrain, layout) {
   const beach = layout.zones.beach;
   const seaLevel = terrain.seaLevel || 0;
 
-  const sand = new Mesh(new PlaneGeometry(beach.w, beach.h), basic(C.sand, { fog: true }));
+  const sandWidth = 900;
+  const sand = new Mesh(new PlaneGeometry(sandWidth, beach.h), basic(C.sand, { fog: true }));
+  sand.name = 'otaki-beach-sand';
   sand.geometry.rotateX(-Math.PI / 2);
-  sand.position.set(beach.x + beach.w / 2, seaLevel + 3, beach.y + beach.h / 2);
+  sand.position.set(layout.coastX + sandWidth / 2, seaLevel + 3, beach.y + beach.h / 2);
   group.add(sand);
 
   // The water is a span, not an object: it has to reach the horizon, so its
@@ -292,51 +316,31 @@ function addBeach(group, terrain, layout) {
   const world = layout.world;
   const sea = new Mesh(
     new PlaneGeometry(px(world, 4200), beach.h + pz(world, 3600)),
-    basic(C.river, { fog: true })
+    basic(0x339ebc, { fog: false })
   );
+  sea.name = 'otaki-coastal-water';
   sea.geometry.rotateX(-Math.PI / 2);
-  sea.position.set(px(world, -1550), seaLevel + 1, beach.y + beach.h / 2);
+  sea.position.set(layout.coastX - px(world, 4200) / 2, seaLevel + 1, beach.y + beach.h / 2);
   group.add(sea);
 
-  // Low dune ridges and a line of wind-shaped pines/baches separate Marine
-  // Parade from the open Tasman coast.
-  //
-  // The run and the step both scale, so the same authored rhythm covers the
-  // whole of the now much longer beach. That leaves them sparser than they read
-  // before — spacing along the coast is Stage 4's job, not a mapping question.
-  const duneMat = lambert(COLOUR.dune);
-  for (let az = 7150; az <= 10400; az += 520) {
-    const z = pz(world, az);
-    const dune = box(180, 26, 330, px(world, 760), seaLevel + 13, z, duneMat);
-    dune.rotation.y = 0.08 * Math.sin(az * 0.01);
-    group.add(dune);
-  }
+  group.add(buildOtakiSurf(layout, seaLevel));
 
-  const pineMat = lambert(COLOUR.pine);
-  const trunkMat = lambert(COLOUR.pineTrunk);
-  for (let az = 7200; az <= 10300; az += 620) {
-    const z = pz(world, az);
-    const x = px(world, 910);
-    const trunk = new Mesh(new CylinderGeometry(12, 17, 115, 6), trunkMat);
-    trunk.position.set(x, seaLevel + 58, z);
-    group.add(trunk);
-    const crown = new Mesh(new ConeGeometry(90, 210, 7), pineMat);
-    crown.position.set(x, seaLevel + 192, z);
-    group.add(crown);
+  // Low, continuous vegetated dunes rather than isolated tiny sand boxes.
+  const dunes = new Group();
+  dunes.name = 'otaki-vegetated-dunes';
+  const dome = new SphereGeometry(1, 14, 7, 0, Math.PI * 2, 0, Math.PI / 2);
+  const grass = lambert(0x8c9d60);
+  for (let z = beach.y + 350; z < beach.y + beach.h; z += 1050) {
+    const x = layout.coastX + 1000 + Math.sin(z / 1700) * 170;
+    const dune = new Mesh(dome, grass);
+    dune.position.set(x, terrain.heightAt(x, z) + 1, z);
+    dune.scale.set(700 + 150 * Math.sin(z / 2700), 80 + 30 * Math.sin(z / 1400), 800);
+    dunes.add(dune);
   }
+  group.add(dunes);
+  // Beach houses now come from the solid, road-clear structure list, just like
+  // town houses. No render-only baches the player can drive through.
 
-  const bachWalls = [0xf1ece0, 0xdce5e3, 0xe8d7c2];
-  for (const [index, az] of [7450, 8250, 9050, 9850].entries()) {
-    const z = pz(world, az);
-    const x = px(world, 1370 + (index % 2) * 130);
-    const y = terrain.heightAt(x, z);
-    const bach = new Group();
-    bach.add(box(210, 92, 135, 0, 46, 0, lambert(bachWalls[index % bachWalls.length])));
-    bach.add(box(230, 12, 155, 0, 99, 0, lambert(index % 2 ? COLOUR.roof : COLOUR.roofRed)));
-    bach.position.set(x, y + 1, z);
-    bach.rotation.y = index % 2 ? -0.05 : 0.07;
-    group.add(bach);
-  }
 }
 
 function addFarmhouses(group, terrain, structures) {
@@ -370,9 +374,10 @@ export function buildOtaki(track, def, terrain, structures = []) {
   if (!layout) return group;
 
   addBeach(group, terrain, layout);
+  group.add(buildOtakiReferenceDetails(track, terrain));
   addRiver(group, track, def, terrain);
   addRailOverbridge(group, track, def);
-  addMarketGardens(group, terrain, layout.world);
+  addMarketGardens(group, terrain, track);
   addFarmhouses(group, terrain, structures);
   addTown(group, terrain, layout, track, def, structures);
 

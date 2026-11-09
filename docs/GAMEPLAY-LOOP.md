@@ -615,3 +615,71 @@ Remutaka by stopping nose-first at a right-hand bank and reversing to the road;
 merge or close that preview from Ben's preference. For future automated passes,
 investigate only a newly changed metric, runtime failure, or unobscured visual
 defect rather than repeatedly auditing the same stable evidence.
+
+## 2026-11-06: Ōtaki recognition and Remutaka sign polish
+
+Baseline: `3cc5182`. Local Chrome waypoint drives and matched chase-camera
+captures, seed 780385. Ōtaki's trees overwhelmed houses and open paddocks:
+its placeholder height factors were 2.1–3.4 times canopy width, and visible
+trunks inherited canopy width rather than the simulation collision radius.
+Remutaka's main cliff/bank composition already reads; preserve it.
+
+Changes:
+- Give Ōtaki the road-course tree proportions and true collision-width trunks.
+  Keep every seeded position, collision radius and RNG draw unchanged.
+- Replace distant map-coordinate market gardens with eight road-relative plots
+  approaching the rail corridor. Broad crop rows and short far-edge windbreaks
+  provide farmland cues; patches follow rendered terrain triangles.
+- Correct Remutaka's reversed chevron arrows, extend coverage into upper bends,
+  and mount boards above road level. A second screenshot iteration caught boards
+  hidden below Armco when grounded on the falling shoulder; supports now extend
+  down from the road-height signs.
+- Point the Ōtaki scenery screenshot at an actual rendered field rather than an
+  obsolete coordinate. Ad-hoc shots now print finish/checkpoint status.
+
+Verification: production build, course-art (including visible Ōtaki trunk radius
+and maximum crown height), track geometry, placement and Remutaka barrier/summit
+checks pass. Inspected matching Ōtaki frames 3000/5600/7000, road/garden views,
+and Remutaka frames 4000/6000/7400. No game runtime errors were reported;
+scenery inspection's direct Three.js import emits the existing duplicate-module
+warning. The exact determinism suite stops on Eastbourne's final position,
+about 5e-9 world units from the pin in local Chrome, after its three replays
+agree. This is not a full determinism pass; no pins were changed.
+
+Full waypoint drives at seed 780385 complete: Ōtaki 141066.666667 ms, 8/8
+gates; Remutaka 151350 ms, 11/11 gates. These are completion evidence, not
+matched-seed performance comparisons or evidence of enjoyment.
+
+These are local changes for review, not a deployment or player preference verdict.
+Ōtaki still needs recognition checks at the river, railway, town branches and
+beach; do not call the whole course recognisable based on better tree proportions.
+Next test: player recognition of those transitions, then local landmark work,
+before a decorative polish pass. Remutaka next needs phone-size sign readability.
+
+## 2026-11-06: three story/progression rounds
+
+Built and verified **The Sunday run**, six connected Ōtaki/Remutaka chapters.
+Round one connected the races with a saved route book; round two added actual
+branch itineraries, driving-sensitive cargo and stopped summit deliveries;
+round three added consequences, route choice, safe continuation across visits
+and readable completed pages. See [design and evidence](SUNDAY-RUN.md).
+
+All six chapters complete and save in automated drives. UI tests cover reload,
+continuation, phone layout, denied storage, records and free-drive isolation.
+The four ordinary courses also match an isolated starting-commit copy exactly
+in same-Chrome drives at seed 780385. This is a playable local iteration,
+not a retention result or a production deployment. Next decision comes from
+player interest in continuing the story, not bot times.
+
+## 2026-11-06: Ōtaki river crossing repair
+
+The river carve scales with the course, but its bridge parapets still used a
+fixed 390-unit length. Replace that short centre section with a concrete deck
+and parapets following the existing road samples to both banks. Segment slopes
+use local pitch before heading so the bridge follows the elevated road without
+cutting across it. Gravel-bank widths now follow the river width, and gravel
+bars are distributed along the actual water span.
+
+Course-art regression raycasts verify the deck below the road and parapets on
+both sides at 78 crossing segments. This change is visual: the authored route,
+heights, checkpoints, collision data and driving physics are unchanged.
