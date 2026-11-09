@@ -1,0 +1,14 @@
+{
+  "source": "V0d03d64399913477c1bb.wav",
+  "source_sha256": "b02e7153f466d6311787fe3dd7affbbfac6b70a6e4af91c63a2058e6bef74d30",
+  "channel": 1,
+  "start_seconds": 27.5,
+  "duration_seconds": 2.9248072562358276,
+  "firing_hz": 118.676,
+  "inferred_rpm": 3560,
+  "join_correlation": 0.8182,
+  "rms_dbfs": -14.0,
+  "peak": 0.6934,
+  "sample_rate": 22050,
+  "asset": "beryl-engine-driving.wav"
+}

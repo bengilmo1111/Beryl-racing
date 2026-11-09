@@ -168,14 +168,34 @@ const v8 = await page.evaluate(async () => {
 // a steady noise.
 const recorded = await page.evaluate(async () => {
   const { RecordedVoice } = await import('/src/audio/engineVoices.js');
-  const { loadSample, ENGINE_FRONT, ENGINE_REAR } = await import('/src/audio/samples.js');
+  const { loadSample, ENGINE_FRONT, ENGINE_REAR, ENGINE_DRIVING } = await import('/src/audio/samples.js');
   const probe = new AudioContext();
-  const [front, rear] = await Promise.all([
+  const [front, rear, driving] = await Promise.all([
     loadSample(probe, ENGINE_FRONT),
     loadSample(probe, ENGINE_REAR),
+    loadSample(probe, ENGINE_DRIVING),
   ]);
   probe.close();
-  if (!front || !rear) return { loaded: false };
+  if (!front || !rear || !driving) return { loaded: false };
+
+  // The new on-road layer must enter under load, leave idle/coasting/shift
+  // quiet, and stop with the voice. Missing it must retain the old recordings.
+  const layerMix = {};
+  for (const [name, firing, load, shifting] of [
+    ['idle', 27, 0, false], ['pull', 118, 1, false],
+    ['coast', 118, 0, false], ['shift', 118, 1, true],
+  ]) {
+    const check = new OfflineAudioContext(1, 22050, 22050);
+    const voice = new RecordedVoice(check, check.destination, { front, rear, driving });
+    // Isolate the new layer and measure its actual output, including filters
+    // and sample playback, rather than just inspecting a scheduled gain.
+    voice.front.source.disconnect();
+    voice.rear.source.disconnect();
+    voice.render({ firing, load, through: 0.8, shifting }, 0);
+    const data = (await check.startRendering()).getChannelData(0).slice(11025);
+    layerMix[name] = Math.sqrt(data.reduce((sum, x) => sum + x*x, 0) / data.length);
+    voice.stop();
+  }
 
   const SR = 22050;
   // Everything is measured below 500 Hz. Over the full band the wind and road
@@ -189,7 +209,7 @@ const recorded = await page.evaluate(async () => {
     band.type = 'lowpass';
     band.frequency.value = 500;
     master.connect(band).connect(ctx.destination);
-    const voice = new RecordedVoice(ctx, master, { front, rear });
+    const voice = new RecordedVoice(ctx, master, { front, rear, driving });
     const firing = (rpm / 60) * 2;
     // Driven once per 200 ms. The game drives it every frame, but each step
     // here is a suspend/resume round trip through the renderer, and fourteen
@@ -277,6 +297,7 @@ const recorded = await page.evaluate(async () => {
   // The third is a long hold at one speed: the case a loop gives itself away in.
   return {
     loaded: true,
+    layerMix,
     low: await render(1200, 4),
     high: await render(4200, 4),
     hold: await render(2600, 14),
@@ -369,6 +390,10 @@ for (let i = 1; i < drive.length; i++) {
 }
 
 assert.ok(recorded.loaded, 'the engine recordings did not load');
+assert.ok(recorded.layerMix.pull > 0.03, 'the driving recording is silent under load');
+for (const state of ['idle', 'coast', 'shift']) {
+  assert.ok(recorded.layerMix[state] < 0.0001, `driving recording leaks into ${state}`);
+}
 // Both are two firings per revolution of a four, so 4200 rpm must cross zero a
 // great deal more often than 1200 does. Anything less means the playback rate is
 // not following the gearbox and the recordings are just a loop.
