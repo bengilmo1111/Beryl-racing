@@ -6,7 +6,7 @@
 import Phaser from 'phaser';
 import { otakiFinish } from '../otakiFinish.js';
 import { buildJourneyMeeting } from './journeyMeeting.js';
-import { Scene, HemisphereLight, DirectionalLight } from 'three';
+import { Scene, HemisphereLight, DirectionalLight, TextureLoader, SRGBColorSpace } from 'three';
 import { metres } from '../scale.js';
 import { C, makeFog } from './palette.js';
 import { getRenderer, showCanvas, syncSize, getCanvas } from './renderer.js';
@@ -148,7 +148,9 @@ class RaceWorld {
     this.scene3d.add(this.skid.mesh);
     this.puffs = new PuffPool(this.scene3d, this.terrain);
 
-    this.beryl = applyBerylPhotoPass(buildBeryl({ photoBody: true }));
+    const rearDetails = new TextureLoader().load('./assets/beryl-rear-details.png');
+    rearDetails.colorSpace = SRGBColorSpace;
+    this.beryl = applyBerylPhotoPass(buildBeryl({ photoBody: true }), rearDetails);
     this.scene3d.add(this.beryl.root);
 
     // The other cars on the road, where the course has any. They share Beryl's
