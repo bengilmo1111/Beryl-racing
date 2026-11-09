@@ -1,6 +1,6 @@
 // Beryl's own voice: recordings of the real car, decoded once and shared.
 //
-// Three clips, cut from ~30 s phone recordings made at the car (the masters are
+// Four clips, cut from stationary and on-road recordings (the masters are
 // in `reference/audio/`, and `reference/audio/README.md` records exactly which
 // seconds each loop came from):
 //
@@ -9,6 +9,7 @@
 //    she is working.
 //  • engine-rear  — from behind, by the exhaust. Boomier and steadier, and the
 //    layer that carries the note from a chase camera.
+//  • engine-driving — a steady on-road pull, blended in with revs and load.
 //  • horn         — one press of the real horn. A single tone, ~315 Hz, with
 //    the harmonic stack that makes it sound like a car and not a beep.
 //
@@ -29,6 +30,7 @@ const failures = [];
 
 export const ENGINE_FRONT = 'beryl-engine-front.wav';
 export const ENGINE_REAR = 'beryl-engine-rear.wav';
+export const ENGINE_DRIVING = 'beryl-engine-driving.wav';
 export const HORN = 'beryl-horn.wav';
 
 // Always beneath the configured base path: production is served under
@@ -69,11 +71,11 @@ export function loadSample(ctx, name) {
   return pending;
 }
 
-// Kick all three off during the loading splash so the race does not start on a
+// Kick all four off during the loading splash so the race does not start on a
 // fetch. Decoding works happily on a suspended context, so this does not need a
 // gesture first — only playing does.
 export function primeSamples(ctx) {
-  return Promise.all([ENGINE_FRONT, ENGINE_REAR, HORN].map((name) => loadSample(ctx, name)));
+  return Promise.all([ENGINE_FRONT, ENGINE_REAR, ENGINE_DRIVING, HORN].map((name) => loadSample(ctx, name)));
 }
 
 // For the audio readout: what, if anything, refused to load.

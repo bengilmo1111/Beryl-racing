@@ -11,8 +11,8 @@
 // Revs sweep up through a gear, drop when it shifts, and sweep again. On a climb
 // she sits at high revs going nowhere, which is exactly right.
 //
-// What comes out of the speaker is then the real car — two loops cut from
-// recordings made at the front and the rear of her, pitched to that crank speed
+// What comes out of the speaker is then the real car — loops cut from
+// front, rear and on-road recordings, pitched to that crank speed
 // (see engineVoices.js). The synth those recordings replaced is still here and
 // still plays the V8, because there is no recording of a Morris Minor with a V8
 // in it.
@@ -20,7 +20,7 @@
 // Determinism: constructed only when not harnessed (see RaceScene), because
 // AudioContext runs on wall-clock time. Nothing here is read by the simulation.
 import { acquireContext, resumeOnGesture, outputBus } from './context.js';
-import { loadSample, ENGINE_FRONT, ENGINE_REAR } from './samples.js';
+import { loadSample, ENGINE_FRONT, ENGINE_REAR, ENGINE_DRIVING } from './samples.js';
 import { RecordedVoice, SynthVoice } from './engineVoices.js';
 
 // Gear ratios as fractions of top speed. Four speeds, first is short and third
@@ -87,7 +87,7 @@ export class EngineSound {
     if (this.engine.recorded) this.#useRecordingsWhenReady();
   }
 
-  // Swap the synth for the real car once both clips have decoded. Normally they
+  // Swap the synth for the real car once the clips have decoded. Normally they
   // were primed during the loading splash and this resolves on the next tick,
   // before the first update; on a slow connection it can land mid-race, which
   // is why it is a crossfade rather than a cut.
@@ -95,9 +95,10 @@ export class EngineSound {
     Promise.all([
       loadSample(this.ctx, ENGINE_FRONT),
       loadSample(this.ctx, ENGINE_REAR),
-    ]).then(([front, rear]) => {
+      loadSample(this.ctx, ENGINE_DRIVING),
+    ]).then(([front, rear, driving]) => {
       if (this.stopped || !front || !rear) return;
-      const recorded = new RecordedVoice(this.ctx, this.out, { front, rear });
+      const recorded = new RecordedVoice(this.ctx, this.out, { front, rear, driving });
       recorded.gain.gain.value = 0.0001;
       recorded.fade(1, VOICE_CROSSFADE);
       const outgoing = this.voice;
