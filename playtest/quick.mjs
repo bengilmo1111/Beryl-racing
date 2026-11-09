@@ -9,6 +9,7 @@ const checks = [
   'road-index',
   'road-contact',
   'arcade-driving',
+  'rivals',
 ];
 const started = Date.now();
 for (const check of checks) {
