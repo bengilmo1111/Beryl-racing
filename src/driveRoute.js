@@ -68,5 +68,5 @@ export function buildRouteProgress(track) {
     const ds = distances(road);
     mapped.set(road, ds.map(d => a + (b - a) * d / ds.at(-1)));
   }
-  return { at: value, checkpoint: index => mapped.get(primary)[index] };
+  return { at: value, checkpoint: index => mapped.get(primary)[index], length: total };
 }

@@ -22,6 +22,7 @@ export function isTouchDevice() {
 export class TouchControls {
   constructor(scene) {
     this.scene = scene;
+    this.enabled = true;
     this.state = { left: false, right: false, gas: false, brake: false, horn: false };
     // Which button (if any) each active pointer id is currently pressing.
     this.pointerButton = new Map();
@@ -136,6 +137,7 @@ export class TouchControls {
   }
 
   _press(pointer) {
+    if (!this.enabled) return;
     const hit = this._buttonAt(pointer.x, pointer.y);
     const prev = this.pointerButton.get(pointer.id) || null;
     if (prev === hit) return;
@@ -189,6 +191,17 @@ export class TouchControls {
   // knows whether there is any audio to play at all.
   setHornAction(fn) {
     this.hornAction = fn;
+  }
+
+  setEnabled(enabled) {
+    this.enabled = enabled;
+    this.layer.setVisible(enabled);
+    if (!enabled) this.releaseAll();
+  }
+
+  setReversing(reversing) {
+    const caption = reversing ? 'REVERSE' : 'BRAKE';
+    if (this.brake.caption.text !== caption) this.brake.caption.setText(caption);
   }
 
   layout() {

@@ -64,6 +64,9 @@ export function showCoastalResults(scene, timeMs, previousBest) {
     input.value = entry.name;
     input.autocomplete = 'off';
     input.setAttribute('aria-label', 'Name for local top three');
+    // Phaser captures driving letters and Space at window level. Let the
+    // browser edit the name normally without sending those keys to the game.
+    for (const type of ['keydown', 'keyup']) input.addEventListener(type, event => event.stopPropagation());
     // Names are text nodes, never HTML. Save as the player types so retry is
     // always one action; do not open a phone keyboard automatically on finish.
     input.addEventListener('input', () => {

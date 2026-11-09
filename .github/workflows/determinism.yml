@@ -87,6 +87,10 @@ jobs:
         run: npm run test:gateway
       - name: Mobile player journey
         run: npm run playtest -- --skip-build --mobile-only --journey
+      # The matrix runner recreates playtest-out. Capture this pass afterwards
+      # so its navigation/result screenshots survive in the uploaded evidence.
+      - name: Missed gates, reverse help and quiet mobile finishes
+        run: node playtest/navigation-finish.mjs
       - name: Upload mobile evidence
         if: always()
         uses: actions/upload-artifact@v4
