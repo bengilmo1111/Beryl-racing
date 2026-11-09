@@ -402,10 +402,15 @@ function otakiStructures(def, track) {
   const station = { kind: 'station', x: rail.x - Math.sin(rail.angle) * offset,
     z: rail.y + Math.cos(rail.angle) * offset, yaw: -rail.angle, w: 360, d: 130 };
   const beachHomes = housesAlong(track, {
-    from: .935, to: .998, settledAt: () => .82,
+    from: .935, to: .970, settledAt: () => .82,
     sides: [0, 2], depth0: 260, rowDepth: 430,
   });
-  return [...farms, station, ...otakiTown(track), ...beachHomes];
+  const end = track.centerline.at(-1);
+  const picnic = [-1, 1].map(side => ({kind:'picnic', x:end.x+450, z:end.y+side*1150, w:240, d:180, yaw:0}));
+  const townRoad = track.roads.find(r => r.id === 'rahui-mill-tasman');
+  const townFrontage = housesAlong(townRoad, {from:.18,to:.90,settledAt:()=>.68,
+    sides:[0,2],depth0:300,rowDepth:430});
+  return [...farms, station, ...otakiTown(track), ...townFrontage, ...beachHomes, ...picnic];
 }
 
 // How far along the main straight the grandstand sits, as a fraction of the lap.

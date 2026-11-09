@@ -111,3 +111,12 @@ const rearY = start.y + Math.cos(start.rotation) * 140;
 const startRay = new Raycaster(new Vector3(rearX, 100000, rearY), new Vector3(0, -1, 0));
 assert.ok(startRay.intersectObject(approach).length, 'Starting car rear must have visible road beneath it');
 console.log('Otaki start PASS: road extends beneath the full starting car');
+
+assert.equal(track.roads.length, 4, 'Town uses two substantial routes and two cross-town connections');
+assert.ok(track.roads.every(road => road.half === track.half), 'All town streets have the main road width');
+assert.ok(Math.cos(finish.angle) < -.9, 'Beach arrival must face out to sea');
+assert.ok(finish.x - def.layout.coastX < 2200, 'Finish must be on the beachfront, not the inland coast road');
+for (const across of [-600, 0, 600])
+  assert.notEqual(terrain.roadSurface.heightAt(track.centerline.at(-1).x - 250, track.centerline.at(-1).y + across), null,
+    'The whole beachfront stopping area must be drivable');
+console.log('Otaki arrival PASS: sea-facing beachfront finish, shared parking surface, full-width connected streets');

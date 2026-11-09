@@ -15,7 +15,8 @@ const track=buildTrack(), profile=remutakaRoadProfile(track), rails=remutakaBarr
 for (const p of profile) {
   assert.equal(p.inside,1); assert.equal(p.outside,-1);
   const height = side => remutakaVisualHeight(p,p.x+p.nx*side*(track.half+400),p.z+p.nz*side*(track.half+400),p.h,track.half);
-  assert.ok(height(1)>p.h+800 && height(-1)<p.h-800,'Steep bank right, drop left throughout');
+  if (!p.summitOpen) assert.ok(height(1)>p.h+800 && height(-1)<p.h-800,'Steep bank right, drop left below summit');
+  if (p.summitOpen === 1) assert.ok(Math.abs(height(1)-p.h)<0.01 && Math.abs(height(-1)-p.h)<0.01, 'Summit must open level on both sides');
 }
 const banks=remutakaBankBarriers(track);
 assert.ok(banks.length > 0, 'Uphill bank must have a collision boundary');
@@ -49,20 +50,30 @@ const summit=track.summit, surface=new RoadSurface(track.roads);
 const from=summit.point(0,-metres(2)),to=summit.point(0,metres(2));
 assert.ok(crossesSummitFinish(track,from,to),'Through road must finish');
 assert.ok(crossesSummitFinish(track,to,from));
+assert.equal(profile[summit.index].summitOpen, 1);
+assert.ok(summit.triangles.length > 4, 'Summit shoulders must follow the curved road');
+for (const across of [-track.half-summit.rightWidth+metres(2), track.half+summit.leftWidth-metres(2)]) {
+  const start=summit.point(across,-metres(2)), end=summit.point(across,metres(2));
+  assert.ok(crossesSummitFinish(track,start,end), 'Both widened shoulders must finish');
+  const car={...end, vx:0, vy:0, forward:{x:Math.cos(summit.angle),y:Math.sin(summit.angle)},collideRadius:45,axleOffset:40};
+  assert.ok(!bounceOffBarriers(car,[...rails,...banks],start), 'Summit shoulders must stay clear of barriers');
+}
 assert.ok(crossesSummitFinish(track,summit.point(track.half+metres(8),-metres(2)),summit.point(track.half+metres(8),metres(2))), 'Car park must finish');
-assert.ok(!crossesSummitFinish(track,summit.point(-track.half-metres(3),-metres(2)),summit.point(-track.half-metres(3),metres(2))),'Finish must not extend beyond road');
+assert.ok(!crossesSummitFinish(track,summit.point(-track.half-summit.rightWidth-metres(3),-metres(2)),summit.point(-track.half-summit.rightWidth-metres(3),metres(2))),'Finish must not extend beyond road');
 assert.ok(!crossesSummitFinish(track,summit.point(0,3000),summit.point(2000,3000)),'Grass cannot finish');
 assert.ok(track.heights.at(-1)<summit.h-metres(10),'Road visibly descends after crest');
 const car={...to,vx:0,vy:-200,forward:{x:Math.sin(summit.angle),y:-Math.cos(summit.angle)},collideRadius:45,axleOffset:40};
 assert.ok(!bounceOffBarriers(car,rails,from),'Parking entrance must stay open');
 const mesh=buildPavedAreas(track);mesh.updateMatrixWorld();
-const [a,b,c]=summit.triangle;
+for (const [a,b,c] of summit.triangles) {
 for(let i=1;i<10;i++)for(let j=1;i+j<10;j++){
   const x=a.x*i/10+b.x*j/10+c.x*(1-(i+j)/10),y=a.y*i/10+b.y*j/10+c.y*(1-(i+j)/10);
   assert.equal(distanceToCenterline(x,y,track.centerline),0);
-  assert.ok(Math.abs(surface.heightAt(x,y)-summit.h)<0.01);
+  const expected = a.h*i/10+b.h*j/10+c.h*(1-(i+j)/10);
+  assert.ok(Math.abs(surface.heightAt(x,y)-expected)<0.01);
   const hit=new Raycaster(new Vector3(x,20000,y),new Vector3(0,-1,0)).intersectObject(mesh)[0];
-  assert.ok(hit && Math.abs(hit.point.y-summit.h)<0.02,'Visible parking must support car');
+  assert.ok(hit && Math.abs(hit.point.y-expected)<0.02,'Visible parking must support car');
+}
 }
 const traffic=buildTraffic(TRACKS.find(t => t.id === 'remutaka'),track);
 assert.equal(traffic.cars.length,6,'Remutaka should inherit a light Morris Minor fleet');

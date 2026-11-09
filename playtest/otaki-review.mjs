@@ -25,9 +25,9 @@ try {
         const branch = scene.track.roads.find(r => r.id === 'rahui-mill-tasman').centerline;
         const start = primary.reduce((best, p, i) => Math.hypot(p.x - branch[0].x, p.y - branch[0].y) < best.gap
           ? { i, gap: Math.hypot(p.x - branch[0].x, p.y - branch[0].y) } : best, { i: 0, gap: Infinity }).i;
-        // The town route meets Marine Parade north of the finish. Turn south
-        // for the marked beach arrival, which can be crossed either way.
-        path = [...primary.slice(0, start), ...branch, ...primary.slice(-50).reverse()];
+        // Join the common sea-facing arrival after driving through the town.
+        const join = primary.reduce((best,p,i) => Math.hypot(p.x-branch.at(-1).x,p.y-branch.at(-1).y)<best.d ? {i,d:Math.hypot(p.x-branch.at(-1).x,p.y-branch.at(-1).y)} : best,{i:0,d:Infinity}).i;
+        path = [...primary.slice(0, start), ...branch, ...primary.slice(join+1)];
       }
       window.__otakiReview = { path, route, frames: 0, offRoad: 0 };
     }, route);

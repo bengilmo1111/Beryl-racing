@@ -23,7 +23,6 @@ import { remutakaVisualHeight } from '../../remutakaTerrain.js';
 import { buildPavedAreas, buildRoad, buildApron, buildKerbs } from '../road.js';
 import { buildRemutakaCentreLine } from '../remutakaCentreLine.js';
 import { remutakaDescent } from './remutakaDescent.js';
-import { metres } from '../../scale.js';
 import { WORLD } from '../../config.js';
 import { basic, lambert } from '../palette.js';
 import { labelTexture } from '../textures.js';
@@ -63,7 +62,7 @@ function addLowerSideFace(group, track, terrain, profile, sideKey, nearOffset, f
     const j = Math.min(end - 1, i + 2);
     const a = profile[i];
     const b = profile[j];
-    if (track.summit && Math.abs(i-track.summit.index)*50 < metres(36)) continue;
+    if (a.summitOpen || b.summitOpen) continue;
     const sideA = a[sideKey];
     const sideB = b[sideKey];
     if (sideA !== sideB || Math.hypot(b.x - a.x, b.z - a.z) > 190) continue;
@@ -233,6 +232,7 @@ function addHairpinChevrons(group, track, terrain, profile) {
   const candidates = [];
   let last = -100;
   for (let i = Math.floor(profile.length * 0.5); i < profile.length - 7; i += 1) {
+    if (profile[i].summitOpen) continue;
     const strength = Math.abs(profile[i].curvature);
     if (strength < 0.045 || i - last < 18) continue;
     let localMax = true;
@@ -382,6 +382,7 @@ function addValleyBushDetail(group, track, terrain, profile) {
   const batches = [[], []];
   for (let i = 8; i < profile.length - 8; i += 7) {
     const point = profile[i];
+    if (point.summitOpen) continue;
     for (let band = 0; band < 3; band += 1) {
       const phase = i * 1.91 + band * 3.7;
       const offset = track.half + 850 + band * 620 + (Math.sin(phase) * 0.5 + 0.5) * 360;

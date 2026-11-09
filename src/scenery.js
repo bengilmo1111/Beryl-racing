@@ -434,8 +434,8 @@ export function scatterScenery(track, def) {
 
   // Keep the complete arrival clear, including canopy/fence overhangs.
   if (track.pavedAreas?.length) {
-    const end = track.centerline.at(-1);
-    const clear = p => Math.hypot(p.x - end.x, p.y - end.y) > metres(48);
+    const end = track.summit?.origin || track.centerline.at(-1);
+    const clear = p => Math.hypot(p.x - end.x, p.y - end.y) > metres(track.summit ? 65 : 48);
     return { trees: trees.filter(clear), props: props.filter(p => clear(p) && clearsBuildings(p.x, p.y, metres(1))), obstacles: obstacles.filter(clear) };
   }
   return { trees, props, obstacles };

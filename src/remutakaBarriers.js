@@ -1,56 +1,23 @@
 import { remutakaRoadProfile } from './remutakaTerrain.js';
-import { metres } from './scale.js';
 
-// Rendering and collisions consume exactly these segments, including the open
-// entrance and the two outer edges of the summit parking triangle.
+// The visible rail and bank collision follow the outside of the widened
+// summit shoulders, keeping all furniture out of the carriageway.
 export function remutakaBarriers(track) {
-  const profile = remutakaRoadProfile(track), segments = [];
-  const summit = track.summit;
-  const posts = profile.map(p => ({ x: p.x - p.nx * (track.half + 65),
-    y: p.z - p.nz * (track.half + 65), h: p.h }));
-  for (let i = 0; i < posts.length - 1; i++) {
-    const a = posts[i], b = posts[i + 1];
-    if (summit) {
-      const along = p => (p.x - summit.origin.x)*Math.cos(summit.angle)
-        + (p.y - summit.origin.y)*Math.sin(summit.angle);
-      if (Math.min(along(a), along(b)) < metres(23) && Math.max(along(a), along(b)) > -metres(23)
-        && Math.abs(i - summit.index) < 80) continue;
-    }
-    segments.push({ a, b });
-  }
-  if (summit) {
-    const [a,b,c] = summit.triangle;
-    segments.push({a,b}, {a:b,b:c});
-  }
-  return segments;
+  const profile = remutakaRoadProfile(track);
+  const posts = profile.map(p => {
+    const offset = track.half + 65 + (track.summit?.leftWidth || 0) * p.summitOpen;
+    return { x: p.x - p.nx * offset, y: p.z - p.nz * offset, h: p.h };
+  });
+  return posts.slice(0, -1).map((a, i) => ({ a, b: posts[i + 1] }));
 }
 
-// The cut bank is not a spare piece of drivable terrain. Keep a collision line
-// just beyond the inboard shoulder, while leaving the summit car-park entrance
-// open. It is intentionally separate from remutakaBarriers(): only the exposed
-// edge gets a visible Armco rail in the renderer.
 export function remutakaBankBarriers(track) {
-  const profile = remutakaRoadProfile(track), segments = [];
-  const summit = track.summit;
-  const edge = track.half + 50;
-  // A 150-unit chord still follows the tightest bend to within a few units,
-  // while avoiding another 3,600 collision segments in every physics frame.
-  const points = profile.filter((p, i) => i % 3 === 0 || i === profile.length - 1).map(p => ({
-    x: p.x + p.nx * edge,
-    y: p.z + p.nz * edge,
-    h: p.h,
-    index: p.index,
-  }));
-  for (let i = 0; i < points.length - 1; i += 1) {
-    if (summit && Math.abs(points[i].index - summit.index) < 80) {
-      const along = p => (p.x - summit.origin.x) * Math.cos(summit.angle)
-        + (p.y - summit.origin.y) * Math.sin(summit.angle);
-      if (Math.min(along(points[i]), along(points[i + 1])) < metres(23)
-        && Math.max(along(points[i]), along(points[i + 1])) > -metres(23)) continue;
-    }
-    segments.push({ a: points[i], b: points[i + 1] });
-  }
-  return segments;
+  const profile = remutakaRoadProfile(track);
+  const points = profile.filter((p, i) => i % 3 === 0 || i === profile.length - 1).map(p => {
+    const offset = track.half + 50 + (track.summit?.rightWidth || 0) * p.summitOpen;
+    return { x: p.x + p.nx * offset, y: p.z + p.nz * offset, h: p.h };
+  });
+  return points.slice(0, -1).map((a, i) => ({ a, b: points[i + 1] }));
 }
 
 // Sweep the nose and tail across each rail's plane. A fast frame cannot jump

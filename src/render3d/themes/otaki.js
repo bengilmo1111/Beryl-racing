@@ -13,6 +13,8 @@ import {
   PlaneGeometry,
   BoxGeometry,
   SphereGeometry,
+  ConeGeometry,
+  CylinderGeometry,
 } from 'three';
 import { C, basic, lambert } from './../palette.js';
 import { buildOtakiFarmhouse, buildEastbourneVilla, villaPalette } from '../houses.js';
@@ -331,6 +333,7 @@ function addBeach(group, terrain, layout) {
   const dome = new SphereGeometry(1, 14, 7, 0, Math.PI * 2, 0, Math.PI / 2);
   const grass = lambert(0x8c9d60);
   for (let z = beach.y + 350; z < beach.y + beach.h; z += 1050) {
+    if (Math.abs(z - 8000 * (layout.world.height / 11000)) < 1700) continue;
     const x = layout.coastX + 1000 + Math.sin(z / 1700) * 170;
     const dune = new Mesh(dome, grass);
     dune.position.set(x, terrain.heightAt(x, z) + 1, z);
@@ -380,6 +383,23 @@ export function buildOtaki(track, def, terrain, structures = []) {
   addMarketGardens(group, terrain, track);
   addFarmhouses(group, terrain, structures);
   addTown(group, terrain, layout, track, def, structures);
+  for (const [i, site] of structures.filter(s => s.kind === 'picnic').entries()) {
+    const table = new Group(), timber = lambert(0xb79060), metal = lambert(0x424f4c);
+    table.add(box(220,12,95,0,65,0,timber));
+    for (const side of [-1,1]) {
+      table.add(box(220,10,35,0,36,side*75,timber));
+      for (const x of [-75,75]) table.add(box(12,60,12,x,30,side*35,metal));
+    }
+    const pole = new Mesh(new CylinderGeometry(3,3,210,6),metal); pole.position.y=105; table.add(pole);
+    const shade = new Mesh(new ConeGeometry(140,45,8),lambert(i ? 0xd9aa57 : 0xb95e4e));
+    shade.position.y=225; table.add(shade);
+    table.position.set(site.x,terrain.heightAt(site.x,site.z),site.z); group.add(table);
+  }
+  const end = track.centerline.at(-1), h = track.heights.at(-1) + .8;
+  for (const side of [-1,1]) for (let x=0; x<=1000; x+=250) {
+    const bay = new Mesh(new PlaneGeometry(8,210),basic(0xe8e6dc));
+    bay.geometry.rotateX(-Math.PI/2); bay.position.set(end.x+x,h,end.y+side*610); group.add(bay);
+  }
 
   return group;
 }

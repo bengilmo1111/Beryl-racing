@@ -27,6 +27,7 @@ function addDelineators(group, track, terrain, profile) {
   const samples = [];
   for (let i = Math.floor(profile.length * 0.1); i < profile.length - 4; i += 8) {
     const point = profile[i];
+    if (point.summitOpen) continue;
     // Inboard marker posts are the most useful because the exposed side already
     // has Armco reflectors. A few outboard posts remain early in the climb before
     // the barrier becomes continuous.
@@ -73,7 +74,7 @@ function addBushyBank(group, track, terrain, profile) {
 
   for (let i = start; i < end; i += 4) {
     const point = profile[i];
-    if (track.summit && Math.abs(i - track.summit.index) < 50) continue;
+    if (point.summitOpen) continue;
     // Dense overlapping crowns hide the old bare cut face. Deterministic trig
     // variation keeps the bush natural without touching gameplay RNG state.
     const strength = 0.75 + point.progress * 0.45;

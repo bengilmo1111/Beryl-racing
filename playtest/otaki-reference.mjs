@@ -29,6 +29,15 @@ try {
     }, { fraction, reverse });
     await writeFile(`${out}/${name}.png`, Buffer.from(data.split(',')[1], 'base64'));
   }
+  const street = await page.evaluate(() => {
+    const scene=window.__BERYL_GAME__.scene.getScene('Race');
+    const road=scene.track.roads.find(r=>r.id==='rahui-mill-tasman');
+    const i=Math.floor(road.centerline.length*.5), p=road.centerline[i], q=road.centerline[i+1];
+    scene.car.reset(p.x,p.y,Math.atan2(q.x-p.x,-(q.y-p.y)));
+    scene.world3d.chase.snap(); scene.hud.clearMessage();
+    return window.__h._screenshot();
+  });
+  await writeFile(`${out}/town-street.png`,Buffer.from(street.split(',')[1],'base64'));
   for (const kind of ['cattle', 'minors']) {
     const data = await page.evaluate(kind => {
       const scene = window.__BERYL_GAME__.scene.getScene('Race'), world = scene.world3d;

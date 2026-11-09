@@ -75,6 +75,8 @@ jobs:
       # player until src/viewport.js took the sizing over.
       - name: Turning the phone
         run: npm run test:rotation
+      - name: Finish cards fit phones and survive resizing
+        run: node playtest/results-layout.mjs
       - name: Production build
         run: npm run build
       - name: Gateway path

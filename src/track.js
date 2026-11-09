@@ -1,3 +1,4 @@
+import { otakiArrival } from './otakiArrival.js';
 // Builds road geometry: a smooth primary centreline plus optional branch roads,
 // checkpoints, surfaces, elevation and helpers for testing whether a point is on
 // any driveable road.
@@ -234,10 +235,11 @@ export function buildTrack() {
     TRACK
   );
 
+  if (TRACK.arrival === 'otaki-beach') primary.pavedAreas = otakiArrival(primary).triangles;
   if (TRACK.arrival === 'rsa-parking') primary.pavedAreas = [rsaArrival(primary).triangle];
   if (TRACK.arrival === 'remutaka-summit') {
     primary.summit = remutakaSummit(primary);
-    primary.pavedAreas = [primary.summit.triangle];
+    primary.pavedAreas = primary.summit.triangles;
   }
   const roads = [primary];
   for (const branchSpec of TRACK.branches || []) {

@@ -240,7 +240,7 @@ export function buildKerbs(track, theme, skipAt = null, roads = null) {
   // which is the one marking a gravel road certainly does not have, and it
   // undid most of the work the gravel colour was doing.
   const unsealed = (i) => !!(surfaces && surfaces[i] === 'gravel');
-  const skip = i => unsealed(i) || (skipAt && skipAt(i)) || inParking(track, i);
+  const skip = i => !!track.summit?.openness[i] || unsealed(i) || (skipAt && skipAt(i)) || inParking(track, i);
 
   return [left, right].map((edge) => {
     const mesh = buildRibbon(
@@ -372,7 +372,7 @@ export function buildApron(track, theme = null, skipAt = null, roads = null) {
       heightsFor(track, APRON_Y),
       colorAt,
       closed,
-      i => (skipAt && skipAt(i)) || inParking(track, i)
+      i => !!track.summit?.openness[i] || (skipAt && skipAt(i)) || inParking(track, i)
     );
     if (roads) {
       const clipped = clearRoads(mesh.geometry, roads.filter(r => r !== track));

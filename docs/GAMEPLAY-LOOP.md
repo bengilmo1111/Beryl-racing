@@ -656,21 +656,6 @@ beach; do not call the whole course recognisable based on better tree proportion
 Next test: player recognition of those transitions, then local landmark work,
 before a decorative polish pass. Remutaka next needs phone-size sign readability.
 
-## 2026-11-06: three story/progression rounds
-
-Built and verified **The Sunday run**, six connected Ōtaki/Remutaka chapters.
-Round one connected the races with a saved route book; round two added actual
-branch itineraries, driving-sensitive cargo and stopped summit deliveries;
-round three added consequences, route choice, safe continuation across visits
-and readable completed pages. See [design and evidence](SUNDAY-RUN.md).
-
-All six chapters complete and save in automated drives. UI tests cover reload,
-continuation, phone layout, denied storage, records and free-drive isolation.
-The four ordinary courses also match an isolated starting-commit copy exactly
-in same-Chrome drives at seed 780385. This is a playable local iteration,
-not a retention result or a production deployment. Next decision comes from
-player interest in continuing the story, not bot times.
-
 ## 2026-11-06: Ōtaki river crossing repair
 
 The river carve scales with the course, but its bridge parapets still used a

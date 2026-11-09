@@ -47,3 +47,11 @@ Added 24 grazing Friesian cows in three roadside pasture groups and three single
 Added four coloured Morris Minors (two in each direction) using the existing traffic and collision system. Their route band is 60–91% of the course, past the road cows and river and before the finish. Other courses retain their existing traffic bands. This deliberately separates ambient traffic from stationary road cows.
 
 Checks: `npm test`, production build, `node playtest/otaki-life.mjs` (repeatable poses, solid footprints, 80 seconds of road-clear traffic and finish/cow separation), both time-trial routes and all three Ōtaki story chapters completing. Cow and traffic previews are captured by `playtest/otaki-reference.mjs`.
+
+## Beach destination and street network correction
+
+The route now turns west from Marine Parade into a shared beachfront parking area. Both town routes join this approach facing the surf; the timed strip lies inside the parking area and the car stops on the shared paved surface. Dunes open at the arrival, with picnic tables and shade on both sides. Removed the overhead banner and repetitive street-direction boards. The beach, road geometry and chequered strip establish the arrival.
+
+Removed the two small bypass links, retained two substantial town routes and two cross-town connections, and gave every Ōtaki road the same width, shoulders, centre lines and edge markings. Added housing frontage along the alternate town route. Junction paint and shoulders still clear other paved streets.
+
+Verified both complete free-drive routes and safe stops, road/placement/driving checks, the beachfront finish direction and proximity, and the full paved parking footprint. New views are in `playtest-out/otaki-review/town-finish.png` and `playtest-out/otaki-reference/town-street.png`.

@@ -69,98 +69,36 @@ const PRIMARY_ANCHORS = [
   { x: 1250, y: 9300 },
   { x: 1100, y: 8600 },
   { x: 1100, y: 8000 },
+  { x: 930, y: 8000 },
+  { x: 780, y: 8000 },
 ];
 
 const SEALED = [{ type: 'sealed', until: 1 }];
 
+// Two substantial town routes and a cross-town street, with full road widths.
+// Shared nodes form recognisable blocks rather than little bypass loops.
 const BRANCHES = [
-  {
-    id: 'rahui-mill-tasman',
-    roadWidth: 270,
-    surfaceBands: SEALED,
-    closed: false,
-    anchors: [
-      // Continue north on the old highway, cross through Rāhui / Mill Road and
-      // the old-town centre, then follow Main / Tasman Road to the coast.
-      { x: 9000, y: 7600 },
-      { x: 9000, y: 8200 },
-      { x: 8800, y: 8650 },
-      { x: 8100, y: 8700 },
-      { x: 7200, y: 8700 },
-      { x: 6500, y: 8900 },
-      { x: 5700, y: 9000 },
-      { x: 5000, y: 9200 },
-      { x: 4300, y: 8800 },
-      { x: 3500, y: 8400 },
-      { x: 2700, y: 8150 },
-      { x: 1900, y: 8000 },
-      { x: 1100, y: 8000 },
-    ],
-  },
-  {
-    id: 'aotaki-riverbank-link',
-    roadWidth: 250,
-    surfaceBands: SEALED,
-    closed: false,
-    anchors: [
-      // Aotaki Street links the old-town route back toward Riverbank Road.
-      { x: 6500, y: 8900 },
-      { x: 6500, y: 8500 },
-      { x: 6500, y: 8150 },
-      { x: 6800, y: 8250 },
-    ],
-  },
-  {
-    id: 'waerenga-link',
-    roadWidth: 250,
-    surfaceBands: SEALED,
-    closed: false,
-    anchors: [
-      // Waerenga Road gives a second connection from the old highway side to
-      // the direct Riverbank route.
-      { x: 9000, y: 8200 },
-      { x: 8350, y: 8200 },
-      { x: 7600, y: 8000 },
-    ],
-  },
-  {
-    id: 'rangiuru-town-link',
-    roadWidth: 245,
-    surfaceBands: SEALED,
-    closed: false,
-    anchors: [
-      // The old centre and direct route meet again around Rangiuru Road.
-      { x: 5000, y: 9200 },
-      { x: 4900, y: 9000 },
-      { x: 4800, y: 8750 },
-    ],
-  },
-  {
-    id: 'beach-grid-link',
-    roadWidth: 240,
-    surfaceBands: SEALED,
-    closed: false,
-    anchors: [
-      // A small beach-town grid lets the player swap between Tasman Road and
-      // Rangiuru / Marine Parade close to the finish.
-      { x: 2700, y: 8150 },
-      { x: 2750, y: 8650 },
-      { x: 2850, y: 9150 },
-      { x: 3000, y: 9500 },
-    ],
-  },
+  { id: 'rahui-mill-tasman', roadWidth: 400, surfaceBands: SEALED, closed: false,
+    anchors: [{x:9000,y:7600},{x:9000,y:8200},{x:8800,y:8650},{x:8100,y:8700},
+      {x:7200,y:8700},{x:6500,y:8900},{x:5700,y:9000},{x:5000,y:9200},
+      {x:4300,y:8800},{x:3500,y:8400},{x:2700,y:8150},{x:1900,y:8000},{x:1100,y:8000}] },
+  { id: 'aotaki-riverbank-link', roadWidth: 400, surfaceBands: SEALED, closed: false,
+    anchors: [{x:6500,y:8900},{x:6600,y:8550},{x:6800,y:8250}] },
+  { id: 'beach-grid-link', roadWidth: 400, surfaceBands: SEALED, closed: false,
+    anchors: [{x:2700,y:8150},{x:2750,y:8650},{x:2850,y:9150},{x:3000,y:9500}] },
 ];
 
 export const OTAKI_GEOMETRY = {
   anchors: PRIMARY_ANCHORS,
   branches: BRANCHES,
+  arrival: 'otaki-beach',
   // 280 was 1.3 car lengths, capped by a 36-unit corner radius. The rescale
   // lifts that ceiling to ~360, so the rally road is two proper lanes.
   roadWidth: 400,
   numCheckpoints: 8,
   // Every required gate except the finish is before the town network splits.
   // Any realistic route through Ōtaki therefore remains a valid rally route.
-  checkpointFractions: [0, 0.1, 0.21, 0.34, 0.46, 0.51, 0.542, 1],
+  checkpointFractions: [0, 0.1, 0.21, 0.34, 0.46, 0.503, 0.534, 1],
   closed: false,
   // Only the upper gorge is gravel. DOC describes the final five kilometres to
   // the Forks as unsealed; the lower gorge, town and beach roads are sealed.

@@ -53,3 +53,19 @@ fingerprint `b55a2b03c90e51a0`. Only Remutaka's pinned baseline was updated; the
 other three courses' exact values remained unchanged. CI browser screenshots
 were inspected; the end-of-run screenshot catches the existing yellow finish
 flash, so it does not establish the settled results overlay.
+
+## Open summit correction
+
+Replaced the separate parking triangle with two tapered paved shoulders that
+follow the carriageway. The crest has a 36 m broad section, easing back to the
+normal road over 32 m at each end. The exposed shoulder widens by 24 m and the
+inboard shoulder by 12 m. The cut bank and drop ease away at the saddle, and the
+existing road elevation still crests here before descending.
+
+Guardrail and bank collisions follow the new outer edges. Kerbs, apron strips,
+delineators, dense bank bushes and nearby scenery clear the summit opening. The
+finish band spans the road and both shoulders, with the checkpoint on the road.
+
+Verified with the Remutaka collision/finish/surface checks, track geometry checks,
+terrain clearance, production build, and headless Chrome overview and approach
+renders. The browser reported no runtime errors.

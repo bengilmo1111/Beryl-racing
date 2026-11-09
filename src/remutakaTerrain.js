@@ -64,6 +64,7 @@ export function remutakaRoadProfile(track) {
       curvature: curvature[i],
       inside: sides[i] || 1,
       outside: -(sides[i] || 1),
+      summitOpen: track.summit?.openness[i] || 0,
       progress: count > 1 ? i / (count - 1) : 0,
     };
   });
@@ -103,23 +104,26 @@ export function remutakaVisualHeight(point, x, z, baseHeight, roadHalf) {
   if (!point) return baseHeight;
   const signed = (x - point.x) * point.nx + (z - point.z) * point.nz;
   const insideDistance = signed * point.inside;
-  const shoulder = roadHalf + 65;
+  // At the saddle the cut bank and exposed edge recede beyond the broad
+  // paved shoulders. Blend back into the mountain cross-section on either end.
+  const open = point.summitOpen || 0;
+  const shoulder = roadHalf + 65 + open * (insideDistance >= 0 ? 850 : 1550);
   const edgeDistance = Math.max(0, Math.abs(signed) - shoulder);
   if (edgeDistance <= 0) return baseHeight;
 
   // The cliff is already pronounced at the foot and strengthens up the climb.
-  const drama = 0.65 + 0.35 * smoothstep(0.05, 0.5, point.progress);
+  const drama = (0.65 + 0.35 * smoothstep(0.05, 0.5, point.progress)) * (1 - open);
   const grain =
     Math.sin(x * 0.0041 + z * 0.0023) * 42 +
     Math.sin(x * 0.0017 - z * 0.0037 + point.progress * 17) * 30;
 
   if (insideDistance >= 0) {
-    const cut = smoothstep(0, 340, edgeDistance) * (500 + 1500 * drama);
-    const upperSlope = smoothstep(340, 2200, edgeDistance) * (220 + 620 * drama);
+    const cut = smoothstep(0, 340, edgeDistance) * (500 * (1 - open) + 1500 * drama);
+    const upperSlope = smoothstep(340, 2200, edgeDistance) * (220 * (1 - open) + 620 * drama);
     return baseHeight + cut + upperSlope + grain * drama;
   }
 
-  const cliff = smoothstep(0, 280, edgeDistance) * (500 + 1350 * drama);
-  const valley = smoothstep(280, 2500, edgeDistance) * (260 + 1080 * drama);
+  const cliff = smoothstep(0, 280, edgeDistance) * (500 * (1 - open) + 1350 * drama);
+  const valley = smoothstep(280, 2500, edgeDistance) * (260 * (1 - open) + 1080 * drama);
   return baseHeight - cliff - valley - Math.abs(grain) * drama * 0.55;
 }
