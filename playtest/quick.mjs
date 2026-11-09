@@ -10,6 +10,7 @@ const checks = [
   'road-contact',
   'arcade-driving',
   'rivals',
+  'polish-contracts',
 ];
 const started = Date.now();
 for (const check of checks) {

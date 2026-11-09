@@ -51,10 +51,14 @@ export function buildRouteProgress(track) {
   };
   const primary = track.roads[0];
   const base = distances(primary);
-  mapped.set(primary, base.map(d => d / base.at(-1)));
+  const closing = primary.closed ? Math.hypot(primary.centerline[0].x - primary.centerline.at(-1).x,
+    primary.centerline[0].y - primary.centerline.at(-1).y) : 0;
+  const total = base.at(-1) + closing;
+  mapped.set(primary, base.map(d => d / total));
   const value = pose => {
     const rows = mapped.get(pose.road);
-    return rows[pose.index] + ((rows[pose.index + 1] ?? rows[pose.index]) - rows[pose.index]) * pose.t;
+    const end = rows[pose.index + 1] ?? (pose.road.closed ? 1 : rows[pose.index]);
+    return rows[pose.index] + (end - rows[pose.index]) * pose.t;
   };
   for (const road of track.roads.slice(1)) {
     const known = { roads: [...mapped.keys()] };

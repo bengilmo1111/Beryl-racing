@@ -1,5 +1,49 @@
 # Gameplay improvement loop
 
+## 2026-11-09: recovery and personal-best feedback
+
+Baseline: `c3d0711` and the [independent local review](reviews/self-review-2026-11-09.md).
+Ben requested fixes after the review. All courses now offer checkpoint-preserving
+recovery with a three-second penalty. R is the desktop shortcut; mobile has a
+contextual reset action after off-road driving, wrong-way driving or a low-speed
+collision, rather than another permanent button. Reset checks visible barrier
+spans and moving cars before choosing an earned road position.
+
+During low-speed sideways manoeuvres and reversing, the camera lifts and moves
+over the carriageway. Its road direction stays stable through the manoeuvre;
+nearby Remutaka bank foliage uses the existing camera-clear fade. The inspected
+bank-facing fixture now shows Beryl and the escape road. Normal forward camera
+behaviour and all four reference finish times remain unchanged. This local change
+still benefits from human preference testing; no subjective PR was merged here.
+
+Checkpoint splits compare against the complete saved best run and briefly replace
+LAST rather than growing the HUD. Slower runs do not overwrite the split baseline.
+Old/malformed/mismatched records are ignored, and denied storage does not stop
+driving. Remutaka and Ōtaki results now explain the difference from the previous
+best. Eastbourne's starting road also extends beneath the rear wheels visually.
+
+Ōtaki timing diagnosis: both fixed seeds finish in 203116.667 ms with traffic;
+the same first-seed route without traffic finishes in 148183.333 ms. The reference
+driver follows the 42–48 km/h cars instead of overtaking. The old 163000 ms cap
+covered the clear-road pace. The new 240000 ms upper bound allows the measured
+traffic-enabled run with about 18% headroom; the 120000 ms lower bound, required
+eight gates, completion, bounds and runtime checks remain. No traffic, route,
+handling or historical replay baseline was changed to obtain a pass.
+
+Verification: quick Node checks including the new recovery/storage/camera
+contracts; all four complete reference drives; slower-retry split retention;
+two Ōtaki timing seeds and a no-traffic diagnostic; small-phone recovery visibility,
+44-pixel target and driving-control separation on all four courses; actual touch
+reset with exact penalty and unchanged checkpoints; responsive results buttons;
+and the full touch-only Eastbourne finish/name/retry/recovery journey. The final
+camera was re-rendered and inspected after the foliage correction. Production
+build passes with the existing bundle-size warning. Evidence is in
+`playtest-out/polish/` and `playtest-out/self-review/journey/`.
+
+Next human check: recover on each course without coaching, compare the recovery
+camera during a Remutaka bank manoeuvre, and judge Ōtaki pacing and sustained
+Manfeild competition before changing scenery or rival speeds.
+
 Goal: a forgiving, lively coastal drive in a recognisable Morris Minor and Eastbourne.
 Production is the 3D game on `main`, at https://www.gilmore.games/beryl-racing/.
 

@@ -55,7 +55,7 @@
       "waypointMustFinish": true,
       "finishTimeMs": {
         "min": 120000,
-        "max": 163000
+        "max": 240000
       },
       "minimumWaypointCheckpointRate": 1,
       "noSoftlock": true,

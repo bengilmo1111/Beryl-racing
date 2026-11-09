@@ -232,6 +232,16 @@ export async function runNewMobilePlayerJourney({ browser, baseUrl, outDir }) {
       if (Math.abs(cameraAspect.actual - cameraAspect.expected) > 1e-6) {
         failures.push(journeyFailure('retry-camera-aspect', JSON.stringify(cameraAspect)));
       }
+      // The recovery action is contextual on phones. A deliberate off-road
+      // fixture tests its reveal and tap contract without another full drive.
+      await page.evaluate(async () => {
+        const scene = window.__BERYL_GAME__.scene.getScene('Race');
+        const road = scene.track.roads[0], p = road.centerline[30], q = road.centerline[31];
+        const rotation = Math.atan2(q.x - p.x, -(q.y - p.y));
+        scene.car.reset(p.x + Math.cos(rotation) * road.half * 3,
+          p.y + Math.sin(rotation) * road.half * 3, rotation);
+        await window.advanceTime(1800);
+      });
       const beforeRecovery = await page.evaluate(() => {
         const scene = window.__BERYL_GAME__.scene.getScene('Race');
         const rect = scene.game.canvas.getBoundingClientRect();
@@ -240,10 +250,11 @@ export async function runNewMobilePlayerJourney({ browser, baseUrl, outDir }) {
         // to bottom-centre once already, and an origin-dependent sum silently
         // starts tapping the scenery next to it when it moves again.
         const bounds = scene.recoverButton.getBounds();
-        return { oldStart: scene.lapStartTime, expected: scene.expected,
+        return { visible: scene.recoverButton.visible, oldStart: scene.lapStartTime, expected: scene.expected,
           x: rect.left + (bounds.centerX / scene.scale.width) * rect.width,
           y: rect.top + (bounds.centerY / scene.scale.height) * rect.height };
       });
+      if (!beforeRecovery.visible) failures.push(journeyFailure('recovery-not-offered', 'Off-road recovery prompt did not appear'));
       await page.touchscreen.tap(beforeRecovery.x, beforeRecovery.y);
       const recovered = await page.evaluate((before) => {
         const scene = window.__BERYL_GAME__.scene.getScene('Race');

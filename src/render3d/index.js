@@ -114,6 +114,7 @@ class RaceWorld {
     else if (!geographyLed) this.scene3d.add(buildStartGantry(scene.track, 'START'));
 
     if (scene.def.theme === 'eastbourne') {
+      this.scene3d.add(buildStartApproach(scene.track));
       // Structures are resolved by RaceScene so their visual footprints and
       // collision footprints share the same road-clear positions.
       this.scene3d.add(

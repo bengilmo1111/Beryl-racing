@@ -77,6 +77,8 @@ export class ChaseCamera {
   snap() {
     this.primed = false;
     this.lookPitch = undefined;
+    this.recoveryBlend = undefined;
+    this.recoveryRoadDirection = undefined;
   }
 
   // `terrain` lifts the whole rig onto the hillside. Without it the camera stays
@@ -86,16 +88,16 @@ export class ChaseCamera {
     const rig = this.rig;
 
     // Targets.
-    const targetX = car.x;
-    const targetZ = car.y;
+    let targetX = car.x;
+    let targetZ = car.y;
     const targetGround = terrain ? terrain.heightAt(car.x, car.y) : 0;
     // Feed a little of the slide into the camera yaw so a drift shows Beryl's
     // flank rather than nailing the camera to her tail. Body heading, not
     // velocity heading — velocity heading swings wildly on the handbrake.
     const slip = Math.max(-1, Math.min(1, car.lateral / (CAR.driftLateral * 3)));
     let targetYaw = yawFor(car.rotation) + slip * 0.18;
+    const pose = this.track && nearestRoadPose(this.track, car.x, car.y);
     if (CAR.arcade && this.track && car.speed > CAR.maxSpeed * 0.08) {
-      const pose = nearestRoadPose(this.track, car.x, car.y);
       if (pose && pose.distance < pose.road.half * 2) {
         const ahead = roadAhead(pose, Math.max(700, car.speed * 1.6));
         const routeYaw = yawFor(Math.atan2(ahead.x - car.x, -(ahead.y - car.y)));
@@ -107,6 +109,36 @@ export class ChaseCamera {
     }
 
     const speedRatio = Math.min(1, Math.abs(car.speed) / CAR.maxSpeed);
+    // When a slow car is sideways against a bank, following only its bonnet
+    // fills the screen with that bank. Lift the view and align it with the
+    // nearest direction along the road while manoeuvring; leave normal driving
+    // untouched. The nearest direction avoids a 180-degree flip in reverse.
+    let roadTurn = 0;
+    if (pose && pose.distance < pose.road.half * 3) {
+      roadTurn = angleDelta(yawFor(car.rotation), yawFor(pose.rotation));
+      if (Math.abs(roadTurn) > Math.PI / 2) roadTurn = angleDelta(yawFor(car.rotation), yawFor(pose.rotation + Math.PI));
+    }
+    const manoeuvring = !!pose && pose.distance < pose.road.half * 3
+      && (car.speed < -CAR.maxSpeed * 0.015 || (speedRatio < 0.18 && Math.abs(roadTurn) > 0.55));
+    const recovery = manoeuvring ? 1 : 0;
+    this.recoveryBlend ??= recovery;
+    this.recoveryBlend += (recovery - this.recoveryBlend) * (dt > 0 ? alphaFor(0.04, dt) : 1);
+    if (manoeuvring && this.recoveryRoadDirection === undefined) {
+      this.recoveryRoadDirection = Math.cos(car.rotation - pose.rotation) >= 0 ? 1 : -1;
+    }
+    if (pose && this.recoveryRoadDirection !== undefined) {
+      const roadYaw = yawFor(pose.rotation + (this.recoveryRoadDirection < 0 ? Math.PI : 0));
+      targetYaw += angleDelta(targetYaw, roadYaw) * this.recoveryBlend;
+    }
+    // Retain the chosen road direction through a manoeuvre, so tiny steering
+    // changes around ninety degrees cannot flip the view to the opposite end.
+    if (!manoeuvring && this.recoveryBlend < 0.01) this.recoveryRoadDirection = undefined;
+    if (pose) {
+      // Put the recovery rig over the carriageway rather than inside the bank
+      // behind an off-centre car. The car itself never moves with this anchor.
+      targetX += (pose.x - targetX) * this.recoveryBlend;
+      targetZ += (pose.y - targetZ) * this.recoveryBlend;
+    }
     const targetFov = rig.fov * (1 + (CAR.arcade ? 0.035 : FOV_GAIN) * speedRatio);
     const targetDist = rig.dist * (1 + (CAR.arcade ? 0.025 : DIST_GAIN) * speedRatio);
 
@@ -140,7 +172,7 @@ export class ChaseCamera {
     const eyeX = this.anchor.x - this._fwd.x * this.dist;
     const eyeZ = this.anchor.z - this._fwd.z * this.dist;
     const eyeGround = terrain ? terrain.heightAt(eyeX, eyeZ) : 0;
-    this._eye.set(eyeX, Math.max(this.anchor.y, eyeGround) + rig.height, eyeZ);
+    this._eye.set(eyeX, Math.max(this.anchor.y, eyeGround) + rig.height + 180 * this.recoveryBlend, eyeZ);
 
     // Aim at the road ahead rather than a fixed height, or a climb points the
     // camera at open sky and a descent buries it in the road.
@@ -150,11 +182,11 @@ export class ChaseCamera {
     // bottom of the frame — the road ahead is beautifully framed and the car
     // you're driving is gone. Splitting the difference keeps her seated in the
     // lower third while still opening up the climb.
-    const lookX = this.anchor.x + this._fwd.x * rig.lookAhead;
-    const lookZ = this.anchor.z + this._fwd.z * rig.lookAhead;
+    const lookDistance = rig.lookAhead * (1 - 0.55 * this.recoveryBlend);
+    const lookX = this.anchor.x + this._fwd.x * lookDistance;
+    const lookZ = this.anchor.z + this._fwd.z * lookDistance;
     // Avoid aiming into a bank on the outside of a bend. Only the road
     // surface contributes pitch while driving on a road.
-    const pose = this.track && nearestRoadPose(this.track, car.x, car.y);
     const ahead = pose && pose.distance < pose.road.half * 2
       ? roadAhead(pose, rig.lookAhead, Math.cos(car.rotation - pose.rotation) >= 0 ? 1 : -1) : null;
     const lookGround = terrain ? terrain.heightAt(ahead?.x ?? lookX, ahead?.y ?? lookZ) : 0;
