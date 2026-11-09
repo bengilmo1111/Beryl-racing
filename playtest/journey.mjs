@@ -11,6 +11,9 @@ const browser = await chromium.launch({ headless: true, executablePath: process.
 let activePage;
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  // Software WebGL on shared CI runners can advance the rendered countdown
+  // much more slowly than wall-clock time. Still wait for the real GO state.
+  page.setDefaultTimeout(120000);
   activePage = page;
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
@@ -104,6 +107,7 @@ try {
   await page.close();
   // Storage can be denied entirely, rather than only running out of quota.
   const blocked = await browser.newPage({ viewport: { width: 915, height: 412 } });
+  blocked.setDefaultTimeout(120000);
   activePage = blocked;
   const blockedErrors = []; blocked.on('pageerror', e => blockedErrors.push(e.message));
   await blocked.addInitScript(() => Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('Storage denied', 'SecurityError'); } }));

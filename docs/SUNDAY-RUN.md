@@ -88,8 +88,8 @@ preserved.
   roughly 5e-9-unit Eastbourne position difference in this Chrome environment.
 
 Artifacts are under `playtest-out/journey/` (ignored by Git). Production was
-inspected directly before implementation; changes and full chapter drives are
-local, not a production deployment.
+inspected directly before implementation; the full chapter evidence here was
+collected locally before release.
 
 Next player review: do the conversations make you want the next drive; does
 choosing a road feel worthwhile; does the flask encourage a satisfying slower
