@@ -160,7 +160,7 @@ export const OTAKI_GEOMETRY = {
   numCheckpoints: 8,
   // Every required gate except the finish is before the town network splits.
   // Any realistic route through Ōtaki therefore remains a valid rally route.
-  checkpointFractions: [0, 0.1, 0.21, 0.34, 0.46, 0.51, 0.556, 1],
+  checkpointFractions: [0, 0.1, 0.21, 0.34, 0.46, 0.51, 0.542, 1],
   closed: false,
   // Only the upper gorge is gravel. DOC describes the final five kilometres to
   // the Forks as unsealed; the lower gorge, town and beach roads are sealed.
@@ -172,7 +172,8 @@ export const OTAKI_GEOMETRY = {
     // The Tasman lies west of Marine Parade. The authored theme adds the visible
     // beach strip; this fixed-level region keeps the terrain beneath it flat.
     sea: [{ x: -2200, y: -800, w: 2850, h: 12600, level: 0 }],
-    // Checkpoint 6 is the Ōtaki River bridge, immediately before route choice.
+    // Checkpoint 6 is the Ōtaki River bridge. Leave a full bank between its
+    // parapets and the town junction so the alternative route stays open.
     river: { cp: 6, halfWidth: 165, halfLength: 1750, drop: 58 },
     profile: [
       { at: 0, h: 520 },

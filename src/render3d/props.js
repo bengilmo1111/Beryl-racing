@@ -1,3 +1,4 @@
+import { inWaterRegion } from '../waterRegions.js';
 // Roadside furniture: the things that make a road read as a road through
 // somewhere, rather than tarmac laid on a lawn.
 //
@@ -18,6 +19,9 @@ import {
   Group,
 } from 'three';
 import { lambert } from './palette.js';
+import { distanceToCenterline } from '../track.js';
+import { otakiTreeCrown } from './otakiTreeGeometry.js';
+import { cameraClearFoliage } from './foliageVisibility.js';
 import { metres } from '../scale.js';
 
 const COLOUR = {
@@ -80,7 +84,7 @@ function instanced(props, kind, geometry, material, count = 1) {
   return { list, mesh: new InstancedMesh(geometry, material, list.length * count) };
 }
 
-export function buildProps(props, terrain) {
+export function buildProps(props, terrain, track = null, theme = null) {
   const group = new Group();
   group.name = 'roadside-props';
   if (!props || !props.length) return group;
@@ -168,12 +172,17 @@ export function buildProps(props, terrain) {
   // lumpy top where a box has a straight one.
   const beltCount = countBelt(props);
   if (beltCount) {
-    const crownGeom = new ConeGeometry(0.5, 1, 7);
-    crownGeom.translate(0, 0.5, 0);
-    const crowns = new InstancedMesh(crownGeom, lambert(COLOUR.shelter), beltCount);
+    const crownGeom = theme === 'otaki' ? otakiTreeCrown('tree-2') : new ConeGeometry(0.5, 1, 7);
+    crownGeom.computeBoundingBox();
+    const low = crownGeom.boundingBox.min.y, height = crownGeom.boundingBox.max.y - low;
+    crownGeom.translate(0, -low, 0);
+    crownGeom.scale(1, 1 / height, 1);
+    const crowns = new InstancedMesh(crownGeom, cameraClearFoliage(lambert(COLOUR.shelter)), beltCount);
     const trunkGeom = new CylinderGeometry(metres(0.2), metres(0.28), 1, 5);
     trunkGeom.translate(0, 0.5, 0);
     const trunks = new InstancedMesh(trunkGeom, lambert(COLOUR.shelterTrunk), beltCount);
+    trunks.name = 'shelter-belt-trunks';
+    crowns.name = 'shelter-belt-crowns';
 
     let b = 0;
     for (const prop of props) {
@@ -185,6 +194,11 @@ export function buildProps(props, terrain) {
         const t = (i / (n - 1) - 0.5) * prop.length;
         const x = prop.x + dx * t;
         const z = prop.y + dz * t;
+        // Check every crown, including its overhang, against every street.
+        // A clear belt midpoint says nothing about a 200 m row's endpoints.
+        if (track && (track.roads || [track]).some(road =>
+          distanceToCenterline(x, z, road.centerline) < road.half + BELT_WIDTH * 0.6 + metres(2))) continue;
+        if (track && inWaterRegion(track.sea, x, z, BELT_WIDTH * 0.6)) continue;
         const y = ground(x, z);
         // A deterministic wobble so the top is not a ruled line.
         const wave = 0.86 + 0.14 * Math.sin(i * 1.7 + prop.x * 0.001);
@@ -203,6 +217,7 @@ export function buildProps(props, terrain) {
       }
     }
     for (const mesh of [trunks, crowns]) {
+      mesh.count = b;
       mesh.instanceMatrix.needsUpdate = true;
       mesh.frustumCulled = false;
       group.add(mesh);

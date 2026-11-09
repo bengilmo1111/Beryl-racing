@@ -1,3 +1,6 @@
+import { otakiBridgeBarriers } from '../otakiBridge.js';
+import { fenceBarriers } from '../fenceBarriers.js';
+import { crossesOtakiFinish } from '../otakiFinish.js';
 import { remutakaBarriers, remutakaBankBarriers, bounceOffBarriers } from '../remutakaBarriers.js';
 import { crossesSummitFinish } from '../remutakaSummit.js';
 import Phaser from 'phaser';
@@ -79,6 +82,7 @@ export class RaceScene extends Phaser.Scene {
     this.structures = buildStructures(this.def, this.track);
     for (const o of structureObstacles(this.structures)) this.obstacles.push(o);
     this.scenery = scatterScenery(this.track, this.def);
+    if (this.def.theme === 'otaki') this.barriers.push(...fenceBarriers(this.scenery.props), ...otakiBridgeBarriers(this.track, this.def));
     for (const o of this.scenery.obstacles) this.obstacles.push(o);
     if (this.def.theme === 'eastbourne') {
       this.summerTrees = summerTrees(this.track, this.structures, this.scenery.trees);
@@ -488,7 +492,8 @@ export class RaceScene extends Phaser.Scene {
       }
     }
     const dt = Math.min(delta / 1000, 0.05);
-    const input = this.readInput();
+    const input = this.finished && this.def.theme === 'otaki'
+      ? { throttle: 0, brake: 1, steer: 0 } : this.readInput();
     // Stashed for the 3D layer, which steers Beryl's front wheels with it. Read
     // only for rendering — this has no effect on the simulation.
     this.lastInput = input;
@@ -506,7 +511,7 @@ export class RaceScene extends Phaser.Scene {
       ? this.terrain.roadGradeAlong(this.car.x, this.car.y, f.x, f.y)
       : this.terrain.gradeAlong(this.car.x, this.car.y, f.x, f.y);
 
-    if (this.finished && (this.journeyChapter || this.def.theme === 'eastbourne' || this.track.summit)) {
+    if (this.finished && (this.journeyChapter || this.def.theme === 'eastbourne' || this.def.theme === 'otaki' || this.track.summit)) {
       // Short controlled roll into the parking area; never coast into the grass.
       const decay = Math.exp(-10 * dt);
       this.car.vx *= decay;
@@ -671,6 +676,10 @@ export class RaceScene extends Phaser.Scene {
     const cps = this.track.checkpoints;
     if (this.def.theme === 'eastbourne' && this.expected === cps.length - 1) {
       if (crossesRsaFinish(this.track, beforeMovement, this.car)) this.finishSprint();
+      return;
+    }
+    if (this.def.theme === 'otaki' && this.expected === cps.length - 1) {
+      if (crossesOtakiFinish(this.track, beforeMovement, this.car)) this.finishSprint();
       return;
     }
     if (this.track.summit && this.expected === cps.length - 1) {

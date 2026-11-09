@@ -181,3 +181,25 @@ function placeCrossbuck(place, track, def, terrain) {
   sign.rotation.y = facingTraffic(px, py, track).yaw;
   place(sign, px, py);
 }
+
+// Small physical wayfinding boards at the decisions the town grid introduces.
+export function buildOtakiRouteSigns(track, terrain) {
+  const group = new Group();
+  group.name = 'otaki-beach-wayfinding';
+  const add = (road, index, text) => {
+    const line = road.centerline;
+    const cp = line[index], before = line[Math.max(0, index - 1)], after = line[Math.min(line.length - 1, index + 1)];
+    const angle = Math.atan2(after.y - before.y, after.x - before.x);
+    const offset = road.half + 230;
+    const x = cp.x - Math.sin(angle) * offset, z = cp.y + Math.cos(angle) * offset;
+    const sign = buildSign(text, { color: '#fff8e7', background: '#28594a', fontSize: 60 }, 65);
+    sign.position.set(x, terrain.heightAt(x, z), z);
+    sign.rotation.y = Math.PI / 2 - angle + Math.PI;
+    group.add(sign);
+  };
+  add(track, Math.max(0, track.checkpoints[6].index - 12), 'BEACH · RIVERBANK RD →');
+  add(track, track.centerline.length - 48, 'BEACH FINISH AHEAD');
+  const branch = track.roads?.find(r => r.id === 'rahui-mill-tasman');
+  if (branch) add(branch, branch.centerline.length - 18, '← BEACH FINISH');
+  return group;
+}

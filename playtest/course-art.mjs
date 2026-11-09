@@ -54,6 +54,10 @@ for (const variant of ['tree-1', 'tree-2', 'tree-3']) {
   canopy.geometry.computeBoundingBox();
   const bounds = canopy.geometry.boundingBox.clone().applyMatrix4(matrix);
   assert.ok(bounds.max.y < metres(15), 'Ōtaki canopy must not become a towering forest');
+  const trunkMatrix = new Matrix4(); trunk.getMatrixAt(0, trunkMatrix);
+  trunk.geometry.computeBoundingBox();
+  const trunkBounds = trunk.geometry.boundingBox.clone().applyMatrix4(trunkMatrix);
+  assert.ok(bounds.min.y <= trunkBounds.max.y, 'Ōtaki crowns must connect to their trunks');
 }
 console.log('Ōtaki tree proportions and visible collision trunks PASS');
 

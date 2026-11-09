@@ -19,6 +19,8 @@ import {
   Color,
 } from 'three';
 import { C, lambert, basic } from './palette.js';
+import { cameraClearFoliage } from './foliageVisibility.js';
+import { otakiTreeCrown } from './otakiTreeGeometry.js';
 import { foliageTint } from './ground.js';
 
 // Distinct silhouettes, per docs/ART-DIRECTION.md §5.3 — the player should be
@@ -90,9 +92,15 @@ export function buildTrees(trees, terrain, theme = null) {
 
     // Unit geometries, scaled per instance. Origins sit at each part's base so
     // instance scaling grows the tree upward out of the ground.
-    const canopyGeom = spec.canopy();
+    const canopyGeom = theme === 'otaki' ? otakiTreeCrown(key) : spec.canopy();
     canopyGeom.scale(spec.canopyScale[0], spec.canopyScale[1], spec.canopyScale[2]);
     canopyGeom.translate(0, 0.5, 0);
+    if (theme === 'otaki') {
+      canopyGeom.computeBoundingBox();
+      const { min, max } = canopyGeom.boundingBox;
+      canopyGeom.translate(0, -min.y, 0);
+      canopyGeom.scale(1, 1 / (max.y - min.y), 1);
+    }
 
     const trunkGeom = new CylinderGeometry(0.06, 0.09, 1, 6);
     trunkGeom.translate(0, 0.5, 0);
@@ -101,7 +109,7 @@ export function buildTrees(trees, terrain, theme = null) {
     shadowGeom.rotateX(-Math.PI / 2);
 
     const canopyBase = foliageTint(theme, spec.color);
-    const canopy = new InstancedMesh(canopyGeom, lambert(canopyBase), list.length);
+    const canopy = new InstancedMesh(canopyGeom, theme === 'otaki' ? cameraClearFoliage(lambert(canopyBase)) : lambert(canopyBase), list.length);
     const trunk = new InstancedMesh(trunkGeom, lambert(TRUNK_COLOR), list.length);
     const shadow = new InstancedMesh(
       shadowGeom,
