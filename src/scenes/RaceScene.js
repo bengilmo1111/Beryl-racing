@@ -282,12 +282,12 @@ export class RaceScene extends Phaser.Scene {
     // with the progress rail in it, and growing as the flag drops is a flinch.
     this.hud.setProgress(0);
     this.recoverButton = this.add.text(0, 0, '↻  BACK ON ROAD', {
-      fontFamily: FONT, fontSize: '18px', fontStyle: '700', color: '#15314b',
-      backgroundColor: '#fff8e7', padding: { x: 18, y: 12 },
+      fontFamily: FONT, fontSize: '18px', fontStyle: '700', color: '#c1e6d8',
+      backgroundColor: '#153e40', padding: { x: 18, y: 12 },
     }).setOrigin(0.5, 1).setDepth(1000).setInteractive({ useHandCursor: true });
-    this.recoverButton.setShadow(0, 3, 'rgba(21, 49, 75, 0.35)', 6, true, true);
-    this.recoverButton.on('pointerover', () => this.recoverButton.setAlpha(0.92));
-    this.recoverButton.on('pointerout', () => this.recoverButton.setAlpha(1));
+    this.recoverButton.setLetterSpacing(1);
+    this.recoverButton.on('pointerover', () => this.recoverButton.setBackgroundColor('#36645d'));
+    this.recoverButton.on('pointerout', () => this.recoverButton.setBackgroundColor('#153e40'));
     this.recoverButton.on('pointerup', () => this.recover());
     const recoverKey = (event) => { if (!event.repeat) this.recover(); };
     this.input.keyboard.on('keydown-R', recoverKey);

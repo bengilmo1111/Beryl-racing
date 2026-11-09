@@ -19,9 +19,10 @@
 import Phaser from 'phaser';
 import { uiScale, isCompact, pinUiObject } from './format.js';
 
-const INK = 0x15314b;
-const PAPER = 0xfff8e7;
-const SUNSHINE = 0xffd166;
+const GLYPH = 0xf3eedf;
+const FACE = 0x153e40;
+const BORDER = 0xb7d4ca;
+const PRESSED = 0x36645d;
 
 // Corner brackets — the standard "expand to fill" mark.
 //
@@ -33,8 +34,8 @@ export function drawFullscreenIcon(g, size, exiting) {
   // Entering shows brackets hugging the corners; exiting pulls them inward and
   // faces them the other way, so the two states are told apart at a glance.
   const inset = exiting ? size * 0.3 : size * 0.2;
-  const w = Math.max(2, Math.round(size * 0.1));
-  g.lineStyle(w, INK, 1);
+  const w = Math.max(2, Math.round(size * 0.055));
+  g.lineStyle(w, GLYPH, 1);
   const corners = [
     [inset, inset, 1, 1],
     [size - inset, inset, -1, 1],
@@ -61,20 +62,20 @@ export function drawSoundIcon(g, size, muted) {
   const coneW = size * 0.2;
   const coneH = size * 0.44;
 
-  g.fillStyle(INK, 1);
+  g.fillStyle(GLYPH, 1);
   g.fillRect(cx - bodyW, cy - bodyH / 2, bodyW, bodyH);
   g.fillPoints(
     [
-      { x: cx, y: cy - coneH / 2 },
+      { x: cx, y: cy - bodyH / 2 },
       { x: cx + coneW, y: cy - coneH / 2 },
       { x: cx + coneW, y: cy + coneH / 2 },
-      { x: cx, y: cy + coneH / 2 },
+      { x: cx, y: cy + bodyH / 2 },
     ],
     true
   );
 
-  const w = Math.max(2, Math.round(size * 0.09));
-  g.lineStyle(w, INK, 1);
+  const w = Math.max(2, Math.round(size * 0.05));
+  g.lineStyle(w, GLYPH, 1);
   if (muted) {
     const x0 = size * 0.66;
     const y0 = cy - size * 0.13;
@@ -106,7 +107,7 @@ export function drawSoundIcon(g, size, muted) {
 // Drawn in whatever colour is asked for, because the same glyph fills the big
 // round horn on a phone, where the buttons are ink-on-translucent and an ink
 // horn would vanish into the road behind it.
-export function drawHornIcon(g, size, color = INK) {
+export function drawHornIcon(g, size, color = GLYPH) {
   g.fillStyle(color, 1);
 
   // The bell, as a cone about an axis running up to the right: both edges have
@@ -143,25 +144,20 @@ export function drawHomeIcon(g, size) {
   const base = size * 0.78;
   const halfW = size * 0.3;
 
-  // Roof: a solid triangle overhanging the walls a little on each side.
-  g.fillStyle(INK, 1);
-  g.fillPoints(
-    [
-      { x: cx, y: ridge },
-      { x: cx + halfW * 1.15, y: eaves },
-      { x: cx - halfW * 1.15, y: eaves },
-    ],
-    true
-  );
-
-  // Walls, as an outline so the door inside them reads at 44 pixels.
-  const w = Math.max(2, Math.round(size * 0.1));
-  g.lineStyle(w, INK, 1);
-  g.strokeRect(cx - halfW, eaves, halfW * 2, base - eaves);
-
-  // The door, filled, and tall enough to touch the floor.
-  const doorW = size * 0.16;
-  g.fillRect(cx - doorW / 2, base - (base - eaves) * 0.62, doorW, (base - eaves) * 0.62);
+  g.lineStyle(Math.max(2, Math.round(size * 0.055)), GLYPH, 1);
+  g.beginPath();
+  g.moveTo(cx - halfW * 1.15, eaves);
+  g.lineTo(cx, ridge);
+  g.lineTo(cx + halfW * 1.15, eaves);
+  g.moveTo(cx - halfW, eaves - size * 0.04);
+  g.lineTo(cx - halfW, base);
+  g.lineTo(cx - size * 0.09, base);
+  g.lineTo(cx - size * 0.09, base - size * 0.19);
+  g.lineTo(cx + size * 0.09, base - size * 0.19);
+  g.lineTo(cx + size * 0.09, base);
+  g.lineTo(cx + halfW, base);
+  g.lineTo(cx + halfW, eaves - size * 0.04);
+  g.strokePath();
 }
 
 // How much of the top-right corner a row of `count` icon buttons occupies,
@@ -191,6 +187,8 @@ export function createIconButton(scene, { index = 0, draw, onTap, onPress, depth
   let screenY = 0;
   let size = 0;
   let pressed = false;
+  let hovered = false;
+  let pressPointer = null;
   const pin = () => pinUiObject(scene, layer, screenX, screenY);
 
   const redraw = () => {
@@ -205,17 +203,20 @@ export function createIconButton(scene, { index = 0, draw, onTap, onPress, depth
     screenX = scene.scale.width - margin - size - index * (size + gap);
     screenY = margin;
 
-    const radius = Math.round(size * 0.24);
+    const radius = Math.round(size * 0.22);
     bg.clear();
-    // A press lights the button up rather than moving it: these sit under a
-    // fingertip, and a button that shifts while you are looking at your finger
-    // instead of the screen reads as a missed tap.
-    bg.fillStyle(INK, 0.25);
-    bg.fillRoundedRect(0, Math.max(2, Math.round(size * 0.06)), size, size, radius);
-    bg.fillStyle(pressed ? SUNSHINE : PAPER, 1);
+    bg.fillStyle(0x071e20, 0.3);
+    bg.fillRoundedRect(0, 3, size, size, radius);
+    bg.fillStyle(pressed ? PRESSED : FACE, 0.96);
     bg.fillRoundedRect(0, 0, size, size, radius);
+    bg.lineStyle(1, BORDER, pressed || hovered ? 0.85 : 0.38);
+    bg.strokeRoundedRect(0.5, 0.5, size - 1, size - 1, radius);
+    bg.lineStyle(1, 0xffffff, 0.08);
+    bg.lineBetween(radius, 2, size - radius, 2);
     icon.clear();
-    draw(icon, size);
+    // Give every symbol the same optical inset, preserving the full tap area.
+    icon.setPosition(size * 0.1, size * 0.1);
+    draw(icon, size * 0.8);
 
     // The hit area lives on the container's own local box.
     layer.setSize(size, size);
@@ -233,20 +234,24 @@ export function createIconButton(scene, { index = 0, draw, onTap, onPress, depth
     pressed = next;
     redraw();
   };
-  layer.on('pointerdown', () => {
+  layer.on('pointerover', () => { hovered = true; redraw(); });
+  layer.on('pointerdown', (pointer) => {
+    pressPointer = pointer.id;
     setPressed(true);
     if (onPress) onPress();
     redraw();
   });
-  layer.on('pointerup', () => {
+  layer.on('pointerup', (pointer) => {
+    const activate = pressed && pressPointer === pointer.id;
+    pressPointer = null;
     setPressed(false);
-    if (onTap) onTap();
+    if (activate && onTap) onTap();
     redraw();
   });
   // A finger that slides off before lifting cancels the tap, which is what
   // makes a one-press "leave the race" button safe to put on a phone.
-  layer.on('pointerout', () => setPressed(false));
-  layer.on('pointerupoutside', () => setPressed(false));
+  layer.on('pointerout', () => { hovered = false; pressPointer = null; setPressed(false); redraw(); });
+  layer.on('pointerupoutside', () => { pressPointer = null; setPressed(false); });
 
   scene.scale.on('resize', redraw);
   scene.scale.on('enterfullscreen', redraw);

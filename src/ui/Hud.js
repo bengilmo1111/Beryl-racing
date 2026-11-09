@@ -151,14 +151,14 @@ export class Hud {
   drawPanel() {
     if (!this.panel) return;
     const { x, y, w, h, px, s } = this.panel;
-    const radius = Math.round(16 * s);
+    const radius = Math.round(10 * s);
     const barH = Math.round(7 * s);
     const hasBar = this.progress != null;
     const height = hasBar ? h + barH + Math.round(8 * s) : h;
 
     this.bg.clear();
-    this.bg.fillStyle(COLORS.ink, 0.82);
-    this.bg.lineStyle(Math.max(2, Math.round(2 * s)), 0xfff8e7, 0.3);
+    this.bg.fillStyle(0x153e40, 0.9);
+    this.bg.lineStyle(1, 0xb7d4ca, 0.38);
     this.bg.fillRoundedRect(x, y, w, height, radius);
     this.bg.strokeRoundedRect(x, y, w, height, radius);
 

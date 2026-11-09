@@ -11,7 +11,6 @@
 import Phaser from 'phaser';
 import { FONT, pinUiLayer } from './format.js';
 import { drawHornIcon } from './iconButton.js';
-import { COLORS } from '../config.js';
 
 export function isTouchDevice() {
   return (
@@ -33,15 +32,15 @@ export class TouchControls {
     this.layer = scene.add.container(0, 0).setScrollFactor(0).setDepth(999);
     this.buttons = [];
     this.hornAction = null;
-    this.left = this._button({ label: '‹', color: COLORS.paper, stateKey: 'left', caption: 'STEER' });
-    this.right = this._button({ label: '›', color: COLORS.paper, stateKey: 'right', caption: 'STEER' });
-    this.gas = this._button({ label: '▲', color: COLORS.sunshine, stateKey: 'gas', caption: 'GAS' });
-    this.brake = this._button({ label: '▼', color: COLORS.red, stateKey: 'brake', caption: 'BRAKE' });
+    this.left = this._button({ color: 0xc1e6d8, stateKey: 'left', caption: 'STEER' });
+    this.right = this._button({ color: 0xc1e6d8, stateKey: 'right', caption: 'STEER' });
+    this.gas = this._button({ color: 0xe9c878, stateKey: 'gas', caption: 'GAS' });
+    this.brake = this._button({ color: 0xe9a092, stateKey: 'brake', caption: 'BRAKE' });
     // The horn, as a real button rather than a 44-pixel icon in the far corner.
     // It is in Beryl's own colour and it sounds on the way down, so honking is
     // one thumb-press from the throttle instead of a reach across the screen.
     this.horn = this._button({
-      color: COLORS.berylBody,
+      color: 0x8dd8cd,
       stateKey: 'horn',
       caption: 'HORN',
       draw: drawHornIcon,
@@ -73,25 +72,45 @@ export class TouchControls {
     });
   }
 
-  // `label` is a text glyph; `draw(graphics, size, color)` is a vector one, for
-  // shapes no font can be trusted to have. `action` fires the moment the button
+  // `draw(graphics, size, color)` renders a consistent vector symbol.
+  // `action` fires the moment the button
   // goes down — the horn, as against the pedals, which are read every frame.
-  _button({ label = '', color, stateKey, caption, draw = null, action = null }) {
+  _button({ color, stateKey, caption, draw = null, action = null }) {
     const scene = this.scene;
     const button = scene.add.container(0, 0);
-    const arc = scene.add.circle(0, 0, 80, color, 0.34).setStrokeStyle(5, color, 0.95);
-    const text = scene.add
-      .text(0, 0, label, { fontFamily: FONT, fontStyle: '700', color: '#fff8e7' })
-      .setOrigin(0.5);
-    const glyph = draw ? scene.add.graphics() : null;
+    const shadow = scene.add.circle(0, 3, 80, 0x071e20, 0.25);
+    const arc = scene.add.circle(0, 0, 80, 0x153e40, 0.88).setStrokeStyle(1.5, color, 0.7);
+    const ring = scene.add.circle(0, 0, 73, 0x153e40, 0).setStrokeStyle(1, color, 0.13);
+    // Draw the driving symbols too, so their weight matches the utility icons.
+    if (!draw) draw = (g, size, ink) => {
+      g.lineStyle(Math.max(2, size * 0.055), ink, 1);
+      if (stateKey === 'left' || stateKey === 'right') {
+        const sign = stateKey === 'left' ? -1 : 1;
+        g.beginPath();
+        g.moveTo(size * (0.5 - sign * 0.12), size * 0.26);
+        g.lineTo(size * (0.5 + sign * 0.12), size * 0.5);
+        g.lineTo(size * (0.5 - sign * 0.12), size * 0.74);
+        g.strokePath();
+      } else {
+        // Pedal plate with grip bars: throttle is tall, brake is wide.
+        const gas = stateKey === 'gas';
+        const x = size * (gas ? 0.33 : 0.22);
+        const y = size * (gas ? 0.18 : 0.3);
+        const w = size * (gas ? 0.34 : 0.56);
+        const h = size * (gas ? 0.64 : 0.4);
+        g.strokeRoundedRect(x, y, w, h, size * 0.06);
+        for (let i = 1; i <= 3; i++) g.lineBetween(x + w * 0.22, y + h * i / 4, x + w * 0.78, y + h * i / 4);
+      }
+    };
+    const glyph = scene.add.graphics();
     const captionText = scene.add
-      .text(0, 0, caption, { fontFamily: FONT, fontStyle: '700', color: '#15314b' })
+      .text(0, 0, caption, { fontFamily: FONT, fontStyle: '700', color: '#f3eedf' })
       .setOrigin(0.5);
 
-    button.add(glyph ? [arc, text, glyph, captionText] : [arc, text, captionText]);
+    button.add([shadow, arc, ring, glyph, captionText]);
     this.layer.add(button);
 
-    const b = { button, arc, text, glyph, draw, caption: captionText, color, stateKey,
+    const b = { button, shadow, arc, ring, glyph, draw, caption: captionText, color, stateKey,
       action, cx: 0, cy: 0, radius: 80 };
     this.buttons.push(b);
     return b;
@@ -100,8 +119,9 @@ export class TouchControls {
   _setPressed(b, pressed) {
     const changed = this.state[b.stateKey] !== pressed;
     this.state[b.stateKey] = pressed;
-    b.arc.setFillStyle(b.color, pressed ? 0.62 : 0.34);
-    b.button.setScale(pressed ? 0.95 : 1);
+    b.arc.setFillStyle(pressed ? 0x36645d : 0x153e40, pressed ? 0.98 : 0.88);
+    b.arc.setStrokeStyle(pressed ? 2.5 : 1.5, b.color, pressed ? 1 : 0.7);
+    b.ring.setStrokeStyle(1, b.color, pressed ? 0.4 : 0.13);
     if (pressed && changed && b.action) b.action();
   }
 
@@ -151,16 +171,17 @@ export class TouchControls {
     b.arc
       .setPosition(0, 0)
       .setRadius(r)
-      .setStrokeStyle(Math.max(3, Math.round(r * 0.06)), b.color, 0.95);
-    b.text.setPosition(0, -r * 0.08).setFontSize(Math.round(r * 0.78));
-    b.caption.setPosition(0, r * 0.56).setFontSize(Math.round(r * 0.2));
+      .setStrokeStyle(1.5, b.color, 0.7);
+    b.shadow.setRadius(r);
+    b.ring.setRadius(r - 6);
+    b.caption.setPosition(0, r * 0.56).setFontSize(Math.round(r * 0.18)).setLetterSpacing(1);
     if (b.glyph) {
       // The drawn glyph's own ink sits at about (0.47, 0.54) of the box it is
       // drawn into, so centring it means offsetting by that, not by half.
       const size = Math.round(r * 1.05);
       b.glyph.clear();
       b.glyph.setPosition(-size * 0.47, -size * 0.54 - r * 0.08);
-      b.draw(b.glyph, size, 0xfff8e7);
+      b.draw(b.glyph, size, b.color);
     }
   }
 
@@ -194,6 +215,7 @@ export class TouchControls {
     // used to be the icon stack's third slot.
     this._place(this.horn, w - edge - r, bottom - 2 * r - Math.round(r * 0.22), r);
 
+    for (const b of this.buttons) this._setPressed(b, this.state[b.stateKey]);
     this.pin();
   }
 
