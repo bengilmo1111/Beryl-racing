@@ -17,6 +17,7 @@ The authoritative art documents are:
 - **`beryl-photo.png`** — the real photo of Beryl, a turquoise 1960s Morris Minor 1000. Loaded via `BERYL_PHOTO_URL` in `src/art.js`, shown on the title screen and used as the primary identity reference for the gameplay sprite.
 - **`music-race.mp3`** — the current looping 1960s-inspired race music. Loaded in `BootScene` and played through `src/audio/sound.js`.
 - **`beryl-engine-front.wav`** (2.86 s), **`beryl-engine-rear.wav`** (4.15 s) — Beryl's real engine, recorded at the front of the car and at the back of it. Seamless loops of deliberately unrelated lengths, played back pitched to crankshaft speed by `src/audio/engineVoices.js`.
+- **`beryl-engine-driving.wav`** (2.92 s) — a steady on-road pull, blended in under load at higher revs.
 - **`beryl-horn.wav`** (0.77 s) — one press of Beryl's real horn, played by `src/audio/Horn.js`. Shortened in the middle with the real release spliced back on, not trimmed.
 - **`tarmac.png`** — seamless asphalt surface texture. Not currently loaded; kept for the 3D road material (see `src/render3d/road.js`, which generates the UVs for it).
 - **`grass.png`** — seamless grass texture. Used on the title screen and the 3D ground plane.
@@ -28,17 +29,17 @@ had been unreachable since the Manfield-only build.
 
 ### Beryl's own noises
 
-The driving engine sound is the **real car**: two loops cut from recordings made
-at the front and the rear of her, pitched to the crankshaft speed the gearbox
+The driving engine sound is the **real car**: three loops cut from recordings made
+at the front and the rear of her and while driving, pitched to the crankshaft speed the gearbox
 model in `src/audio/EngineSound.js` works out, and mixed against each other by
 how hard she is being asked to work. The synth those recordings replaced is
 still there and still plays Manfeild's V8, because nobody has a recording of a
 Morris Minor with a V8 in it.
 
-These three are WAV rather than mp3 on purpose: mp3 and AAC carry encoder
+These four are WAV rather than mp3 on purpose: mp3 and AAC carry encoder
 padding that `decodeAudioData` turns into silence at the ends of the buffer,
 which is a gap in the middle of a looping engine note. They are mono 22.05 kHz,
-about 210 kB for all three.
+about 472 kB for all four.
 
 **Do not recut them by hand.** Each engine loop is a whole number of firing
 cycles long and wrapped with a crossfade so the ends meet, and the frequency it

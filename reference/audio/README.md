@@ -103,3 +103,35 @@ adds filtered noise for sealed-road sliding and softer loose-surface friction.
 This is procedural audio, not a sound extracted from the supplied engine clips.
 It follows speed, surface and slip, fades at rest, respects mute and is disposed
 on scene shutdown. All vehicle sounds share the existing compressor.
+
+## November 2026 driving recording
+
+The supplied `V0d03d64399913477c1bb.wav` is 139.73 s of four-channel,
+96 kHz, 24-bit PCM. The 154 MB original stays outside the repository and game.
+Its SHA-256 and exact cut are in `beryl-driving-loop.json`.
+
+`beryl-engine-driving.wav` uses channel 1 (one-based), from 27.5 s for
+2.924807 s. This passage has a strong, relatively steady 118.676 Hz engine
+pulse (about 3560 rpm assuming two firings per revolution). The other channels
+have more broadband vibration relative to the engine, so they are not averaged
+into this layer. Processing removes rumble below 45 Hz, rolls off above 4.8 kHz,
+resamples to mono 22.05 kHz, chooses a phase-aligned seam and wraps 140 ms with
+a raised-cosine crossfade. RMS is −14 dBFS; peak is 0.6934. Engine-band join
+correlation is 0.8182 before the wrap; this is a noisier on-road source than
+the stationary recordings. The game keeps it underneath the rear exhaust.
+
+Rebuild with Python, NumPy and SciPy:
+
+```sh
+python scripts/prepare-driving-audio.py /path/to/V0d03d64399913477c1bb.wav
+```
+
+The driving layer replaces up to 75% of the front layer as revs and load rise.
+It fades out at idle, on a trailing throttle and during shifts. Its measured
+firing rate controls pitch, so recorded road noise does not have to be stretched
+across the entire rev range. The existing front/rear recordings still play if
+this optional clip fails to load. Manfeild retains its synthesised V8.
+
+`test:audio` now loads all three engine clips, measures the isolated driving
+layer under load and at idle/coast/shift, and runs the existing pitch, variation,
+loop continuity, gear change and headroom checks on the combined engine.

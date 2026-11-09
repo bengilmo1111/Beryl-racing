@@ -61,7 +61,7 @@ directly above them, and fullscreen, sound and home buttons in a row across the
 top-right corner.
 
 **She sounds like herself.** The engine is Beryl's own, recorded from the front
-of the car and from behind it, the two loops pitched to the crankshaft speed a
+of the car, from behind it and on the road, with loops pitched to the crankshaft speed a
 four-speed gearbox model says she is doing and mixed by how hard she is working
 — so you hear her change gear, and you hear her labour up the Remutaka climb at
 a steady speed. The horn is hers too. Manfeild is the exception: that V8 is

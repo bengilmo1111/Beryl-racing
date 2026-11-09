@@ -4,10 +4,10 @@
 // how hard it is being asked to work. A voice turns that into sound. There are
 // two, and which one you get is not a quality setting:
 //
-//  • RecordedVoice plays the real car. Two loops cut from recordings made at
+//  • RecordedVoice plays the real car. Loops cut from recordings made at
 //    the front and the back of Beryl, pitched by playback rate to the crank
 //    speed the gearbox model says she is doing, and mixed against each other by
-//    load. This is the one you normally hear.
+//    load, with an on-road layer for higher revs. This is the one you normally hear.
 //  • SynthVoice is three oscillators. It covers the case where the recordings
 //    cannot be loaded, and it is the only voice that can play an engine Beryl
 //    does not have — Manfeild's V8 is a joke that no recording of a 948cc
@@ -80,6 +80,8 @@ function wander(now, load, shape) {
 // at about 0.35× and the redline at about 2.1×, and both are wanted.
 const FRONT_FIRING_HZ = 74.51;
 const REAR_FIRING_HZ = 82.63;
+// Channel 1 of the driving master, 27.5–30.4248 s; see the preparation script.
+const DRIVING_FIRING_HZ = 118.676;
 const MIN_RATE = 0.25;
 const MAX_RATE = 2.6;
 
@@ -87,6 +89,7 @@ const MAX_RATE = 2.6;
 // other. Nothing here divides into anything else here.
 const FRONT_WANDER = { a: 2.62, b: 5.71, pa: 0.0, pb: 2.1 };
 const REAR_WANDER = { a: 2.17, b: 4.83, pa: 1.3, pb: 3.7 };
+const DRIVING_WANDER = { a: 1.93, b: 4.19, pa: 2.4, pb: 0.9 };
 const SYNTH_WANDER = { a: 2.41, b: 5.23, pa: 0.7, pb: 4.4 };
 
 export class RecordedVoice extends Voice {
@@ -102,6 +105,11 @@ export class RecordedVoice extends Voice {
     // the loops are different lengths (4.1 s and 2.9 s), so they only come back
     // into step every half a minute or so.
     this.front = this.#layer(buffers.front, FRONT_FIRING_HZ, 0.37, FRONT_WANDER);
+    // A real on-road pull supplies the loaded note near its natural pitch.
+    // Optional: a failed download still leaves the original recorded engine.
+    this.driving = buffers.driving
+      ? this.#layer(buffers.driving, DRIVING_FIRING_HZ, 0.61, DRIVING_WANDER)
+      : null;
   }
 
   #layer(buffer, referenceHz, offsetFraction, shape) {
@@ -147,6 +155,11 @@ export class RecordedVoice extends Voice {
     this.rear.source.playbackRate.setTargetAtTime(rearRate, now, GLIDE);
     this.front.source.playbackRate.setTargetAtTime(frontRate, now, GLIDE);
 
+    // Replace part of the stationary front layer as revs and effort rise.
+    // Keeping it out of idle avoids pitching road noise down into a rumble.
+    const revBlend = Math.max(0, Math.min(1, (firing - 65) / 45));
+    const drivingMix = this.driving && !shifting ? revBlend * load * 0.75 : 0;
+
     // The exhaust carries the body of it and barely changes. The front layer is
     // the effort: quiet and dull off throttle, loud and open with load and revs.
     // Levels are set against the synth's, measured by rendering the same rev
@@ -160,7 +173,12 @@ export class RecordedVoice extends Voice {
       ? 0.16
       : (0.19 + load * 0.78 * (0.35 + through * 0.65)) * breath;
     this.rear.gain.gain.setTargetAtTime(rearLevel, now, GLIDE);
-    this.front.gain.gain.setTargetAtTime(frontLevel, now, GLIDE);
+    this.front.gain.gain.setTargetAtTime(frontLevel * (1 - drivingMix), now, GLIDE);
+    if (this.driving) {
+      this.driving.source.playbackRate.setTargetAtTime(this.#rate(this.driving, firing, load, now), now, GLIDE);
+      this.driving.gain.gain.setTargetAtTime(frontLevel * drivingMix, now, GLIDE);
+      this.driving.tone.frequency.setTargetAtTime(1200 + firing * 8 + load * 2200, now, GLIDE);
+    }
 
     // Both filters track the note as well as the load, so pitching the clip up
     // does not simply make it brighter for free.
@@ -169,7 +187,7 @@ export class RecordedVoice extends Voice {
   }
 
   stop() {
-    for (const layer of [this.rear, this.front]) {
+    for (const layer of [this.rear, this.front, this.driving].filter(Boolean)) {
       try {
         layer.source.stop();
       } catch (error) {
