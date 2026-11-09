@@ -1,3 +1,4 @@
+import { buildOtakiCattle } from '../otakiCattle.js';
 import { otakiBridgeBarriers } from '../otakiBridge.js';
 import { fenceBarriers } from '../fenceBarriers.js';
 import { crossesOtakiFinish } from '../otakiFinish.js';
@@ -82,6 +83,8 @@ export class RaceScene extends Phaser.Scene {
     this.structures = buildStructures(this.def, this.track);
     for (const o of structureObstacles(this.structures)) this.obstacles.push(o);
     this.scenery = scatterScenery(this.track, this.def);
+    this.cattle = this.def.theme === 'otaki' ? buildOtakiCattle(this.track, this.structures) : { cows: [], obstacles: [] };
+    this.obstacles.push(...this.cattle.obstacles);
     if (this.def.theme === 'otaki') this.barriers.push(...fenceBarriers(this.scenery.props), ...otakiBridgeBarriers(this.track, this.def));
     for (const o of this.scenery.obstacles) this.obstacles.push(o);
     if (this.def.theme === 'eastbourne') {

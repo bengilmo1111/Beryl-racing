@@ -29,6 +29,19 @@ try {
     }, { fraction, reverse });
     await writeFile(`${out}/${name}.png`, Buffer.from(data.split(',')[1], 'base64'));
   }
+  for (const kind of ['cattle', 'minors']) {
+    const data = await page.evaluate(kind => {
+      const scene = window.__BERYL_GAME__.scene.getScene('Race'), world = scene.world3d;
+      const subject = kind === 'cattle' ? scene.cattle.cows.find(c => c.road) : scene.traffic.cars[2];
+      const h = scene.terrain.heightAt(subject.x, subject.y);
+      const camera = world.chase.camera.clone();
+      camera.position.set(subject.x + 330, h + 230, subject.y + 350);
+      camera.lookAt(subject.x, h + 55, subject.y);
+      world.renderer.render(world.scene3d, camera);
+      return world.renderer.domElement.toDataURL('image/png');
+    }, kind);
+    await writeFile(`${out}/${kind}.png`, Buffer.from(data.split(',')[1], 'base64'));
+  }
   const aerial = await page.evaluate(() => {
     const scene = window.__BERYL_GAME__.scene.getScene('Race'), world = scene.world3d;
     const { world: size, coastX } = scene.def.layout;
