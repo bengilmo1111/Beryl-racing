@@ -33,3 +33,9 @@ Compared the six user-supplied Ōtaki road, pasture and coastal photos with matc
 Replaced isolated dune boxes with a continuous low vegetated dune strip, corrected the sand/water boundary, added four broken surf bands and 17 solid beach homes. The coastal water now uses one colour across the near and distant ocean surfaces, avoiding the old rectangular colour seam. Removed the four render-only baches in favour of the shared structure list.
 
 `playtest/otaki-reference.mjs` captures gorge, farm road, inland range, beach road and coastal aerial views in `playtest-out/otaki-reference/`. Browser checks report no console errors. Both Riverbank and town driving routes still finish and stop on the road. Additional geometry checks confirm that all 4,206 surf vertices lie on the water side and that the beach meets the water without overlap. Ground clearance and trunk/canopy attachment regressions also pass.
+
+## Follow-up recording at 20:08
+
+Reviewed the 157-second recording, including its final six seconds. The visible finish and controlled stop now work; the main remaining navigation issue is the town-side excursion around rally time 1:28–1:40. Added advance main-route signs at more junctions, a time-trial progress rail, and contextual off-road/wrong-way/finish guidance. Reverse-direction approaches from the town branch remain valid near the finish. Story itineraries retain their own guidance.
+
+Added a short rendered road approach behind the first sample so the starting car is fully on visible road, with a ray regression under the rear of the car. Roadside boards now have plain coloured backs instead of mirrored lettering. The road extension is visual-only; start poses and driving physics are unchanged.

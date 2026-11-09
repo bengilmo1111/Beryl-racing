@@ -2,7 +2,7 @@ import { buildOtaki } from '../src/render3d/themes/otaki.js';
 import assert from 'node:assert/strict';
 import { Box3, Matrix4, Raycaster, Vector3 } from 'three';
 import { buildProps } from '../src/render3d/props.js';
-import { buildGround } from '../src/render3d/road.js';
+import { buildStartApproach, buildGround } from '../src/render3d/road.js';
 import { nearestRoadPose } from '../src/driveRoute.js';
 import { buildStructures } from '../src/structures.js';
 import { otakiBridgeBarriers } from '../src/otakiBridge.js';
@@ -102,3 +102,12 @@ coastArt.getObjectByName('otaki-surf-lines').traverse(object => {
 });
 assert.ok(foamVertices > 100);
 console.log(`Otaki coast PASS: continuous shoreline and ${foamVertices} water-side surf vertices`);
+
+const approach = buildStartApproach(track);
+approach.updateMatrixWorld(true);
+const start = track.start;
+const rearX = start.x - Math.sin(start.rotation) * 140;
+const rearY = start.y + Math.cos(start.rotation) * 140;
+const startRay = new Raycaster(new Vector3(rearX, 100000, rearY), new Vector3(0, -1, 0));
+assert.ok(startRay.intersectObject(approach).length, 'Starting car rear must have visible road beneath it');
+console.log('Otaki start PASS: road extends beneath the full starting car');
