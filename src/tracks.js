@@ -177,7 +177,8 @@ export const TRACKS = [
     // somebody has done something unwise to the engine. At the real 3.03 km a
     // 110 km/h lap took 100 seconds, which is a long time to spend on a circuit;
     // 220 halves it and buys the gag at the same time.
-    intro: 'BERYL HAS A V8 IN FOR TRACK DAY',
+    intro: 'BERYL HAS A V8 IN FOR TRACK DAY\nBEAT THE OTHER MORRISES!',
+    rivals: [{ speedKmh: 185 }, { speedKmh: 200 }, { speedKmh: 210 }, { speedKmh: 195 }],
     // Eight cylinders, so four firings per crankshaft revolution instead of two,
     // and it revs past where the A-series gives up. See src/audio/EngineSound.js.
     //

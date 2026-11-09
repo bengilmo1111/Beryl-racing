@@ -126,6 +126,7 @@ export const COURSE_SCHEMA = {
   'traffic.cars[].at': KIND.FRACTION,
   'traffic.cars[].direction': KIND.COUNT,
   'traffic.cars[].speedKmh': KIND.META,
+  'rivals[].speedKmh': KIND.META,
 
   // --- layout --------------------------------------------------------------
   'layout.world.width': KIND.MAP,
