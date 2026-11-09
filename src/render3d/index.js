@@ -159,6 +159,8 @@ class RaceWorld {
     // geometry and differ only in paint — see MINOR_COLOURS in palette.js.
     this.trafficFleet = scene.traffic ? buildTrafficFleet(scene.traffic) : null;
     if (this.trafficFleet) this.scene3d.add(this.trafficFleet.group);
+    this.rivalFleet = scene.rivals ? buildTrafficFleet(scene.rivals) : null;
+    if (this.rivalFleet) this.scene3d.add(this.rivalFleet.group);
 
     this.chase = new ChaseCamera(isCompact(scene), scene.track);
     this.meetingCamera = scene.journeyRoute?.parking ? this.chase.camera.clone() : null;
@@ -209,6 +211,7 @@ class RaceWorld {
       updateTrafficFleet(this.trafficFleet, this.scene.traffic, dt, this.terrain);
     }
     this.puffs.update(dt);
+    if (this.rivalFleet) updateTrafficFleet(this.rivalFleet, this.scene.rivals, dt, this.terrain);
     this.chase.update(car, dt, this.terrain);
     if (this.otakiParallax) updateOtakiParallax(this.otakiParallax, car, dt);
     let camera = this.chase.camera;

@@ -52,6 +52,7 @@ export class Hud {
       fontStyle: '700',
       color: '#ffd166',
     });
+    this.position = scene.add.text(0, 0, '', { ...panelStyle, fontStyle: '700', color: '#2ec4d6' }).setVisible(false);
     // Transient guidance, centred at the top. No panel behind it: a fixed-width
     // rounded rect cannot hold copy that runs from "EASE OFF · LEFT BEND" to
     // nothing at all. A chunky ink outline keeps it readable over sky, tarmac or
@@ -84,6 +85,7 @@ export class Hud {
       this.current,
       this.last,
       this.best,
+      this.position,
       this.status,
       this.flash,
     ]);
@@ -115,6 +117,7 @@ export class Hud {
     this.current.setFontSize(bigSize);
     this.last.setFontSize(rowSize);
     this.best.setFontSize(rowSize);
+    this.position.setFontSize(rowSize);
     this.status.setFontSize(statusSize).setStroke('#15314b', Math.max(4, Math.round(8 * s)));
     this.flash.setFontSize(Math.round(64 * s)).setStroke('#15314b', Math.round(9 * s));
 
@@ -131,13 +134,15 @@ export class Hud {
     const rowsY = inY + py + labelSize + bigSize + Math.round(16 * s);
     this.last.setPosition(inX + px, rowsY);
     this.best.setPosition(inX + px, rowsY + rowSize + Math.round(6 * s));
+    this.position.setPosition(inX + px, rowsY + (rowSize + Math.round(6 * s)) * 2);
 
     const headerW = this.currentLabel.width
       + (this.lapChip.visible ? Math.round(12 * s) + this.lapChip.width : 0);
-    const panelW = Math.max(headerW, this.current.width, this.last.visible ? this.last.width : 0, this.best.visible ? this.best.width : 0) + px * 2;
-    const panelH = this.last.visible || this.best.visible
+    const panelW = Math.max(headerW, this.current.width, this.last.visible ? this.last.width : 0, this.best.visible ? this.best.width : 0, this.position.visible ? this.position.width : 0) + px * 2;
+    let panelH = this.last.visible || this.best.visible
       ? rowsY + rowSize * 2 + Math.round(6 * s) + py - inY
       : labelSize + bigSize + py * 2 + Math.round(10 * s);
+    if (this.position.visible) panelH += rowSize + Math.round(6 * s);
     this.panel = { x: inX, y: inY, w: panelW, h: panelH, px, py, s };
 
     this.drawPanel();
@@ -180,6 +185,13 @@ export class Hud {
 
   setCurrent(ms) {
     this.current.setText(formatTime(ms));
+  }
+
+  setPosition(place, total) {
+    const text = `POSITION  ${place} / ${total}`;
+    if (this.position.text === text) return;
+    this.position.setText(text).setVisible(true);
+    this.reposition();
   }
 
   setLast(ms) {

@@ -17,6 +17,7 @@ import { buildTrack, distanceToCenterline, surfaceAt } from '../track.js';
 import { scatterScenery } from '../scenery.js';
 import { buildStructures, structureObstacles } from '../structures.js';
 import { buildTraffic } from '../traffic.js';
+import { buildRivals } from '../rivals.js';
 import { eastbourneCoast } from '../coast.js';
 import { coastalProfile } from '../coastalProfile.js';
 import { crossesRsaFinish, inTriangle } from '../arrival.js';
@@ -97,6 +98,7 @@ export class RaceScene extends Phaser.Scene {
     // clear the RSA finish, and neither claim survives moving cars being added
     // to it. Traffic is resolved as a second pass in resolveObstacles().
     this.traffic = buildTraffic(this.def, this.track);
+    this.rivals = buildRivals(this.def, this.track);
 
     this.lastSkid = null;
 
@@ -123,6 +125,7 @@ export class RaceScene extends Phaser.Scene {
 
     // HUD + fullscreen + sound + the way home.
     this.hud = new Hud(this);
+    if (this.rivals) this.hud.setPosition(this.rivals.position(), this.rivals.cars.length + 1);
     createFullscreenButton(this);
     createSoundButton(this);
     createHomeButton(this, () => this.goHome());
@@ -542,6 +545,10 @@ export class RaceScene extends Phaser.Scene {
     // where the other car is now rather than where it was last frame.
     if (this.traffic) this.traffic.update(dt);
     this.car.update(dt, input, onTrack, surface, grade);
+    if (this.rivals && this.timing) {
+      this.rivals.update(dt, this.car);
+      this.hud.setPosition(this.rivals.position(), this.rivals.cars.length + 1);
+    }
     this.resolveObstacles(beforeMovement);
     this.applyFx(onTrack, input, surface);
     this.tyres?.update({
@@ -599,6 +606,7 @@ export class RaceScene extends Phaser.Scene {
     // traffic resolves bit-for-bit identically to before traffic existed.
     let contact = this.pushOutOf(this.obstacles);
     if (this.traffic) contact = this.pushOutOf(this.traffic.collisionCircles()) || contact;
+    if (this.rivals) contact = this.pushOutOf(this.rivals.collisionCircles()) || contact;
     if (this.barriers?.length) contact = bounceOffBarriers(this.car, this.barriers, beforeMovement) || contact;
     if (contact && !this.hadContact) this.contactEvents++;
     this.hadContact = contact;
