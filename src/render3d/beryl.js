@@ -15,6 +15,9 @@ import {
   CylinderGeometry,
   CircleGeometry,
   SphereGeometry,
+  Shape,
+  ShapeGeometry,
+  Color,
   BufferGeometry,
   Float32BufferAttribute,
   DoubleSide,
@@ -22,6 +25,7 @@ import {
   Vector3,
   MeshPhongMaterial,
   TubeGeometry,
+  TorusGeometry,
   CatmullRomCurve3,
 } from 'three';
 import { CAR } from '../config.js';
@@ -138,8 +142,8 @@ function ring(station, profile) {
   const crown = station.crown || 0;
   const points = [];
   for (const p of profile) points.push([-p.x * w, bottom + p.y * h + p.c * crown]);
-  // Mirror back down the other side, skipping the shared crown and sill points.
-  for (let i = profile.length - 2; i >= 1; i -= 1) {
+  // Mirror back down the other side, sharing the crown and closing across the flat sill.
+  for (let i = profile.length - 2; i >= 0; i -= 1) {
     const p = profile[i];
     points.push([p.x * w, bottom + p.y * h + p.c * crown]);
   }
@@ -359,40 +363,47 @@ function buildBumper(width, z, y, material) {
   return bumper;
 }
 
-function buildWheel(materials) {
+function buildWheel(materials, side, photoBody) {
   const group = new Group();
   const hub = new Group();
 
-  const tyreGeom = new CylinderGeometry(WHEEL_R, WHEEL_R, WHEEL_W, 18);
+  const tyreGeom = new CylinderGeometry(WHEEL_R, WHEEL_R, WHEEL_W, photoBody ? 32 : 18);
   tyreGeom.rotateZ(Math.PI / 2);
   hub.add(new Mesh(tyreGeom, materials.tyre));
 
   const wallGeom = new CylinderGeometry(
-    WHEEL_R * 0.67,
-    WHEEL_R * 0.67,
+    WHEEL_R * (photoBody ? 0.76 : 0.67),
+    WHEEL_R * (photoBody ? 0.76 : 0.67),
     WHEEL_W + 1.5,
-    18
+    photoBody ? 32 : 18
   );
   wallGeom.rotateZ(Math.PI / 2);
   hub.add(new Mesh(wallGeom, materials.whitewall));
 
   const dishGeom = new CylinderGeometry(
-    WHEEL_R * 0.5,
-    WHEEL_R * 0.5,
+    WHEEL_R * (photoBody ? 0.57 : 0.5),
+    WHEEL_R * (photoBody ? 0.57 : 0.5),
     WHEEL_W + 2,
-    16
+    photoBody ? 32 : 16
   );
   dishGeom.rotateZ(Math.PI / 2);
   hub.add(new Mesh(dishGeom, materials.body));
 
-  const capGeom = new CylinderGeometry(
-    WHEEL_R * 0.39,
-    WHEEL_R * 0.39,
-    WHEEL_W + 3,
-    14
-  );
-  capGeom.rotateZ(Math.PI / 2);
-  hub.add(new Mesh(capGeom, materials.chrome));
+  if (photoBody) {
+    // Beryl's domed hubcaps catch the light around a little red Morris centre.
+    const x = side * (WHEEL_W / 2 + 1);
+    hub.add(ellipsoid(3, WHEEL_R * 0.43, WHEEL_R * 0.43, x, 0, 0, materials.chrome));
+    hub.add(ellipsoid(0.5, 2.2, 2.2, x + side * 3, 0, 0, materials.accent));
+  } else {
+    const capGeom = new CylinderGeometry(
+      WHEEL_R * 0.39,
+      WHEEL_R * 0.39,
+      WHEEL_W + 3,
+      14
+    );
+    capGeom.rotateZ(Math.PI / 2);
+    hub.add(new Mesh(capGeom, materials.chrome));
+  }
 
   group.add(hub);
   group.userData.hub = hub;
@@ -424,8 +435,8 @@ function berylShapes(photoBody = false) {
   // sloping boot. Traffic retains its established lightweight silhouette.
   const rearBody = [
     { z: L * 0.300, halfWidth: W * 0.48, bottom: 17, top: 63, crown: 1.5 },
-    { z: L * 0.390, halfWidth: W * 0.46, bottom: 19, top: 58, crown: 1.5 },
-    { z: L * 0.465, halfWidth: W * 0.425, bottom: 21, top: 44, crown: 1 },
+    { z: L * 0.390, halfWidth: W * 0.45, bottom: 19, top: 60, crown: 1.5 },
+    { z: L * 0.465, halfWidth: W * 0.405, bottom: 21, top: 47, crown: 1 },
     { z: L * 0.505, halfWidth: W * 0.36, bottom: 23, top: 29, crown: 1 },
   ];
   const rearCabin = [
@@ -437,6 +448,15 @@ function berylShapes(photoBody = false) {
     .map((s) => ({ ...s, profile: BODY_PROFILE }));
   const cabin = (photoBody ? [...CABIN_STATIONS.slice(0, 6), ...rearCabin] : CABIN_STATIONS)
     .map((s) => ({ ...s, profile: CABIN_PROFILE }));
+
+  if (photoBody) {
+    // The bonnet stands above the wing tops. The boot, by contrast,
+    // tucks between two proud rear wings.
+    for (const [i, rise] of [8, 10, 10, 9, 6, 2].entries()) body[i].top += rise;
+    for (const station of body) {
+      station.halfWidth *= 1 - 0.09 * clamp((station.z / L - 0.15) / 0.15, 0, 1);
+    }
+  }
 
   const shell = wheelArches(loftGeometry(body));
   const greenhouse = loftGeometry(cabin);
@@ -468,6 +488,8 @@ function berylShapes(photoBody = false) {
   // than added to a group, because the group is per car and these are not.
   const glass = [];
   const screenTrim = [];
+  const sideSeals = [];
+  const wipers = [];
 
   // A screen laid over the front or rear slope of the greenhouse. Only the z
   // range and the width are authored: the height at every point comes from the
@@ -490,6 +512,20 @@ function berylShapes(photoBody = false) {
       }));
     }
     glass.push(sheetGeometry(rows));
+    if (photoBody && zFront < 0) {
+      for (const side of [-1, 1]) {
+        const edge = side < 0 ? 0 : 4;
+        const mid = side < 0 ? 1 : 3;
+        const pivot = new Vector3(...rows[0][mid]);
+        const end = new Vector3(...rows[1][edge]).lerp(new Vector3(...rows[1][mid]), 0.12);
+        const inner = new Vector3(...rows[1][mid]).lerp(new Vector3(...rows[1][2]), 0.6);
+        for (const point of [pivot, end, inner]) point.z -= 0.75;
+        wipers.push(new TubeGeometry(new CatmullRomCurve3([pivot, inner.clone().lerp(end, 0.58), end]),
+          10, 0.36, 5));
+        wipers.push(new TubeGeometry(new CatmullRomCurve3([inner, inner.clone().lerp(end, 0.5), end]),
+          10, 0.55, 5));
+      }
+    }
     const outline = [...rows[0], ...rows.slice(1).map(r => r.at(-1)),
       ...rows.at(-1).slice(0, -1).reverse(), ...rows.slice(1, -1).reverse().map(r => r[0])];
     screenTrim.push(new TubeGeometry(new CatmullRomCurve3(
@@ -509,6 +545,11 @@ function berylShapes(photoBody = false) {
         const lerp = (a, b) => a + (b - a) * u;
         const low = { z: lerp(frontLow.z, rearLow.z), y: lerp(frontLow.y, rearLow.y) };
         const high = { z: lerp(frontHigh.z, rearHigh.z), y: lerp(frontHigh.y, rearHigh.y) };
+        if (photoBody) {
+          const corner = Math.abs(2 * u - 1) ** 6;
+          low.y += 1.2 * corner;
+          high.y -= 1.7 * corner;
+        }
         const mid = { z: (low.z + high.z) / 2, y: (low.y + high.y) / 2 };
         for (const [row, p] of [[0, low], [1, mid], [2, high]]) {
           const n = flankNormal(p.z, p.y);
@@ -520,6 +561,11 @@ function berylShapes(photoBody = false) {
         }
       }
       glass.push(sheetGeometry(rows));
+      if (photoBody) {
+        const edge = [...rows[0], rows[1].at(-1), ...rows[2].slice().reverse(), rows[1][0]];
+        sideSeals.push(new TubeGeometry(new CatmullRomCurve3(
+          edge.map(point => new Vector3(...point)), true), 48, 0.45, 5, true));
+      }
     }
   };
 
@@ -529,7 +575,18 @@ function berylShapes(photoBody = false) {
   // it sits and then has the wheel arch cut out of it, exactly as the shell does.
   const wings = [];
   for (const sx of [-1, 1]) {
-    wings.push(wheelArches(ellipsoidGeometry(
+    if (photoBody) {
+      // A lamp-sized face at the nose widens into a deep arch, then tails
+      // off against the front door. A sphere pinches shut at both ends.
+      const stations = [
+        [-0.473, 9.3, 30, 53.8], [-0.448, 12, 24, 55], [-0.39, 16, 17, 56],
+        [-0.31, 18.5, 15, 57], [-0.22, 18, 15, 55], [-0.14, 15, 17, 51],
+        [-0.08, 10, 21, 44], [-0.045, 3, 28, 36],
+      ].map(([z, halfWidth, bottom, top]) =>
+        ({ z: L * z, halfWidth, bottom, top, crown: 1, profile: BODY_PROFILE }));
+      const wing = loftGeometry(stations).translate(sx * W * 0.35, 0, 0);
+      wings.push(wheelArches(wing));
+    } else wings.push(wheelArches(ellipsoidGeometry(
       W * 0.155,
       16,
       L * 0.155,
@@ -537,20 +594,26 @@ function berylShapes(photoBody = false) {
       38,
       AXLE_FRONT - L * 0.005
     )));
-    wings.push(wheelArches(ellipsoidGeometry(
-      W * (photoBody ? 0.17 : 0.15),
-      photoBody ? 23 : 18,
-      L * (photoBody ? 0.225 : 0.15),
-      sx * W * 0.36,
-      photoBody ? 36 : 35,
-      AXLE_REAR + (photoBody ? L * 0.025 : 0)
-    )));
+    if (photoBody) {
+      // Each rear wing sweeps from the door to a low lamp-bearing tail.
+      const rearWing = [
+        [0.115, 5, 21, 35], [0.15, 11, 17, 47], [0.21, 16, 15, 55],
+        [0.28, 16.5, 15, 58], [0.35, 16, 17, 56], [0.415, 15, 18, 51],
+        [0.46, 12.5, 20, 44], [0.485, 10, 22, 36], [0.50, 6, 24, 29],
+      ].map(([z, halfWidth, bottom, top]) =>
+        ({ z: L * z, halfWidth, bottom, top, crown: 1, profile: BODY_PROFILE }));
+      wings.push(wheelArches(loftGeometry(rearWing).translate(sx * W * 0.378, 0, 0)));
+    } else {
+      wings.push(wheelArches(ellipsoidGeometry(
+        W * 0.15, 18, L * 0.15, sx * W * 0.36, 35, AXLE_REAR
+      )));
+    }
   }
 
   // Windscreen, then the two side windows, then the rear screen. The shell
   // between them is what the eye reads as the A, B and C pillars — they are not
   // separate meshes, which is why they can never float free of the roof.
-  screen(-L * 0.156, -L * 0.092, CABIN_HW * 0.68, CABIN_HW * 0.64);
+  screen(-L * 0.156, -L * (photoBody ? 0.103 : 0.092), CABIN_HW * (photoBody ? 0.84 : 0.68), CABIN_HW * (photoBody ? 0.79 : 0.64));
 
   sideGlass([
     { z: -L * 0.132, y: BELT },
@@ -561,12 +624,30 @@ function berylShapes(photoBody = false) {
   sideGlass([
     { z: L * 0.072, y: BELT },
     { z: L * 0.072, y: 81 },
-    { z: L * 0.196, y: 78 },
-    { z: L * 0.208, y: BELT - 1 },
+    { z: L * (photoBody ? 0.229 : 0.196), y: 78 },
+    { z: L * (photoBody ? 0.253 : 0.208), y: BELT - 1 },
   ]);
 
-  if (photoBody) screen(L * 0.245, L * 0.325, CABIN_HW * 0.82, CABIN_HW * 0.81);
+  if (photoBody) screen(L * 0.254, L * 0.32, CABIN_HW * 0.79, CABIN_HW * 0.80);
   else screen(L * 0.248, L * 0.304, CABIN_HW * 0.68, CABIN_HW * 0.62);
+
+  if (photoBody) {
+    // Sky at the upper edge, darker cabin below. The gradient also makes
+    // the edges of the curved screens legible in overcast course lighting.
+    for (const pane of glass) {
+      const positions = pane.attributes.position;
+      const colours = [];
+      const bottomTint = new Color(0x364c53);
+      const skyTint = new Color(0xa6c5cc);
+      const colour = new Color();
+      for (let i = 0; i < positions.count; i++) {
+        const t = clamp((positions.getY(i) - BELT) / 22, 0, 1);
+        colour.copy(bottomTint).lerp(skyTint, t);
+        colours.push(colour.r, colour.g, colour.b);
+      }
+      pane.setAttribute('color', new Float32BufferAttribute(colours, 3));
+    }
+  }
 
   // Beryl's number plate, as one mesh rather than a draw call per painted
   // square. Only she wears it — see `identity` in buildBeryl.
@@ -586,7 +667,7 @@ function berylShapes(photoBody = false) {
   lettering.setAttribute('position', new Float32BufferAttribute(ink, 3));
   lettering.computeVertexNormals();
 
-  const shapes = { body, shell, greenhouse, wings, glass, screenTrim, lettering };
+  const shapes = { body, cabin, shell, greenhouse, wings, glass, screenTrim, sideSeals, wipers, lettering };
   shapeCache.set(photoBody, shapes);
   return shapes;
 }
@@ -597,6 +678,76 @@ function berylShapes(photoBody = false) {
 // meshes off buffers that have already been freed.
 export function resetBerylGeometry() {
   shapeCache.clear();
+}
+
+// The Minor 1000 has a wide slatted opening beneath a high, rounded bonnet.
+function addMinorFront(chassis, materials) {
+  // The painted front panel and the ivory grille each have their own bead.
+  // Both faces bow back towards the wings so the surround sits on the nose.
+  const zAt = x => -L * 0.505 + 4 * (x / 35) ** 2;
+  const surround = (half, bottom, top, offset, fill, edge) => {
+    const shape = new Shape();
+    shape.moveTo(-half * 0.80, bottom);
+    shape.quadraticCurveTo(-half * 0.96, bottom, -half, top - 5);
+    shape.quadraticCurveTo(-half * 1.02, top, -half * 0.7, top + 0.8);
+    shape.quadraticCurveTo(0, top + 2.2, half * 0.7, top + 0.8);
+    shape.quadraticCurveTo(half * 1.02, top, half, top - 5);
+    shape.quadraticCurveTo(half * 0.96, bottom, half * 0.80, bottom);
+    shape.closePath();
+    const geometry = new ShapeGeometry(shape);
+    geometry.rotateY(Math.PI);
+    const vertices = geometry.attributes.position;
+    for (let i = 0; i < vertices.count; i++) vertices.setZ(i, zAt(vertices.getX(i)) - offset);
+    geometry.computeVertexNormals();
+    chassis.add(new Mesh(geometry, fill));
+    const points = shape.getPoints(8).slice(0, -1)
+      .map(p => new Vector3(p.x, p.y, zAt(p.x) - offset - 0.5));
+    chassis.add(new Mesh(new TubeGeometry(new CatmullRomCurve3(points, true),
+      72, 0.65, 6, true), edge));
+  };
+  surround(35.5, 25, 42, 0, materials.body, materials.chrome);
+  surround(28, 26.4, 38.8, 1.7, materials.grille, materials.whitewall);
+  for (const [y, half] of [[28.5, 24], [31, 26], [33.5, 27], [36, 27], [38.5, 25]]) {
+    const points = [-1, -0.5, 0, 0.5, 1].map(t =>
+      new Vector3(t * half, y + 0.45 * (1 - t * t), zAt(t * half) - 2.8));
+    chassis.add(new Mesh(new TubeGeometry(new CatmullRomCurve3(points), 12, 0.57, 5),
+      materials.whitewall));
+  }
+  for (const x of [-9, 9]) {
+    chassis.add(box(0.65, 12.3, 1, x, 33, zAt(x) - 2.15, materials.chrome));
+  }
+
+  const lens = new MeshPhongMaterial({ color: 0xe1eaeb, vertexColors: true, specular: 0xffffff, shininess: 95 });
+  const amber = new MeshPhongMaterial({ color: 0xe48b28, shininess: 75 });
+  for (const side of [-1, 1]) {
+    const x = side * W * 0.366;
+    chassis.add(ellipsoid(8.4, 7.6, 3.4, x, 47, -L * 0.473, materials.chrome));
+    const headlight = ellipsoid(7.1, 6.4, 2.0, x, 47, -L * 0.481, lens);
+    // The pressed lens catches the sky above a darker reflector. Tint the
+    // moulded facets so the headlights read as glass even in diffuse light.
+    const points = headlight.geometry.attributes.position;
+    const colours = [];
+    for (let i = 0; i < points.count; i++) {
+      const height = points.getY(i);
+      const tint = 0.46 + 0.42 * Math.abs(height) + 0.1 * Math.cos(25 * points.getX(i));
+      colours.push(tint, tint, tint);
+    }
+    headlight.geometry.setAttribute('color', new Float32BufferAttribute(colours, 3));
+    chassis.add(headlight);
+    const bezel = new Mesh(new TorusGeometry(7.15, 0.63, 8, 32), materials.chrome);
+    bezel.scale.x = 1.10;
+    bezel.position.set(x, 47, -L * 0.484);
+    chassis.add(bezel);
+    chassis.add(ellipsoid(3.9, 3.5, 2.2, x, 34.5, -L * 0.473, materials.chrome));
+    chassis.add(ellipsoid(3.1, 2.8, 1.6, x, 34.5, -L * 0.481, amber));
+    const guardX = side * W * 0.305;
+    const guard = new CatmullRomCurve3([[19, -0.515], [23, -0.526], [28, -0.523], [32, -0.512]]
+      .map(([y, z]) => new Vector3(guardX, y, L * z)));
+    chassis.add(new Mesh(new TubeGeometry(guard, 12, 1.7, 8), materials.chrome));
+  }
+  // Small chrome flash at the leading end of the centre bonnet moulding.
+  chassis.add(ellipsoid(3.6, 1.2, 1.3, 0, 47.3, -L * 0.501, materials.chrome));
+  chassis.add(ellipsoid(1.1, 2.5, 1.4, 0, 48.8, -L * 0.499, materials.chrome));
 }
 
 // `bodyColor` paints the shell, the greenhouse, both pairs of wings and the
@@ -623,7 +774,12 @@ export function buildBeryl({ bodyColor = TURQUOISE, identity = true, photoBody =
     plate: lambert(0x20292c, { flatShading: false }),
   };
 
-  const { body, shell, greenhouse, wings, glass, screenTrim, lettering } = berylShapes(photoBody);
+  const { body, cabin, shell, greenhouse, wings, glass, screenTrim, sideSeals, wipers, lettering } = berylShapes(photoBody);
+
+  if (photoBody) {
+    materials.glass.color.setHex(0xffffff);
+    materials.glass.vertexColors = true;
+  }
 
   const root = new Group();
   root.rotation.order = 'YXZ';
@@ -641,7 +797,13 @@ export function buildBeryl({ bodyColor = TURQUOISE, identity = true, photoBody =
     mesh.name = 'wing';
     chassis.add(mesh);
   }
-  for (const pane of glass) chassis.add(new Mesh(pane, materials.glass));
+  for (const wiper of wipers) chassis.add(new Mesh(wiper, materials.grille));
+  for (const seal of sideSeals) chassis.add(new Mesh(seal, materials.grille));
+  for (const pane of glass) {
+    const mesh = new Mesh(pane, materials.glass);
+    if (pane === glass.at(-1)) mesh.name = 'rear-window';
+    chassis.add(mesh);
+  }
   for (const [i, surround] of screenTrim.entries()) {
     const mesh = new Mesh(surround, materials.chrome);
     mesh.name = i === 1 ? 'rear-window-seal' : 'front-window-trim';
@@ -650,26 +812,28 @@ export function buildBeryl({ bodyColor = TURQUOISE, identity = true, photoBody =
 
   // Trim and lamps keep their established colours and identity details. Each is
   // hung off the shell it belongs to rather than a remembered coordinate.
-  chassis.add(buildBumper(W * 0.90, -L * 0.505, 28, materials.chrome));
+  if (photoBody) {
+    const curve = new CatmullRomCurve3([-1, -0.85, -0.5, 0, 0.5, 0.85, 1].map(t =>
+      new Vector3(t * W * 0.485, 23, -L * 0.516 + 14 * Math.abs(t) ** 4)));
+    chassis.add(new Mesh(new TubeGeometry(curve, 28, 3, 8), materials.chrome));
+  } else chassis.add(buildBumper(W * 0.90, -L * 0.505, 28, materials.chrome));
   chassis.add(buildBumper(W * 0.90, L * 0.505, 28, materials.chrome));
   for (const sx of [-1, 1]) {
-    chassis.add(box(5, 12, 5, sx * W * 0.26, 32, -L * 0.498, materials.chrome));
+    if (!photoBody) chassis.add(box(5, 12, 5, sx * W * 0.26, 32, -L * 0.498, materials.chrome));
     chassis.add(box(5, 12, 5, sx * W * 0.26, 32, L * 0.498, materials.chrome));
   }
 
-  // Headlamps. Domes bulging out of the upper front of each wing, not discs cut
-  // into it: the wings are rounded, so a flat lens either sinks inside or floats
-  // clear of them, and the real car's lamps stand proud anyway.
-  for (const sx of [-1, 1]) {
-    chassis.add(ellipsoid(9, 8.5, 10, sx * W * 0.345, 46, -L * 0.415, materials.lamp));
-  }
-
-  // The grille: a chrome-framed panel of vertical bars between the wings, which
-  // is the Minor's face.
-  chassis.add(box(W * 0.30, 22, 4, 0, 36, -L * 0.482, materials.chrome));
-  chassis.add(box(W * 0.26, 17, 4, 0, 36, -L * 0.485, materials.grille));
-  for (const x of [-0.10, -0.05, 0, 0.05, 0.10]) {
-    chassis.add(box(2, 15, 3, W * x, 36, -L * 0.488, materials.chrome));
+  if (photoBody) {
+    addMinorFront(chassis, materials);
+  } else {
+    for (const sx of [-1, 1]) {
+      chassis.add(ellipsoid(9, 8.5, 10, sx * W * 0.345, 46, -L * 0.415, materials.lamp));
+    }
+    chassis.add(box(W * 0.30, 22, 4, 0, 36, -L * 0.482, materials.chrome));
+    chassis.add(box(W * 0.26, 17, 4, 0, 36, -L * 0.485, materials.grille));
+    for (const x of [-0.10, -0.05, 0, 0.05, 0.10]) {
+      chassis.add(box(2, 15, 3, W * x, 36, -L * 0.488, materials.chrome));
+    }
   }
 
   for (const sx of [-1, 1]) {
@@ -696,10 +860,32 @@ export function buildBeryl({ bodyColor = TURQUOISE, identity = true, photoBody =
   // The red pinstripe along the shoulder, just under the belt line, laid on the
   // body skin in short segments so it follows the flank as it tapers.
   //
-  // It starts at the front door, not the bonnet: ahead of that the flank is the
-  // wing, which stands proud of the skin the stripe is laid on, and the stripe
-  // would hang in the valley between the two.
-  if (identity) {
+  if (photoBody) {
+    const join = lambert(0x186477);
+    for (const side of [-1, 1]) {
+      const trace = (points, radius, material) => {
+        chassis.add(new Mesh(new TubeGeometry(new CatmullRomCurve3(points),
+          32, radius, 5), material));
+      };
+      const flank = (z, y) => new Vector3(side * (bodySkin(z, y) + 0.75), y, z);
+      for (const [top, bottom] of [[-0.146, -0.12], [0.06, 0.06], [0.25, 0.137]]) {
+        trace([57, 48, 35, 24, 20].map(y =>
+          flank(L * (bottom + (top - bottom) * (y - 20) / 37), y)), 0.34, join);
+      }
+      // Fixed front quarterlight seen just ahead of the winding window.
+      trace([65, 72, 78.5].map(y => new Vector3(
+        side * (skinAt(stationAt(cabin, -0.059 * L), y) + GLASS_PROUD + 0.3),
+        y, -0.059 * L)), 0.65, materials.chrome);
+      if (identity) {
+        const stripe = [-0.30, -0.25, -0.15, -0.04, 0.08, 0.20, 0.25]
+          .map(z => flank(z * L, 55));
+        trace(stripe, 0.58, materials.accent);
+      }
+    }
+    const spine = body.slice(0, 6).map(station =>
+      new Vector3(0, topAt(station, 0) + 0.35, station.z));
+    chassis.add(new Mesh(new TubeGeometry(new CatmullRomCurve3(spine), 22, 0.6, 5), materials.chrome));
+  } else if (identity) {
     const STRIPE_Y = 55;
     for (const sx of [-1, 1]) {
       for (const z of [-L * 0.07, L * 0.04, L * 0.15, L * 0.25]) {
@@ -713,7 +899,7 @@ export function buildBeryl({ bodyColor = TURQUOISE, identity = true, photoBody =
   }
 
   // Bonnet centre strip and boot handle, seated on the body skin they run along.
-  chassis.add(box(1.6, 1.6, L * 0.24, 0, topAt(stationAt(body, -L * 0.33), 0) + 0.4, -L * 0.33, materials.chrome));
+  if (!photoBody) chassis.add(box(1.6, 1.6, L * 0.24, 0, topAt(stationAt(body, -L * 0.33), 0) + 0.4, -L * 0.33, materials.chrome));
   chassis.add(box(W * 0.30, 1.6, 1.6, 0, topAt(stationAt(body, L * 0.41), 0) + 0.4, L * 0.41, materials.chrome));
 
   const wheels = [];
@@ -724,7 +910,15 @@ export function buildBeryl({ bodyColor = TURQUOISE, identity = true, photoBody =
     { x: AXLE_X, z: AXLE_REAR, steers: false },
   ];
   for (const spec of layout) {
-    const wheel = buildWheel(materials);
+    if (photoBody) {
+      // Close the inboard end of the arch so road markings cannot show
+      // through the sliver of clearance around the tyre.
+      const liner = new Mesh(new CircleGeometry(WHEEL_R * 1.11, 24, 0, Math.PI), materials.tyre);
+      liner.rotation.y = Math.sign(spec.x) * Math.PI / 2;
+      liner.position.set(spec.x - Math.sign(spec.x) * WHEEL_W, WHEEL_R, spec.z);
+      chassis.add(liner);
+    }
+    const wheel = buildWheel(materials, Math.sign(spec.x), photoBody);
     wheel.position.set(spec.x, WHEEL_R, spec.z);
     wheel.userData.steers = spec.steers;
     root.add(wheel);

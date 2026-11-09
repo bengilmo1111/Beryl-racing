@@ -310,7 +310,7 @@ The most valuable reference information was qualitative rather than microscopic:
 ### Identity details retained in simplified form
 
 - Round headlights.
-- Vertical front grille.
+- Wide horizontal slatted grille with a chrome surround, as shown in the [Morris Minor Owners Club identification guide](https://potteries.mmoc.org.uk/Identify.htm).
 - Chrome bumpers and bumper overriders.
 - Whitewall tyres and chrome hubcaps.
 - Small red tail lamps.
@@ -360,7 +360,7 @@ Limitations:
 
 ## 13. Concise art brief
 
-> Build Beryl as a broad, cheerful, low-poly Morris Minor with a 56% wheelbase, wheels pushed toward the outer edges, a rear-shifted half-length cabin, a long rounded bonnet, separate bulbous front wings, and a pinched rounded boot. Keep her wider, taller, and more generously wheeled than the detailed reference model so she reads clearly and affectionately from the chase camera. Preserve turquoise paint, pale roof, round lamps, chrome bumpers, whitewalls, hubcaps, and the red pinstripe. Do not pursue photorealism.
+> Build Beryl as a broad, cheerful, low-poly Morris Minor with a 56% wheelbase, wheels pushed toward the outer edges, a rear-shifted half-length cabin, a long rounded bonnet, separate bulbous front wings, and a pinched rounded boot. Keep her wider, taller, and more generously wheeled than the detailed reference model so she reads clearly and affectionately from the chase camera. Preserve turquoise paint and matching roof, round lamps, chrome bumpers, whitewalls, hubcaps, and the red pinstripe. Do not pursue photorealism.
 
 
 ---
