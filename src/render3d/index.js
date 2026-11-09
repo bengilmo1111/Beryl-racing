@@ -11,7 +11,7 @@ import { metres } from '../scale.js';
 import { C, makeFog } from './palette.js';
 import { getRenderer, showCanvas, syncSize, getCanvas } from './renderer.js';
 import {
-  buildRoad, buildKerbs, buildApron, buildGround, buildCentreLine,
+  buildRoad, buildStartApproach, buildKerbs, buildApron, buildGround, buildCentreLine,
   findJunctions, junctionMask, buildJunctions,
 } from './road.js';
 import { buildRemutakaCentreLine } from './remutakaCentreLine.js';
@@ -122,6 +122,7 @@ class RaceWorld {
       );
     }
     if (scene.def.theme === 'otaki') {
+      this.scene3d.add(buildStartApproach(scene.track));
       this.scene3d.add(buildOtakiFinish(scene.track, this.terrain, otakiFinish(scene.track)));
       this.scene3d.add(buildOtakiRouteSigns(scene.track, this.terrain));
       this.scene3d.add(buildOtaki(scene.track, scene.def, this.terrain, scene.structures));

@@ -204,6 +204,11 @@ export class RaceScene extends Phaser.Scene {
     this.world3d = render3d.createRaceWorld(this);
 
     if (this.def.theme === 'eastbourne') this.createRecovery();
+    if (this.def.theme === 'otaki' && !this.journeyChapter) {
+      this.routeProgress = buildRouteProgress(this.track);
+      this.routeUpdateAt = 0;
+      this.hud.setProgress(0);
+    }
 
     this.input.keyboard.once('keydown-ESC', () => this.goHome());
     this.watchForPauses();
@@ -300,6 +305,18 @@ export class RaceScene extends Phaser.Scene {
   }
 
   updateRouteHelp(time) {
+    if (this.def.theme === 'otaki' && !this.journeyChapter && this.timing && time >= this.routeUpdateAt) {
+      this.routeUpdateAt = time + 200;
+      const pose = nearestRoadPose(this.track, this.car.x, this.car.y);
+      const progress = this.routeProgress.at(pose);
+      this.hud.setProgress(Math.min(.99, Math.max(0, progress)));
+      const error = Math.abs(Math.atan2(Math.sin(pose.rotation - this.car.rotation), Math.cos(pose.rotation - this.car.rotation)));
+      this.hud.setStatus(pose.distance > pose.road.half + this.car.collideRadius
+        ? 'OFF ROAD · REJOIN THE ROAD TO THE BEACH'
+        : error > 2.1 && progress < .98 && pose.road.id === 'primary' ? 'BEACH · TURN BACK TOWARD THE FINISH'
+        : progress > .94 ? 'BEACH FINISH AHEAD' : '');
+      return;
+    }
     if (this.def.theme !== 'eastbourne' || !this.timing || time < this.routeUpdateAt) return;
     this.routeUpdateAt = time + 200;
     const pose = nearestRoadPose(this.track, this.car.x, this.car.y);
@@ -733,7 +750,7 @@ export class RaceScene extends Phaser.Scene {
     if (this.finished) return;
     this.finished = true;
     this.timing = false;
-    if (this.def.theme === 'eastbourne') {
+    if (this.def.theme === 'eastbourne' || this.def.theme === 'otaki') {
       this.hud.setStatus('');
       this.hud.setProgress(1);
     }

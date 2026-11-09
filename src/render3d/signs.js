@@ -9,7 +9,8 @@
 //
 // Styling mirrors the 2D text exactly (see the deleted placeFinishAndLandmarks
 // at 491875f:src/scenes/RaceScene.js) so the courses still feel like themselves.
-import { Group, Mesh, PlaneGeometry, BoxGeometry, DoubleSide } from 'three';
+import { Group, Mesh, PlaneGeometry, BoxGeometry } from 'three';
+import { nearestRoadPose } from '../driveRoute.js';
 import { metres } from '../scale.js';
 import { C, basic, lambert } from './palette.js';
 import { labelTexture } from './textures.js';
@@ -64,11 +65,16 @@ function buildSign(text, style, boardHeight) {
   const { texture, aspect } = labelTexture(text, style);
   const board = new Mesh(
     new PlaneGeometry(boardHeight * aspect, boardHeight),
-    // DoubleSide so the back of a sign is a solid board rather than a hole.
-    basic(0xffffff, { map: texture, fog: true, transparent: true, side: DoubleSide })
+    // Lettering faces approaching traffic; the reverse has a plain backing.
+    basic(0xffffff, { map: texture, fog: true, transparent: true })
   );
   board.position.y = BOARD_BOTTOM + boardHeight / 2;
   group.add(board);
+  if (style.background) {
+    const back = new Mesh(board.geometry, basic(style.background.slice(0, 7), { fog: true }));
+    back.position.copy(board.position); back.position.z = -.5; back.rotation.y = Math.PI;
+    group.add(back);
+  }
 
   const post = new Mesh(
     new BoxGeometry(POST_WIDTH, BOARD_BOTTOM + boardHeight / 2, POST_WIDTH),
@@ -197,7 +203,14 @@ export function buildOtakiRouteSigns(track, terrain) {
     sign.rotation.y = Math.PI / 2 - angle + Math.PI;
     group.add(sign);
   };
-  add(track, Math.max(0, track.checkpoints[6].index - 12), 'BEACH · RIVERBANK RD →');
+  const decisions = [];
+  for (const road of track.roads.slice(1)) for (const point of [road.centerline[0], road.centerline.at(-1)]) {
+    const pose = nearestRoadPose({ roads: [track] }, point.x, point.y);
+    if (pose.distance > track.half + 50 || pose.index > track.centerline.length - 65) continue;
+    if (decisions.some(i => Math.abs(i - pose.index) < 32)) continue;
+    decisions.push(pose.index);
+    add(track, Math.max(0, pose.index - 16), 'BEACH · MAIN ROUTE ↑');
+  }
   add(track, track.centerline.length - 48, 'BEACH FINISH AHEAD');
   const branch = track.roads?.find(r => r.id === 'rahui-mill-tasman');
   if (branch) add(branch, branch.centerline.length - 18, '← BEACH FINISH');
