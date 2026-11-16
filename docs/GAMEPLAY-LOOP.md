@@ -19,8 +19,10 @@ scheduled job is the before-case reproduction; PR CI checks the unchanged suite
 and accepts the workflow expression. A complete scheduled/manual rerun is still
 needed to verify the longer event-specific budget.
 
-Result: proposed objective CI evidence fix, pending required PR checks; no
-player-facing gameplay fix or preference conclusion. Fresh artifact metadata and
+Change: [PR #81](https://github.com/bengilmo1111/Beryl-racing/pull/81), an
+objective CI evidence fix. Merge only after every required PR check passes; the
+PR records the final check and merge outcome. No player-facing gameplay fix or
+preference conclusion. Fresh artifact metadata and
 logs are available, but this run has no usable execution environment for opening
 ZIP screenshots or running local checks. Do not substitute the older screenshots.
 Next test: confirm a scheduled/manual Quality run completes both its mobile
@@ -152,7 +154,7 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 
 | Priority | Hypothesis | Evidence / status | Next test |
 |---|---|---|---|
-| In review | Expanded scheduled Quality needs more than ten minutes | Repeated exact-main cancellations interrupt mobile after AC2/D2 pass; existing budget branch gives full runs twenty minutes and preserves PR limit | Require green PR CI, then verify full scheduled/manual mobile and navigation evidence |
+| Fix prepared | Expanded scheduled Quality needs more than ten minutes | PR #81 gives full runs twenty minutes and preserves PR limit after repeated exact-main cancellations interrupt mobile after AC2/D2 pass | Require green PR CI, then verify full scheduled/manual mobile and navigation evidence |
 | Done | Coarse terrain can obscure climbing roads despite correct wheel support | PR #38 fixed Remutaka; the follow-up reproduces and clears Ōtaki's smaller overlaps across every alternate road | Player check on Remutaka's later bends and Ōtaki's gorge/town transitions |
 | Done | Test-driver stalls can masquerade as collision traps | Eastbourne steeringTaps stopped requesting throttle when misaligned; the bot-only restart fix now completes both fixed seeds | Investigate only a future trace that shows motive input without movement |
 | Done | Completed runs need visible presentation evidence | PR #51 covered Eastbourne; PR #63 covers every sprint, and the first scheduled production artifacts contain readable RSA, summit and beach panels with unchanged driving metrics | Inspect future `--results.png` evidence alongside completion metrics |
