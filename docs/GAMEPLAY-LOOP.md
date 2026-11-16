@@ -12,12 +12,13 @@ scheduled Playtest 43754200039 and Exploration 43754608230 are successful.
 
 Hypothesis: the expanded browser suite plus scheduled-only replay checks no
 longer fits the shared ten-minute job budget. Reuse the existing
-`codex/quality-scheduled-budget` branch. Allow twenty minutes for scheduled and
-manual Quality runs while retaining ten minutes for PRs. Keep every command,
+`codex/quality-scheduled-budget` branch. Allow twenty minutes for Quality jobs, including PRs: the first PR regression
+run 43941179307 also hit ten minutes during its mobile journey. Preserve the
+lighter PR test selection and scheduled-only repeatability. Keep every command,
 assertion, replay condition, baseline and game file unchanged. The original
 scheduled job is the before-case reproduction; PR CI checks the unchanged suite
-and accepts the workflow expression. A complete scheduled/manual rerun is still
-needed to verify the longer event-specific budget.
+and accepts the workflow configuration. A complete scheduled/manual rerun is still
+needed to verify the longer job budget.
 
 Change: [PR #81](https://github.com/bengilmo1111/Beryl-racing/pull/81), an
 objective CI evidence fix. Merge only after every required PR check passes; the
@@ -154,7 +155,7 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 
 | Priority | Hypothesis | Evidence / status | Next test |
 |---|---|---|---|
-| Fix prepared | Expanded scheduled Quality needs more than ten minutes | PR #81 gives full runs twenty minutes and preserves PR limit after repeated exact-main cancellations interrupt mobile after AC2/D2 pass | Require green PR CI, then verify full scheduled/manual mobile and navigation evidence |
+| Fix prepared | Expanded Quality needs more than ten minutes | PR #81 allows twenty minutes after scheduled jobs and PR 43941179307 hit the ten-minute limit during mobile; test selection stays unchanged | Require green PR CI, then verify full scheduled/manual mobile and navigation evidence |
 | Done | Coarse terrain can obscure climbing roads despite correct wheel support | PR #38 fixed Remutaka; the follow-up reproduces and clears Ōtaki's smaller overlaps across every alternate road | Player check on Remutaka's later bends and Ōtaki's gorge/town transitions |
 | Done | Test-driver stalls can masquerade as collision traps | Eastbourne steeringTaps stopped requesting throttle when misaligned; the bot-only restart fix now completes both fixed seeds | Investigate only a future trace that shows motive input without movement |
 | Done | Completed runs need visible presentation evidence | PR #51 covered Eastbourne; PR #63 covers every sprint, and the first scheduled production artifacts contain readable RSA, summit and beach panels with unchanged driving metrics | Inspect future `--results.png` evidence alongside completion metrics |
