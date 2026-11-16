@@ -17,9 +17,9 @@ jobs:
   replay:
     name: Targeted quality checks
     runs-on: ubuntu-latest
-    # Full scheduled/manual runs also repeat every drive before the mobile journey.
-    # The measured suite exceeded ten minutes; retain the smaller PR budget.
-    timeout-minutes: ${{ github.event_name == 'pull_request' && 10 || 20 }}
+    # The expanded browser suite exceeds ten minutes, even on some PR runners.
+    # Keep all assertions and the lighter PR test selection; bound the job at twenty.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
