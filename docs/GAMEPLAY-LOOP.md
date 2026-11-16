@@ -1,5 +1,32 @@
 # Gameplay improvement loop
 
+## 2026-11-17: let the complete Quality job finish
+
+Baseline: main `31b47ed0706d625c3e65cc17112c369e11659ab4`.
+Scheduled Quality [43754134035](https://github.com/bengilmo1111/Beryl-racing/actions/runs/43754134035)
+reproduces the ten-minute cancellation seen in 42720249700 and the intervening
+runs. All four three-repeat AC2 drives and sixteen D2 comparisons pass before
+the mobile journey is cancelled; the following navigation/finish regression is
+skipped. Those final checks are missing evidence, not passes. The separate
+scheduled Playtest 43754200039 and Exploration 43754608230 are successful.
+
+Hypothesis: the expanded browser suite plus scheduled-only replay checks no
+longer fits the shared ten-minute job budget. Reuse the existing
+`codex/quality-scheduled-budget` branch. Allow twenty minutes for scheduled and
+manual Quality runs while retaining ten minutes for PRs. Keep every command,
+assertion, replay condition, baseline and game file unchanged. The original
+scheduled job is the before-case reproduction; PR CI checks the unchanged suite
+and accepts the workflow expression. A complete scheduled/manual rerun is still
+needed to verify the longer event-specific budget.
+
+Result: proposed objective CI evidence fix, pending required PR checks; no
+player-facing gameplay fix or preference conclusion. Fresh artifact metadata and
+logs are available, but this run has no usable execution environment for opening
+ZIP screenshots or running local checks. Do not substitute the older screenshots.
+Next test: confirm a scheduled/manual Quality run completes both its mobile
+journey and navigation/finish regression with no skipped checks or cancellation.
+Player check: recover from a missed checkpoint, finish and retry on a phone.
+
 ## 2026-11-10: clearer navigation and quieter results
 
 Baseline `be0863d`. Ben requested another polish cycle. See the
@@ -125,6 +152,7 @@ on faster bots. Automatic replay video and an in-game A/B switch are future work
 
 | Priority | Hypothesis | Evidence / status | Next test |
 |---|---|---|---|
+| In review | Expanded scheduled Quality needs more than ten minutes | Repeated exact-main cancellations interrupt mobile after AC2/D2 pass; existing budget branch gives full runs twenty minutes and preserves PR limit | Require green PR CI, then verify full scheduled/manual mobile and navigation evidence |
 | Done | Coarse terrain can obscure climbing roads despite correct wheel support | PR #38 fixed Remutaka; the follow-up reproduces and clears Ōtaki's smaller overlaps across every alternate road | Player check on Remutaka's later bends and Ōtaki's gorge/town transitions |
 | Done | Test-driver stalls can masquerade as collision traps | Eastbourne steeringTaps stopped requesting throttle when misaligned; the bot-only restart fix now completes both fixed seeds | Investigate only a future trace that shows motive input without movement |
 | Done | Completed runs need visible presentation evidence | PR #51 covered Eastbourne; PR #63 covers every sprint, and the first scheduled production artifacts contain readable RSA, summit and beach panels with unchanged driving metrics | Inspect future `--results.png` evidence alongside completion metrics |
