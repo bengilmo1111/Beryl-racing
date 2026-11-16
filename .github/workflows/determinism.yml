@@ -17,7 +17,9 @@ jobs:
   replay:
     name: Targeted quality checks
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # The expanded browser suite exceeds ten minutes, even on some PR runners.
+    # Keep all assertions and the lighter PR test selection; bound the job at twenty.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
